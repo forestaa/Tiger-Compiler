@@ -1,4 +1,4 @@
-module Tiger where
+module Linear.Linear where
 
 import qualified Data.Map as M
 
