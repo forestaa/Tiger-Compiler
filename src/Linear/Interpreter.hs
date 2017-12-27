@@ -24,11 +24,7 @@ run :: L.Env -> L.Stm -> IO (Either String (), L.Env)
 run env stm = runIODef $ runStateEff @ "env" (runEitherDef $ interpreter stm) env
 
 
--- interpreter :: (MonadState L.Env m, MonadError String m)=> L.Stm -> m ()
--- interpreter :: L.Stm -> Eff '[EitherDef String, StateDef L.Env] ()
--- interpreter :: L.Stm -> Eff '[EitherDef String, "env" >: State L.Env, "io" >: IO] ()
--- interpreter :: (Associate "env" (State L.Env) xs, MonadError String (Eff xs), Associate "io" IO xs) => L.Stm -> Eff xs ()
-interpreter :: (Associate "env" (State L.Env) xs, MonadError String (Eff xs), MonadIO (Eff xs)) => L.Stm -> Eff xs ()
+interpreter :: L.Stm -> Eff '[EitherDef String, "env" >: State L.Env, IODef] ()
 interpreter (L.CompoundStm s s') = interpreter s >> interpreter s'
 interpreter (L.AssignStm x e) = do
   v <- eval e
@@ -37,9 +33,7 @@ interpreter (L.PrintStm es) = do
   vs <- mapM eval es
   liftIO $ print vs
 
--- eval :: (MonadState L.Env m, MonadError String m) => L.Exp -> m L.Value
--- eval :: L.Exp -> Eff '[EitherDef String, StateDef L.Env] L.Value
-eval :: (Associate "env" (State L.Env) xs, MonadError String (Eff xs)) => L.Exp -> Eff xs L.Value
+eval :: L.Exp -> Eff '[EitherDef String, "env" >: State L.Env, IODef] L.Value
 eval (L.Id x) = do
   env <- getEff #env
   case M.lookup x env of
