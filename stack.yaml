@@ -39,17 +39,17 @@ packages:
 - .
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
-# - intero-0.1.24
-# - git: git@github.com:ariskou/ghc-mod.git
-#   commit: c175db1d80bd986949d5e66f58f4ceb665271d37
-# - git: git@github.com:DanielG/cabal-helper.git
-#   commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
-# - extra-1.5.3
-# - monad-journal-0.7.2
-# - optparse-applicative-0.13.2.0
-# - either-4.4.1.1
-# - unix-compat-0.4.3.1
+extra-deps:
+- intero-0.1.24
+- git: git@github.com:DanielG/ghc-mod.git
+  commit: c3530f75d5c539c91ed0b8d38e90d66cbaa66a35
+- git: git@github.com:DanielG/cabal-helper.git
+  commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
+- extra-1.5.3
+- monad-journal-0.7.2
+- optparse-applicative-0.13.2.0
+- either-4.4.1.1
+- unix-compat-0.4.3.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
