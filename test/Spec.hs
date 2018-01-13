@@ -1,2 +1,4 @@
+import Tiger.Test
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = test
