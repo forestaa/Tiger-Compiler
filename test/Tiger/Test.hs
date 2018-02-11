@@ -4,5 +4,5 @@ import Tiger.Lexer
 
 test :: IO ()
 test = do
-  file <- readFile "test/Tiger/merge.tig"
+  file <- readFile "test/Tiger/samples/merge.tig"
   print $ scanner file
