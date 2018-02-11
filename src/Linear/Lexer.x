@@ -52,7 +52,7 @@ instance Show Lexeme where
   show (Lexeme _ EOF _) = "  Lexeme EOF"
   show (Lexeme p cl mbs) = concat ["  Lexeme class = ", show cl, " posn = ", showPosn p, showLetters mbs]
 showPosn :: AlexPosn -> String
-showPosn (AlexPn _ line col) = show line ++ ":" ++ show col
+showPosn (AlexPn _ row col) = concat ["(row=", show row, ",", "col=", show col, ")"]
 data LexemeClass =
     EOF
   | ID String
@@ -113,14 +113,17 @@ getId (p, _, _, input) len = return $ Lexeme p (ID str) (Just str)
   where
     str = take len input
 
+
 -- maybe useful to report error: alexMonadScan `catch` someerror
-catch :: (Alex a -> (String -> Alex a) -> Alex a)
-catch = liftCatch catch'
-  where
-    catch' :: Either String a -> (String -> Either String a) -> Either String a
-    Right a `catch'` _ = Right a
-    Left a `catch'` h = h a
-    liftCatch :: (Either String (AlexState, a) -> (String -> Either String (AlexState, a)) -> Either String (AlexState, a)) -> (Alex a -> (String -> Alex a) -> Alex a)
-    liftCatch catchE m h =
-        Alex $ \ s -> unAlex m s `catchE` \ message -> unAlex (h message) s
+catch :: Alex a -> (String -> Alex a) -> Alex a
+catch m h = Alex $ \ s -> case unAlex m s of
+  Right a -> Right a
+  Left a  -> unAlex (h a) s
+  -- where
+  --   catch' :: Either String a -> (String -> Either String a) -> Either String a
+  --   Right a `catch'` _ = Right a
+  --   Left a `catch'` h = h a
+  --   liftCatch :: (Either String (AlexState, a) -> (String -> Either String (AlexState, a)) -> Either String (AlexState, a)) -> (Alex a -> (String -> Alex a) -> Alex a)
+  --   liftCatch catchE m h =
+  --       Alex $ \ s -> unAlex m s `catchE` \ message -> unAlex (h message) s
 }
