@@ -88,6 +88,11 @@ alexInitUserState = AlexUserState
 alexEOF :: Alex Lexeme
 alexEOF = return $ Lexeme undefined EOF Nothing
 
+
+-- lexer main
+lexer :: (Lexeme -> Alex a) -> Alex a
+lexer = (>>=) alexMonadScan
+
 scanner :: String -> Either String [Lexeme]
 scanner str = runAlex str loop
   where
@@ -112,6 +117,9 @@ getId :: AlexInput -> Int -> Alex Lexeme
 getId (p, _, _, input) len = return $ Lexeme p (ID str) (Just str)
   where
     str = take len input
+
+
+
 
 
 -- maybe useful to report error: alexMonadScan `catch` someerror
