@@ -44,7 +44,7 @@ eval (L.BiOp e1 op e2) = do
   v1 <- eval e1
   v2 <- eval e2
   return $ biop op v1 v2
-
+eval (L.Eseq stm e) = interpreter stm >> eval e
 
 biop :: L.Biop -> L.Value -> L.Value -> L.Value
 biop L.Plus  = (+)
