@@ -1,17 +1,12 @@
 {
-{-# LANGUAGE StandaloneDeriving #-}
-
 module Linear.Lexer where
 
 
-import Data.Maybe
-import Control.Monad
-import Data.List
-import Debug.Trace
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import SrcLoc
 import Lexer.Monad
+
 }
 
 
@@ -45,8 +40,6 @@ linear:-
 
 {
 
-type Lexeme = RealLocated Token
-
 data Token =
     EOF
   | ID String
@@ -63,6 +56,7 @@ data Token =
   | PRINT
   deriving (Show, Eq)
 
+type Lexeme = RealLocated Token
 
 -- lexer main
 lexer :: (Lexeme -> P a) -> P a
@@ -85,7 +79,7 @@ lexToken = do
   case alexScan inp sc of
     AlexEOF -> return $ L (mkRealSrcSpan loc 0) EOF
     AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file, ":", show row, ":", show col, ": lexer error"]
-    AlexSkip inp' len -> setInput inp' >> lexToken
+    AlexSkip inp' _ -> setInput inp' >> lexToken
     AlexToken inp' len action -> setInput inp' >> action inp len
 
 lexerError :: Action a
