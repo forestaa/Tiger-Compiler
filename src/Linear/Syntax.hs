@@ -1,4 +1,4 @@
-module Linear.Linear where
+module Linear.Syntax where
 
 import qualified Data.Map as M
 

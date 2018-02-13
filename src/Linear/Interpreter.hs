@@ -14,7 +14,7 @@ import           Data.Extensible
 import           Data.Extensible.Effect
 import           Data.Extensible.Effect.Default
 import qualified Data.Map.Strict                as M
-import qualified Linear.Linear                  as L
+import qualified Linear.Syntax                  as L
 
 type IODef = "IO" >: IO
 runIODef :: Eff '[IODef] r -> IO r

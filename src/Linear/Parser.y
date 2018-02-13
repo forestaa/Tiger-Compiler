@@ -1,7 +1,7 @@
 {
 module Linear.Parser where
 
-import Linear.Linear
+import Linear.Syntax
 import Linear.Lexer
 import Lexer.Monad
 import SrcLoc
