@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds             #-}
 
-module Lexer.Alex (
+module Lexer.Monad (
         AlexInput, alexInputPrevChar, alexGetByte,
         P, runP
        ) where
