@@ -25,6 +25,7 @@ dependencies:
 - extensible
 - mtl
 - array
+- bytestring
 
 library:
   source-dirs: src
