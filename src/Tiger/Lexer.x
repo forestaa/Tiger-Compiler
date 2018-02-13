@@ -1,13 +1,6 @@
 {
 -- {-# OPTIONS -w -funbox-strict-fields #-}
-module Tiger.Lexer (
-                   lexer, Lexeme (..), LexemeClass (..)
-                  , Pos, Alex, getCollNameToIdent, getParserCurrentToken, putCollNameToIdent
-                  , getParserPos, putParserPos
-                  , alexError, runAlex, runAlexTable, alexGetInput, showPosn
-                  , line_number
-                  , scanner
-                  ) where
+module Tiger.Lexer where
 
 import Prelude hiding ( GT, LT, EQ )
 import Control.Monad
@@ -182,8 +175,9 @@ alexEOF = return eof
 
 -- unit test
 scanner :: String -> Either String [Lexeme]
-scanner str = runAlex str loop
+scanner input = runAlex input loop
   where
+    loop :: Alex [Lexeme]
     loop = do
       tok <- alexMonadScan
       case tok of
@@ -287,24 +281,8 @@ line_number (Just (AlexPn _ lig col)) = (lig, col)
 
 -- lexer main
 lexer :: (Lexeme -> Alex a) -> Alex a
-lexer cont =
-    do t <- lexToken
-       putParserCurrentToken t  -- helps in producing informative error messages
-       cont t
-lexToken :: Alex Lexeme
-lexToken =
-    do
-       inp <- alexGetInput
-       sc <- alexGetStartCode
-       case alexScan inp sc of
-            AlexEOF              -> alexEOF
-            AlexError _          -> alexError "lexical error"
-            AlexSkip  inp1 _     -> do
-                                       alexSetInput inp1
-                                       lexToken
-            AlexToken inp1 len t -> do
-                                       alexSetInput inp1
-                                       t inp len
+lexer = (>>=) alexMonadScan
+
 
 -- used by the parser: run lexer, parser & get the symbol table
 runAlexTable :: String -> Alex a -> Either String (a, Map String Int)

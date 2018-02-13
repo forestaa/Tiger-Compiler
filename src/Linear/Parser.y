@@ -3,7 +3,8 @@ module Linear.Parser where
 
 import Linear.Linear
 import Linear.Lexer
-
+import Lexer.Monad
+import SrcLoc
 }
 
 %name parser
@@ -11,27 +12,27 @@ import Linear.Lexer
 
 %tokentype { Lexeme }
 
-%monad { Alex }
-%lexer { lexer } { Lexeme _ EOF _ }
+%monad { P }
+%lexer { lexer } { L _ EOF }
 
 %left '+' '-'
 %left '*' '/'
 
 
 %token
-  id    { Lexeme _ (ID $$)  _ }
-  num   { Lexeme _ (NUM $$) _ }
-  print { Lexeme _ PRINT    _ }
+  id    { L _ (ID $$)   }
+  num   { L _ (NUM $$)  }
+  print { L _ PRINT     }
 
-  ','   { Lexeme _ COMMA    _ }
-  ';'   { Lexeme _ SEMICOLON _ }
-  '('   { Lexeme _ LPAREN    _ }
-  ')'   { Lexeme _ RPAREN    _ }
-  '+'   { Lexeme _ PLUS      _ }
-  '-'   { Lexeme _ MINUS     _ }
-  '*'   { Lexeme _ TIMES     _ }
-  '/'   { Lexeme _ DIVIDE    _ }
-  ':='  { Lexeme _ ASSIGN    _ }
+  ','   { L _ COMMA     }
+  ';'   { L _ SEMICOLON }
+  '('   { L _ LPAREN    }
+  ')'   { L _ RPAREN    }
+  '+'   { L _ PLUS      }
+  '-'   { L _ MINUS     }
+  '*'   { L _ TIMES     }
+  '/'   { L _ DIVIDE    }
+  ':='  { L _ ASSIGN    }
 
 %%
 
@@ -54,7 +55,7 @@ L :: { [Exp] }
   | E ',' L         { $1 : $3 }
 
 {
-parseError :: Lexeme -> Alex a
+parseError :: Lexeme -> P a
 parseError _ = error "parse Error"
 
 }

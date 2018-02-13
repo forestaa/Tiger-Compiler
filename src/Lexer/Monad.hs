@@ -1,9 +1,6 @@
 {-# LANGUAGE DataKinds             #-}
 
-module Lexer.Monad (
-        AlexInput, alexInputPrevChar, alexGetByte,
-        P, runP
-       ) where
+module Lexer.Monad where
 
 import Data.Word (Word8)
 import qualified Data.ByteString.Lazy as B
@@ -22,11 +19,10 @@ data AlexInput = AlexInput SrcLoc B.ByteString
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar = error "alexInputPrevChar is not implemented"
 
-alexGetByte :: AlexInput -> Maybe (Char, AlexInput)
+alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte (AlexInput loc bs) = case B.uncons bs of
   Nothing        -> Nothing
-  Just (b', bs') -> let c = B.w2c b'
-                    in Just (c, AlexInput (advanceSrcLoc loc c) bs')
+  Just (b', bs') -> Just (b', AlexInput (advanceSrcLoc loc (B.w2c b')) bs')
 
 
 data PState = PState {
@@ -41,7 +37,7 @@ initPState file buffer = PState (mkSrcLoc file) buffer 0
 -- lexer and parser monad
 -- TODO: this should be rewritten by using newtype
 type P = Eff '[StateDef PState, EitherDef String]
-type Action a = RealSrcSpan -> P a
+type Action a = AlexInput -> Int -> P a
 
 runP :: FilePath -> B.ByteString -> P a -> Either String a
 runP file buf p = leaveEff . runEitherDef . evalStateEff p $ initPState file buf

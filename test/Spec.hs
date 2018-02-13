@@ -2,4 +2,4 @@ import qualified Tiger.Test as T
 import qualified Linear.Test as L
 
 main :: IO ()
-main = L.parser_test
+main = L.lexer_test

@@ -1,16 +1,21 @@
 {
 {-# LANGUAGE StandaloneDeriving #-}
-
+-- {-# LANGUAGE TypeSynonimInstances #-}
 module Linear.Lexer where
 
-import qualified Data.Map as M (Map, empty)
+
 import Data.Maybe
 import Control.Monad
 import Data.List
 import Debug.Trace
+import qualified Data.ByteString.Lazy.Char8 as B
+-- import qualified Data.ByteString.Char8 as B
+
+import SrcLoc
+import Lexer.Monad
 }
 
-%wrapper "monadUserState"
+-- %wrapper "monadUserState"
 
 $whitespace = [\ \t\b]
 $digit = 0-9
@@ -38,22 +43,21 @@ linear:-
 <0>  @identifier { getId }
 <0>  $whitespace+ ;
 <0>  \n ;
-<0>  $errors+ { lexerError }
+-- <0>  $errors+ { lexerError }
 
 {
 
-type Letters = Maybe String
-showLetters :: Letters -> String
-showLetters Nothing = ""
-showLetters (Just s) = "string = " ++ show s
+-- type Letters = Maybe String
+-- instance Show Letters where
+-- show Nothing = ""
+-- show (Just s) = "string = " ++ show s
 
-data Lexeme = Lexeme AlexPosn LexemeClass Letters
-instance Show Lexeme where
-  show (Lexeme _ EOF _) = "  Lexeme EOF"
-  show (Lexeme p cl mbs) = concat ["  Lexeme class = ", show cl, " posn = ", showPosn p, showLetters mbs]
-showPosn :: AlexPosn -> String
-showPosn (AlexPn _ row col) = concat ["(row=", show row, ",", "col=", show col, ")"]
-data LexemeClass =
+type Lexeme = RealLocated Token
+-- instance Show Lexeme where
+--   show (Lexeme _ EOF _) = "  Lexeme EOF"
+--   show (Lexeme p cl mbs) = concat ["  Lexeme class = ", show cl, " posn = ", show p, showLetters mbs]
+
+data Token =
     EOF
   | ID String
   | NUM Int
@@ -69,69 +73,41 @@ data LexemeClass =
   | PRINT
   deriving (Show, Eq)
 
-type Pos = Maybe AlexPosn
-deriving instance Show AlexState
-data AlexUserState = AlexUserState
-                   {
-                     -- used by the parser phase
-                       parserCollIdent    :: M.Map String Int
-                     , parserCurrentToken :: Lexeme
-                     , parserPos          :: Pos
-                   } deriving (Show)
-alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState
-                   {
-                       parserCollIdent    = M.empty
-                     , parserCurrentToken = Lexeme undefined EOF Nothing
-                     , parserPos          = Nothing
-                   }
-alexEOF :: Alex Lexeme
-alexEOF = return $ Lexeme undefined EOF Nothing
-
 
 -- lexer main
-lexer :: (Lexeme -> Alex a) -> Alex a
-lexer = (>>=) alexMonadScan
+lexer :: (Lexeme -> P a) -> P a
+lexer = (>>=) lexToken
 
-scanner :: String -> Either String [Lexeme]
-scanner str = runAlex str loop
+scanner :: FilePath -> B.ByteString -> Either String [Lexeme]
+scanner file buffer = runP file buffer loop
   where
+    loop :: P [Lexeme]
     loop = do
-      tok <- alexMonadScan
-      case tok of
-        Lexeme _ EOF _ -> return [tok]
-        Lexeme _ cl  _ -> (:) tok <$> loop
+      tk <- lexToken
+      case tk of
+        L _ EOF -> return [tk]
+        _       -> (:) tk <$> loop
 
-lexerError :: AlexInput -> Int -> Alex a
-lexerError (AlexPn _ row col, _, _, input) len = alexError $ concat ["lexical error at line ", show row, ", column ", show col, ": ", take len input]
+lexToken :: P Lexeme
+lexToken = do
+  inp@(AlexInput loc _) <- getInput
+  sc <- getLexState
+  case alexScan inp sc of
+    AlexEOF -> return $ L (mkRealSrcSpan loc 0) EOF
+    AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file , ": lexical error at line ", show row, ", column ", show col]
+    AlexSkip inp' len -> setInput inp' >> lexToken
+    AlexToken inp' len action -> setInput inp' >> action inp len
 
-tokenOf :: LexemeClass -> AlexInput -> Int -> Alex Lexeme
-tokenOf c (p, _, _, input) len = return $ Lexeme p c (Just $ take len input)
+tokenOf :: Token -> Action Lexeme
+tokenOf tk (AlexInput loc _) len = return $ L (mkRealSrcSpan loc len) tk
 
-getNum :: AlexInput -> Int -> Alex Lexeme
-getNum (p, _, _, input) len = return $ Lexeme p (NUM $ read str) (Just str)
+getNum :: Action Lexeme
+getNum (AlexInput loc@(SrcLoc file row col) buf) len = case B.readInt bstr of
+  Nothing -> failP $ concat [file, ": lexical error at line ", show row, ", column ", show col, ": cannot read integer: ", B.unpack bstr]
+  Just (i, _) -> return $ L (mkRealSrcSpan loc len) (NUM i)
   where
-    str = take len input
+    bstr = B.take (fromIntegral len) buf
 
-getId :: AlexInput -> Int -> Alex Lexeme
-getId (p, _, _, input) len = return $ Lexeme p (ID str) (Just str)
-  where
-    str = take len input
-
-
-
-
-
--- maybe useful to report error: alexMonadScan `catch` someerror
-catch :: Alex a -> (String -> Alex a) -> Alex a
-catch m h = Alex $ \ s -> case unAlex m s of
-  Right a -> Right a
-  Left a  -> unAlex (h a) s
-  -- where
-  --   catch' :: Either String a -> (String -> Either String a) -> Either String a
-  --   Right a `catch'` _ = Right a
-  --   Left a `catch'` h = h a
-  --   liftCatch :: (Either String (AlexState, a) -> (String -> Either String (AlexState, a)) -> Either String (AlexState, a)) -> (Alex a -> (String -> Alex a) -> Alex a)
-  --   liftCatch catchE m h =
-  --       Alex $ \ s -> unAlex m s `catchE` \ message -> unAlex (h message) s
+getId :: Action Lexeme
+getId (AlexInput loc buf) len = return . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
 }
