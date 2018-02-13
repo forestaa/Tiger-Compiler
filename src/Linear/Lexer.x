@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE StandaloneDeriving #-}
--- {-# LANGUAGE TypeSynonimInstances #-}
+
 module Linear.Lexer where
 
 
@@ -9,13 +9,11 @@ import Control.Monad
 import Data.List
 import Debug.Trace
 import qualified Data.ByteString.Lazy.Char8 as B
--- import qualified Data.ByteString.Char8 as B
 
 import SrcLoc
 import Lexer.Monad
 }
 
--- %wrapper "monadUserState"
 
 $whitespace = [\ \t\b]
 $digit = 0-9
@@ -43,19 +41,11 @@ linear:-
 <0>  @identifier { getId }
 <0>  $whitespace+ ;
 <0>  \n ;
--- <0>  $errors+ { lexerError }
+<0>  $errors+ { lexerError }
 
 {
 
--- type Letters = Maybe String
--- instance Show Letters where
--- show Nothing = ""
--- show (Just s) = "string = " ++ show s
-
 type Lexeme = RealLocated Token
--- instance Show Lexeme where
---   show (Lexeme _ EOF _) = "  Lexeme EOF"
---   show (Lexeme p cl mbs) = concat ["  Lexeme class = ", show cl, " posn = ", show p, showLetters mbs]
 
 data Token =
     EOF
@@ -94,20 +84,24 @@ lexToken = do
   sc <- getLexState
   case alexScan inp sc of
     AlexEOF -> return $ L (mkRealSrcSpan loc 0) EOF
-    AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file , ": lexical error at line ", show row, ", column ", show col]
+    AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file, ":", show row, ":", show col, ": lexer error"]
     AlexSkip inp' len -> setInput inp' >> lexToken
     AlexToken inp' len action -> setInput inp' >> action inp len
+
+lexerError :: Action a
+lexerError (AlexInput (SrcLoc file row col) buf) len = failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the caracter: ", B.unpack $ B.take (fromIntegral len) buf]
 
 tokenOf :: Token -> Action Lexeme
 tokenOf tk (AlexInput loc _) len = return $ L (mkRealSrcSpan loc len) tk
 
 getNum :: Action Lexeme
 getNum (AlexInput loc@(SrcLoc file row col) buf) len = case B.readInt bstr of
-  Nothing -> failP $ concat [file, ": lexical error at line ", show row, ", column ", show col, ": cannot read integer: ", B.unpack bstr]
+  Nothing -> failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the integer:", B.unpack $ B.take (fromIntegral len) buf]
   Just (i, _) -> return $ L (mkRealSrcSpan loc len) (NUM i)
   where
     bstr = B.take (fromIntegral len) buf
 
 getId :: Action Lexeme
 getId (AlexInput loc buf) len = return . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
+
 }

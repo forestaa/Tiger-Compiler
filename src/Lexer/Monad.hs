@@ -6,8 +6,8 @@ import Data.Word (Word8)
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Internal as B (w2c)
 
-import           Data.Extensible.Effect
-import           Data.Extensible.Effect.Default
+import Data.Extensible.Effect
+import Data.Extensible.Effect.Default
 import Control.Monad.State.Strict
 import Control.Monad.Except
 

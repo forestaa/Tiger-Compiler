@@ -55,7 +55,8 @@ L :: { [Exp] }
   | E ',' L         { $1 : $3 }
 
 {
+
 parseError :: Lexeme -> P a
-parseError _ = error "parse Error"
+parseError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
 
 }
