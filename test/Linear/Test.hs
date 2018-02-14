@@ -28,5 +28,5 @@ interpreter_test = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
   case runP file bs parser of
-    Right ast -> run M.empty (unLStm ast) >> return ()
+    Right ast -> run M.empty ast >> return ()
     Left msg -> print msg

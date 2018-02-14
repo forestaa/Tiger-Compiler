@@ -37,18 +37,18 @@ import SrcLoc
 %%
 
 S :: { LStm }
-  : S ';' S         { sL1 $2 $ LCompoundStm $1 $3 }
-  | id ':=' E       { sL1 $2 $ LAssignStm (retrieveID $1) $3 }
-  | print '(' L ')' { sL1 $1 $ LPrintStm $3 }
+  : S ';' S         { sL1 $2 $ CompoundStm $1 $3 }
+  | id ':=' E       { sL1 $2 $ AssignStm (retrieveID $1) $3 }
+  | print '(' L ')' { sL1 $1 $ PrintStm $3 }
 
 E :: { LExp }
-  : id              { sL1 $1 $ LId (retrieveID $1) }
-  | num             { sL1 $1 $ LNum (retrieveNUM $1) }
-  | E '+' E         { sL1 $2 $ LPlus $1 $3 }
-  | E '-' E         { sL1 $2 $ LMinus $1 $3 }
-  | E '*' E         { sL1 $2 $ LTimes $1 $3 }
-  | E '/' E         { sL1 $2 $ LDiv $1 $3 }
-  | '(' S ',' E ')' { sL1 $3 $ LESeq $2 $4 }
+  : id              { sL1 $1 $ Id (retrieveID $1) }
+  | num             { sL1 $1 $ Num (retrieveNUM $1) }
+  | E '+' E         { sL1 $2 $ Plus $1 $3 }
+  | E '-' E         { sL1 $2 $ Minus $1 $3 }
+  | E '*' E         { sL1 $2 $ Times $1 $3 }
+  | E '/' E         { sL1 $2 $ Div $1 $3 }
+  | '(' S ',' E ')' { sL1 $3 $ ESeq $2 $4 }
 
 L :: { [LExp] }
   : E               { [$1] }
