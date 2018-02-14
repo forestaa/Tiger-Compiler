@@ -24,15 +24,16 @@ alexGetByte (AlexInput loc bs) = case B.uncons bs of
   Nothing        -> Nothing
   Just (b', bs') -> Just (b', AlexInput (advanceSrcLoc loc (B.w2c b')) bs')
 
-
 data PState = PState {
         location :: SrcLoc,
         buffer :: B.ByteString,
-        startcode :: !Int
+        startcode :: !Int,
+
+        commentDepth :: !Int
       }
 
 initPState :: FilePath -> B.ByteString -> PState
-initPState file buffer = PState (mkSrcLoc file) buffer 0
+initPState file buffer = PState (mkSrcLoc file) buffer 0 0
 
 -- lexer and parser monad
 -- TODO: this should be rewritten by using newtype
@@ -58,3 +59,15 @@ getLexState = startcode <$> get
 
 setLexState :: Int -> P ()
 setLexState sc = modify $ \s -> s{startcode = sc}
+
+getCommentDepth :: P Int
+getCommentDepth = commentDepth <$> get
+
+setCommentDepth :: Int -> P ()
+setCommentDepth d = modify $ \s -> s{commentDepth = d}
+
+modifyCommentDepth :: (Int -> Int) -> P ()
+modifyCommentDepth f = modify $ \s@PState{commentDepth = d} -> s{commentDepth = f d}
+
+andBegin :: Lexer.Monad.Action a -> Int -> Lexer.Monad.Action a
+(action `andBegin` sc) inp len = setLexState sc >> action inp len

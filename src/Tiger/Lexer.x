@@ -1,23 +1,20 @@
 {
--- {-# OPTIONS -w -funbox-strict-fields #-}
 module Tiger.Lexer where
 
 import Prelude hiding ( GT, LT, EQ )
+import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad
-import Data.Maybe
-import Data.Map ( Map )
-import qualified Data.Map as Map ( empty )
 
-import Debug.Trace
+import SrcLoc
+import Lexer.Monad
+
 }
 
-%wrapper "monadUserState"
 
 $whitespace = [\ \t\b]
+$newline    = [\n\r\f]
 $digit      = 0-9                                            -- digits
 $alpha      = [A-Za-z]
-$letter     = [a-zA-Z]                                       -- alphabetic characters
-$ident      = [$letter $digit _]                             -- identifier character
 
 @number     = [$digit]+
 @identifier = $alpha($alpha|_|$digit)*
@@ -56,8 +53,8 @@ tiger:-
 <0>             \-           { tokenOf MINUS }
 <0>             \+           { tokenOf PLUS }
 <0>             \.           { tokenOf DOT }
-<0>             \}           { tokenOf RBRACE }
 <0>             \{           { tokenOf LBRACE }
+<0>             \}           { tokenOf RBRACE }
 <0>             \[           { tokenOf LBRACK }
 <0>             \]           { tokenOf RBRACK }
 <0>             \)           { tokenOf RPAREN }
@@ -69,13 +66,9 @@ tiger:-
 <comment> "/*"         { embedComment }
 <comment> "*/"         { unembedComment }
 <comment> .            ;
-<comment> \n           { skip }
-<0>             \"           { begin string }
-<string>  \\n          { addCharToString '\n' }
-<string>  \"           { leaveString `andBegin` 0 }
-<string>  .            { addCurrentToString }
-<string>  \n           { addCharToString '\n' }
-<0>             \n           { skip }
+<comment> $newline           ;
+<0>             \"[^\"]*\"   { getString } -- TODO: follow the specification of Tiger about string
+<0>             $newline           ;
 <0>             $whitespace+ ;
 <0>             @number      { getInteger }
 <0>             @identifier  { getId }
@@ -83,215 +76,111 @@ tiger:-
 
 {
 
-type Letters = Maybe String
-showLetters :: Letters -> String
-showLetters Nothing  = ""
-showLetters (Just s) = "string = " ++ show s
+data Token =
+    EOF
+  | ID String
+  | INT Int
+  | STRING String
+  | COMMA
+  | COLON
+  | SEMICOLON
+  | LPAREN
+  | RPAREN
+  | LBRACK
+  | RBRACK
+  | LBRACE
+  | RBRACE
+  | DOT
+  | PLUS
+  | MINUS
+  | TIMES
+  | DIVIDE
+  | EQ
+  | NEQ
+  | LT
+  | LE
+  | GT
+  | GE
+  | AND
+  | OR
+  | ASSIGN
+  | ARRAY
+  | IF
+  | THEN
+  | ELSE
+  | WHILE
+  | FOR
+  | TO
+  | DO
+  | LET
+  | IN
+  | END
+  | OF
+  | BREAK
+  | NIL
+  | FUNCTION
+  | VAR
+  | TYPE
+  | UNARYMINUS
+  deriving (Show, Eq)
 
-data Lexeme = Lexeme AlexPosn LexemeClass Letters
-instance Show Lexeme where
-  show (Lexeme _ EOF _)   = "  Lexeme EOF"
-  show (Lexeme p cl mbs) = concat ["  Lexeme class = ", show cl, " posn = ", showPosn p, showLetters mbs]
-
-showPosn :: AlexPosn -> String
-showPosn (AlexPn _ row col) = concat ["(row=", show row, ",", "col=", show col, ")"]
-
--- tokPosn :: Lexeme -> AlexPosn
--- tokPosn (Lexeme p _ _) = p
-
-data LexemeClass =
-        EOF
-      | ID         String
-      | INT        Int
-      | STRING     String
-      | COMMA
-      | COLON
-      | SEMICOLON
-      | LPAREN
-      | RPAREN
-      | LBRACK
-      | RBRACK
-      | LBRACE
-      | RBRACE
-      | DOT
-      | PLUS
-      | MINUS
-      | TIMES
-      | DIVIDE
-      | EQ
-      | NEQ
-      | LT
-      | LE
-      | GT
-      | GE
-      | AND
-      | OR
-      | ASSIGN
-      | ARRAY
-      | IF
-      | THEN
-      | ELSE
-      | WHILE
-      | FOR
-      | TO
-      | DO
-      | LET
-      | IN
-      | END
-      | OF
-      | BREAK
-      | NIL
-      | FUNCTION
-      | VAR
-      | TYPE
-      | UNARYMINUS
-      deriving (Show, Eq)
-
-eof = Lexeme undefined EOF Nothing
-type Pos     = Maybe AlexPosn
-data AlexUserState = AlexUserState
-                   {
-                     -- used by the lexer phase
-                       lexerCommentDepth  :: Int
-                     , lexerStringValue   :: String
-                     -- used by the parser phase
-                     , parserCollIdent    :: Map String Int
-                     , parserCurrentToken :: Lexeme
-                     , parserPos          :: Pos
-                   }
-alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState
-                   {
-                       lexerCommentDepth  = 0
-                     , lexerStringValue   = ""
-                     , parserCollIdent    = Map.empty
-                     , parserCurrentToken = eof
-                     , parserPos          = Nothing
-                   }
-
-
-alexEOF :: Alex Lexeme
-alexEOF = return eof
-
--- unit test
-scanner :: String -> Either String [Lexeme]
-scanner input = runAlex input loop
-  where
-    loop :: Alex [Lexeme]
-    loop = do
-      tok <- alexMonadScan
-      case tok of
-        Lexeme _ EOF _ -> return [tok]
-        Lexeme _ cl  _ -> (:) tok <$> loop
-
-lexerError :: AlexInput -> Int -> Alex a
-lexerError (AlexPn _ row col, _, _, input) len = alexError $ concat ["lexical error at line ", show row, ", column ", show col, ": ", take len input]
-
-tokenOf :: LexemeClass -> AlexInput -> Int -> Alex Lexeme
-tokenOf c (p, _, _, input) len = return $ Lexeme p c (Just $ take len input)
-
-getInteger :: AlexInput -> Int -> Alex Lexeme
-getInteger (p, _, _, input) len = return $ Lexeme p (INT $ read str) (Just str)
-  where
-    str = take len input
-
-getId :: AlexInput -> Int -> Alex Lexeme
-getId (p, _, _, input) len = return $ Lexeme p (ID str) (Just str)
-  where
-    str = take len input
-
-
--- comment action
-enterNewComment :: AlexAction Lexeme
-enterNewComment _ _ = putLexerCommentDepth 1 >> alexMonadScan
-
-embedComment :: AlexAction Lexeme
-embedComment _ _ = modifyLexerCommentDepth (+ 1) >> alexMonadScan
-
-unembedComment :: AlexAction Lexeme
-unembedComment _ _  =
-    do d <- modifyLexerCommentDepth (subtract 1)
-       when (d == 0) (alexSetStartCode 0) -- finish comment
-       alexMonadScan
-
-getLexerCommentDepth :: Alex Int
-getLexerCommentDepth = Alex $ \s@AlexState{alex_ust = ust} -> Right (s, lexerCommentDepth ust)
-
-putLexerCommentDepth :: Int -> Alex ()
-putLexerCommentDepth d = Alex $ \s -> Right (s{alex_ust = (alex_ust s){lexerCommentDepth = d}}, ())
-
-modifyLexerCommentDepth :: (Int -> Int) -> Alex Int
-modifyLexerCommentDepth f = Alex $ \s@AlexState{alex_ust = ust} ->
-  let d = f $ lexerCommentDepth ust
-  in Right (s{alex_ust = ust{lexerCommentDepth = d}}, d)
-
-
--- string action
-addCharToString :: Char -> AlexAction Lexeme
-addCharToString c _ _ = addCharToLexerStringValue c >> alexMonadScan
-
-addCurrentToString :: AlexAction Lexeme
-addCurrentToString (_, _, _, input) len = modifyLexerStringValue (++ take len input) >> alexMonadScan
-
-leaveString :: AlexAction Lexeme
-leaveString (p, _, _, input) len =
-    do s <- getLexerStringValue
-       putLexerStringValue ""
-       return $ Lexeme p (STRING s) (Just s)
-
-getLexerStringValue :: Alex String
-getLexerStringValue = Alex $ \s@AlexState{alex_ust = ust} -> Right (s, lexerStringValue ust)
-
-putLexerStringValue :: String -> Alex ()
-putLexerStringValue str = Alex $ \s -> Right (s{alex_ust = (alex_ust s){lexerStringValue = str}}, ())
-
-modifyLexerStringValue :: (String -> String) -> Alex String
-modifyLexerStringValue f = Alex $ \s@AlexState{alex_ust = ust} ->
-  let str = f $ lexerStringValue ust
-  in Right (s{alex_ust = ust{lexerStringValue = str}}, str)
-
-addCharToLexerStringValue :: Char -> Alex ()
-addCharToLexerStringValue c = modifyLexerStringValue (++ [c]) >> return ()
-
-
--- for parser
-getCollNameToIdent :: Alex (Map String Int)
-getCollNameToIdent = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, parserCollIdent ust)
-
-putCollNameToIdent :: Map String Int -> Alex ()
-putCollNameToIdent ss = Alex $ \s -> Right (s{alex_ust=(alex_ust s){parserCollIdent=ss}}, ())
-
-getParserCurrentToken :: Alex Lexeme
-getParserCurrentToken = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, parserCurrentToken ust)
-
-putParserCurrentToken :: Lexeme -> Alex ()
-putParserCurrentToken token = Alex $ \s -> Right (s{alex_ust=(alex_ust s){parserCurrentToken = token}}, ())
-
-getParserPos :: Alex Pos
-getParserPos = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, parserPos ust)
-
-putParserPos :: Pos -> Alex ()
-putParserPos ss = Alex $ \s -> Right (s{alex_ust=(alex_ust s){parserPos=ss}}, ())
-
--- why does this function number destruct Maybe computation?
-line_number :: Pos -> (Int, Int)
-line_number Nothing                   = (0, 0)
-line_number (Just (AlexPn _ lig col)) = (lig, col)
-
+type Lexeme = RealLocated Token
 
 -- lexer main
-lexer :: (Lexeme -> Alex a) -> Alex a
-lexer = (>>=) alexMonadScan
+lexer :: (Lexeme -> P a) -> P a
+lexer = (>>=) lexToken
+
+scanner :: FilePath -> B.ByteString -> Either String [Lexeme]
+scanner file buffer = runP file buffer loop
+  where
+    loop :: P [Lexeme]
+    loop = do
+      tk <- lexToken
+      case tk of
+        L _ EOF -> return [tk]
+        _       -> (:) tk <$> loop
+
+lexToken :: P Lexeme
+lexToken = do
+  inp@(AlexInput loc _) <- getInput
+  sc <- getLexState
+  case alexScan inp sc of
+    AlexEOF -> return $ L (mkRealSrcSpan loc 0) EOF
+    AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file, ":", show row, ":", show col, ": lexer error"]
+    AlexSkip inp' _ -> setInput inp' >> lexToken
+    AlexToken inp' len action -> setInput inp' >> action inp len
+
+lexerError :: Action a
+lexerError (AlexInput (SrcLoc file row col) buf) len = failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the caracter: ", B.unpack $ B.take (fromIntegral len) buf]
+
+tokenOf :: Token -> Action Lexeme
+tokenOf tk (AlexInput loc _) len = return $ L (mkRealSrcSpan loc len) tk
+
+getInteger :: Action Lexeme
+getInteger (AlexInput loc@(SrcLoc file row col) buf) len = case B.readInt bstr of
+  Nothing -> failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the integer:", B.unpack $ B.take (fromIntegral len) buf]
+  Just (i, _) -> return $ L (mkRealSrcSpan loc len) (INT i)
+  where
+    bstr = B.take (fromIntegral len) buf
+
+getId :: Action Lexeme
+getId (AlexInput loc buf) len = return . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
 
 
--- used by the parser: run lexer, parser & get the symbol table
-runAlexTable :: String -> Alex a -> Either String (a, Map String Int)
-runAlexTable input (Alex f)
-   = case f (AlexState { alex_pos = alexStartPos
-                       , alex_inp = input
-                       , alex_chr = '\n'
-                       , alex_scd = 0
-                       , alex_ust = alexInitUserState }) of
-            Left msg      -> Left msg
-            Right (st, a) -> Right (a, parserCollIdent (alex_ust st))
+getString :: Action Lexeme
+getString (AlexInput loc buf) len = return . L (mkRealSrcSpan loc len) . STRING . B.unpack $ B.take (fromIntegral len) buf
+
+-- comment action
+enterNewComment :: Action Lexeme
+enterNewComment _ _ = setCommentDepth 1 >> lexToken
+
+embedComment :: Action Lexeme
+embedComment _ _ = modifyCommentDepth (+ 1) >> lexToken
+
+unembedComment :: Action Lexeme
+unembedComment _ _  = do
+      modifyCommentDepth (subtract 1)
+      d <- getCommentDepth
+      when (d == 0) (setLexState 0) -- finish comment
+      lexToken
 }

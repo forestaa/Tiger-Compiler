@@ -1,8 +1,13 @@
 module Tiger.Test where
 
+import qualified Data.ByteString.Lazy as B
+
+import Lexer.Monad
+
 import Tiger.Lexer
 
-test :: IO ()
-test = do
-  file <- readFile "test/Tiger/samples/merge.tig"
-  print $ scanner file
+scanner_test :: IO ()
+scanner_test = do
+  let file = "test/Tiger/samples/merge.tig"
+  bs <- B.readFile file
+  print $ scanner file bs
