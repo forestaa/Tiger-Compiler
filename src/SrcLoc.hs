@@ -17,5 +17,16 @@ data RealSrcSpan = RealSrcSpan {
       } deriving (Show, Eq)
 mkRealSrcSpan :: SrcLoc -> Int -> RealSrcSpan
 mkRealSrcSpan (SrcLoc file row col) len = RealSrcSpan file row col row (col + len)
+combineRealSrcSpan :: RealSrcSpan -> RealSrcSpan -> RealSrcSpan
+combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
+  where
+    file = srcFile span1 -- assume those srcFiles are the same
+    (srow, scol) = min (srcSRow span1, srcSCol span1) (srcSRow span2, srcSCol span2)
+    (erow, ecol) = min (srcERow span1, srcECol span1) (srcERow span2, srcECol span2)
 
 data RealLocated e = L RealSrcSpan e deriving (Show, Eq)
+sL1 :: RealLocated a -> b -> RealLocated b
+sL1 (L span1 _) = L span1
+
+-- sL2 :: RealLocated a -> RealLocated b -> c -> RealLocated c
+-- sL2 (L span1 _) (L span2 _) = L (combineRealSrcSpan span1 span2)

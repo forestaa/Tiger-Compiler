@@ -37,7 +37,6 @@ initPState :: FilePath -> B.ByteString -> PState
 initPState file buffer = PState (mkSrcLoc file) buffer 0 0
 
 -- lexer and parser monad
--- TODO: this should be rewritten by using newtype
 newtype P a = P {unP :: Eff '[StateDef PState, EitherDef String] a} deriving (Functor, Applicative, Monad, MonadError String, MonadState PState)
 type Action a = AlexInput -> Int -> P a
 

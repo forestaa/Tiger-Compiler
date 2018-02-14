@@ -40,14 +40,8 @@ eval (L.Id x) = do
     Just v  -> return v
     Nothing -> throwError ("undefined variable: " ++ x)
 eval (L.Num v) = return v
-eval (L.BiOp e1 op e2) = do
-  v1 <- eval e1
-  v2 <- eval e2
-  return $ biop op v1 v2
-eval (L.Eseq stm e) = interpreter stm >> eval e
-
-biop :: L.Biop -> L.Value -> L.Value -> L.Value
-biop L.Plus  = (+)
-biop L.Minus = (-)
-biop L.Times = (*)
-biop L.Div   = div
+eval (L.Plus  e1 e2) = (+) <$> eval e1 <*> eval e2
+eval (L.Minus e1 e2) = (-) <$> eval e1 <*> eval e2
+eval (L.Times e1 e2) = (*) <$> eval e1 <*> eval e2
+eval (L.Div   e1 e2) = div <$> eval e1 <*> eval e2
+eval (L.ESeq stm e) = interpreter stm >> eval e

@@ -20,8 +20,8 @@ import SrcLoc
 
 
 %token
-  id    { L _ (ID $$)   }
-  num   { L _ (NUM $$)  }
+  id    { L _ (ID _)   }
+  num   { L _ (NUM _)  }
   print { L _ PRINT     }
 
   ','   { L _ COMMA     }
@@ -36,21 +36,21 @@ import SrcLoc
 
 %%
 
-S :: { Stm }
-  : S ';' S         { CompoundStm $1 $3 }
-  | id ':=' E       { AssignStm $1 $3 }
-  | print '(' L ')' { PrintStm $3 }
+S :: { LStm }
+  : S ';' S         { sL1 $2 $ LCompoundStm $1 $3 }
+  | id ':=' E       { sL1 $2 $ LAssignStm (retrieveID $1) $3 }
+  | print '(' L ')' { sL1 $1 $ LPrintStm $3 }
 
-E :: { Exp }
-  : id              { Id $1 }
-  | num             { Num $1 }
-  | E '+' E         { BiOp $1 Plus $3 }
-  | E '-' E         { BiOp $1 Minus $3 }
-  | E '*' E         { BiOp $1 Times $3 }
-  | E '/' E         { BiOp $1 Div $3 }
-  | '(' S ',' E ')' { Eseq $2 $4 }
+E :: { LExp }
+  : id              { sL1 $1 $ LId (retrieveID $1) }
+  | num             { sL1 $1 $ LNum (retrieveNUM $1) }
+  | E '+' E         { sL1 $2 $ LPlus $1 $3 }
+  | E '-' E         { sL1 $2 $ LMinus $1 $3 }
+  | E '*' E         { sL1 $2 $ LTimes $1 $3 }
+  | E '/' E         { sL1 $2 $ LDiv $1 $3 }
+  | '(' S ',' E ')' { sL1 $3 $ LESeq $2 $4 }
 
-L :: { [Exp] }
+L :: { [LExp] }
   : E               { [$1] }
   | E ',' L         { $1 : $3 }
 
@@ -59,4 +59,10 @@ L :: { [Exp] }
 parseError :: Lexeme -> P a
 parseError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
 
+
+retrieveID :: Lexeme -> String
+retrieveID (L _ (ID id)) = id
+
+retrieveNUM :: Lexeme -> Int
+retrieveNUM (L _ (NUM n)) = n
 }
