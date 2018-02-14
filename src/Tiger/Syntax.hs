@@ -3,34 +3,45 @@
 
 module Tiger.Syntax where
 
--- type Pos = Int
+
+import SrcLoc
+
+
 type Symbol = String
 
-data Var = Var Symbol | FieldVar Var Symbol | SubscriptVar Var Exp
+type LVar = RealLocated LVar'
+type LExp = RealLocated LExp'
+type LField = RealLocated LField'
+type LDec = RealLocated LDec'
+type LFunDec = RealLocated LFunDec'
+type LTypeDec = RealLocated LTypeDec'
+type LType = RealLocated LType'
 
-data Exp =
+data LVar' = Var Symbol | FieldVar LVar Symbol | SubscriptVar LVar LExp
+
+data LExp' =
     Nil
-  | Id Var
+  | Id LVar
   | Int Int
   | String String
-  | Call { func :: Symbol, args :: [Exp]}
-  | Op {left :: Exp, op :: Op, right :: Exp}
-  | Record {fields :: [Field], typ :: Symbol}
-  | Seq [Exp]
-  | Assign {var :: Var, exp :: Exp}
-  | If {bool :: Exp, then' :: Exp, else' :: Exp}
-  | While {bool :: Exp, body :: Exp}
-  | For {ite :: Symbol, lo :: Exp, hi :: Exp, body :: Exp}
+  | Call { func :: Symbol, args :: [LExp]}
+  | Op {left :: LExp, op :: Op, right :: LExp}
+  | Record {fields :: [LField], typ :: Symbol}
+  | Seq [LExp]
+  | Assign {var :: LVar, exp :: LExp}
+  | If {bool :: LExp, then' :: LExp, else' :: Maybe LExp}
+  | While {bool :: LExp, body :: LExp}
+  | For {ite :: Symbol, lo :: LExp, hi :: LExp, body :: LExp}
   | Break
-  | Let {decs :: [Dec], body :: Exp}
+  | Let {decs :: [LDec], body :: LExp}
 
 data Op = Plus | Minus | Times | Divide | Eq | NEq | Lt | Le | Gt | Ge
-data Field = Field Symbol Exp
-data Dec =
-   FunDecs [FunDec]
- | VarDec {name :: Symbol, t :: Symbol, init :: Exp}
- | TypeDecs [TypeDec]
-data FunDec = FunDec {name :: Symbol, params :: [Field], result :: Symbol}
-data TypeDec = TypeDec {name :: Symbol, ty :: Type}
-data Type = TName Symbol | TRecord [Field] | TArray Symbol
+data LField' = Field Symbol LExp
+data LDec' =
+   FunDecs [LFunDec]
+ | VarDec {name :: Symbol, t :: Maybe Symbol, init :: LExp}
+ | TypeDecs [LTypeDec]
+data LFunDec' = FunDec {name :: Symbol, params :: [LField], result :: Symbol}
+data LTypeDec' = TypeDec {name :: Symbol, ty :: LType}
+data LType' = TName Symbol | TRecord [LField] | TArray Symbol
 
