@@ -8,7 +8,7 @@ import SrcLoc
 }
 
 %name parser
-%error { parseError }
+%error { parserError }
 
 %tokentype { Lexeme }
 
@@ -38,8 +38,8 @@ import SrcLoc
 
 S :: { LStm }
   : S ';' S         { sL1 $2 $ CompoundStm $1 $3 }
-  | id ':=' E       { sL1 $2 $ AssignStm (retrieveID $1) $3 }
-  | print '(' L ')' { sL1 $1 $ PrintStm $3 }
+  | id ':=' E       { sL2 $1 $2 $ AssignStm (retrieveID $1) $3 }
+  | print '(' L ')' { sL1 $1 $ PrintStm (reverse $3) }
 
 E :: { LExp }
   : id              { sL1 $1 $ Id (retrieveID $1) }
@@ -52,12 +52,12 @@ E :: { LExp }
 
 L :: { [LExp] }
   : E               { [$1] }
-  | E ',' L         { $1 : $3 }
+  | L ',' E         { $3 : $1 } -- left recursion
 
 {
 
-parseError :: Lexeme -> P a
-parseError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
+parserError :: Lexeme -> P a
+parserError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
 
 
 retrieveID :: Lexeme -> String

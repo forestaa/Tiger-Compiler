@@ -9,6 +9,8 @@ type Id = String
 type Value = Int
 type Env = M.Map Id Value
 
+
+-- TODO: research template Haskell to generate LStm automatically from Stm
 type LStm = RealLocated LStm'
 type LExp = RealLocated LExp'
 
