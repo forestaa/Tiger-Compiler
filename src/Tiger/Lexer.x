@@ -48,7 +48,7 @@ tiger:-
 <0>             \<           { tokenOf LT }
 <0>             \<\>         { tokenOf NEQ }
 <0>             \=           { tokenOf EQ }
-<0>             \/           { tokenOf DIVIDE }
+<0>             \/           { tokenOf DIV }
 <0>             \*           { tokenOf TIMES }
 <0>             \-           { tokenOf MINUS }
 <0>             \+           { tokenOf PLUS }
@@ -94,7 +94,7 @@ data Token =
   | PLUS
   | MINUS
   | TIMES
-  | DIVIDE
+  | DIV
   | EQ
   | NEQ
   | LT
@@ -121,7 +121,6 @@ data Token =
   | FUNCTION
   | VAR
   | TYPE
-  | UNARYMINUS
   deriving (Show, Eq)
 
 type Lexeme = RealLocated Token
