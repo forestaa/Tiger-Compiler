@@ -13,6 +13,7 @@ import Tiger.Parser
 
 test :: IO ()
 test = test_all
+-- test = runExceptT (test_1 "test/Tiger/samples/test50.tig") >>= print
 
 test_all :: IO ()
 test_all = runExceptT (sequence $ fmap test_1 testcases) >>= print
@@ -27,7 +28,7 @@ scanner_test file = do
   bs <- B.readFile file
   return $ scanner file bs
 
-parser_test ::FilePath -> IO (Either String LExp)
+parser_test :: FilePath -> IO (Either String LExp)
 parser_test file = do
   bs <- B.readFile file
   return $ runP file bs parser

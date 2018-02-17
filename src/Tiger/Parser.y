@@ -61,7 +61,11 @@ import SrcLoc
   '('           { L _ LPAREN }
   ';'           { L _ SEMICOLON }
   ':'            { L _ COLON }
-  ','          { L _ COMMA }
+  ','            { L _ COMMA }
+
+
+%nonassoc 'then' 'do' 'of'
+%nonassoc 'else'
 
 %right ':='
 %left '|'
@@ -105,10 +109,32 @@ fieldassigns :: { [LFieldAssign] }
   : 'id' '=' exp                  { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
   | fieldassigns ',' 'id' '=' exp { (sL2 $3 $5 $ FieldAssign (retrieveID $3) $5) : $1 } -- left recursion
 
+
+-- prevent shift/reduce conflict
+-- original grammer is the following:
+-- lvalue -> 'id'
+--        -> lvalue '[' exp ']'
+--        -> lvalue '.' 'id'
+-- This cause the following shift/reduce conflict.
+-- exp -> 'id' . '[' exp ']' 'of' exp
+-- lvalue -> 'id' .
+-- To resolve the conflict, adopt the redundunt grammer.
+
 lvalue :: { LValue }
   : 'id'                 { sL1 $1 $ Id (retrieveID $1) }
-  | lvalue '.' 'id'      { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
-  | lvalue '[' exp ']'   { sL2 $1 $4 $ ArrayIndex $1 $3 }
+  | lvalue_record        { $1 }
+  | lvalue_array         { $1 }
+
+lvalue_record :: { LValue }
+  : 'id' '.' 'id'          { sL2 $1 $3 $ RecField (sL1 $1 $ Id (retrieveID $1)) (retrieveID $3) }
+  | lvalue_array '.' 'id'  { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
+  | lvalue_record '.' 'id' { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
+
+lvalue_array :: { LValue }
+  : 'id' '[' exp ']'          { sL2 $1 $4 $ ArrayIndex (sL1 $1 $ Id (retrieveID $1)) $3 }
+  | lvalue_array '[' exp ']'  { sL2 $1 $4 $ ArrayIndex $1 $3 }
+  | lvalue_record '[' exp ']' { sL2 $1 $4 $ ArrayIndex $1 $3 }
+
 
 args :: { [LExp] }
   : {- empty -}          { [] }
