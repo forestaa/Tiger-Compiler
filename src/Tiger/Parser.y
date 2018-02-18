@@ -106,7 +106,8 @@ exp :: { LExp }
   | 'let' decs 'in' exps 'end'     { sL2 $1 $5 $ Let (reverse $2) (reverse $4) }
 
 fieldassigns :: { [LFieldAssign] }
-  : 'id' '=' exp                  { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
+  : {- empty -}                   { [] }
+  | 'id' '=' exp                  { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
   | fieldassigns ',' 'id' '=' exp { (sL2 $3 $5 $ FieldAssign (retrieveID $3) $5) : $1 } -- left recursion
 
 
@@ -118,7 +119,7 @@ fieldassigns :: { [LFieldAssign] }
 -- This cause the following shift/reduce conflict.
 -- exp -> 'id' . '[' exp ']' 'of' exp
 -- lvalue -> 'id' .
--- To resolve the conflict, adopt the redundunt grammer.
+-- To resolve the conflict, adopt this redundant grammer.
 
 lvalue :: { LValue }
   : 'id'                 { sL1 $1 $ Id (retrieveID $1) }

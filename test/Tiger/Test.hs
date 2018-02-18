@@ -12,8 +12,8 @@ import Tiger.Parser
 
 
 test :: IO ()
-test = test_all
--- test = runExceptT (test_1 "test/Tiger/samples/test50.tig") >>= print
+-- test = test_all
+test = runExceptT (test_1 "test/Tiger/samples/merge.tig") >>= print
 
 test_all :: IO ()
 test_all = runExceptT (sequence $ fmap test_1 testcases) >>= print
