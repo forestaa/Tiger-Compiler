@@ -21,12 +21,12 @@ parser_test :: IO ()
 parser_test = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
-  print $ runP file bs parser
+  print $ runP parser file bs
 
 interpreter_test :: IO ()
 interpreter_test = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
-  case runP file bs parser of
+  case runP parser file bs of
     Right ast -> run M.empty ast >> return ()
     Left msg -> print msg

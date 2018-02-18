@@ -130,7 +130,7 @@ lexer :: (Lexeme -> P a) -> P a
 lexer = (>>=) lexToken
 
 scanner :: FilePath -> B.ByteString -> Either String [Lexeme]
-scanner file buffer = runP file buffer loop
+scanner = runP loop
   where
     loop :: P [Lexeme]
     loop = do

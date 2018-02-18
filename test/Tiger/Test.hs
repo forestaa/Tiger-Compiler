@@ -31,7 +31,7 @@ scanner_test file = do
 parser_test :: FilePath -> IO (Either String LExp)
 parser_test file = do
   bs <- B.readFile file
-  return $ runP file bs parser
+  return $ runP parser file bs
 
 testcases :: [FilePath]
 testcases = (++) <$> (("test/Tiger/samples/test" ++) <$> cases) <*> [".tig"]

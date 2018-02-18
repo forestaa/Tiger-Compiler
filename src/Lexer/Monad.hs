@@ -40,8 +40,8 @@ initPState file buffer = PState (mkSrcLoc file) buffer 0 0
 newtype P a = P {unP :: Eff '[StateDef PState, EitherDef String] a} deriving (Functor, Applicative, Monad, MonadError String, MonadState PState)
 type Action a = AlexInput -> Int -> P a
 
-runP :: FilePath -> B.ByteString -> P a -> Either String a
-runP file buf p = leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file buf
+runP :: P a -> FilePath -> B.ByteString -> Either String a
+runP p file bs = leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file bs
 
 failP :: String -> P a
 failP msg = throwError msg
