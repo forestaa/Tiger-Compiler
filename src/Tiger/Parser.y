@@ -7,6 +7,7 @@ import Tiger.Syntax
 import Tiger.Lexer
 import Lexer.Monad
 import SrcLoc
+
 }
 
 %name parser
@@ -18,40 +19,40 @@ import SrcLoc
 %lexer { lexer } { L _ EOF }
 
 %token
-  'string'   { L _ (STRING _) }
-  'int'         { L _ (INT _) }
-  'id'  { L _ (ID _) }
-
-  'type' { L _ TYPE }
-  'var'  { L _ VAR }
-  'function'    { L _ FUNCTION }
-  'break'       { L _ BREAK }
-  'of'          { L _ OF }
-  'end'         { L _ END }
-  'in'          { L _ IN }
   'nil'         { L _ NIL }
+  'id'          { L _ (ID _) }
+  'int'         { L _ (INT _) }
+  'string'      { L _ (STRING _) }
+
   'let'         { L _ LET }
-  'do'          { L _ DO }
-  'to'          { L _ TO }
-  'for'         { L _ FOR }
-  'while'       { L _ WHILE }
-  'else'        { L _ ELSE }
-  'then'        { L _ THEN }
-  'if'          { L _ IF }
+  'in'          { L _ IN }
+  'end'         { L _ END }
+  'type'        { L _ TYPE }
+  'var'         { L _ VAR }
+  'function'    { L _ FUNCTION }
   'array'       { L _ ARRAY }
+  'of'          { L _ OF }
+  'for'         { L _ FOR }
+  'to'          { L _ TO }
+  'while'       { L _ WHILE }
+  'do'          { L _ DO }
+  'break'       { L _ BREAK }
+  'if'          { L _ IF }
+  'then'        { L _ THEN }
+  'else'        { L _ ELSE }
   ':='          { L _ ASSIGN }
-  '|'           { L _ OR }
-  '&'            { L _ AND }
-  '>='         { L _ GE }
-  '>'           { L _ GT }
-  '<='         { L _ LE }
-  '<'           { L _ LT }
-  '<>'         { L _ NEQ }
-  '='           { L _ EQ }
-  '/'           { L _ DIV }
-  '*'           { L _ TIMES }
-  '-'           { L _ MINUS }
   '+'           { L _ PLUS }
+  '-'           { L _ MINUS }
+  '*'           { L _ TIMES }
+  '/'           { L _ DIV }
+  '='           { L _ EQ }
+  '<>'          { L _ NEQ }
+  '>'           { L _ GT }
+  '<'           { L _ LT }
+  '>='          { L _ GE }
+  '<='          { L _ LE }
+  '&'           { L _ AND }
+  '|'           { L _ OR }
   '.'           { L _ DOT }
   '{'           { L _ LBRACE }
   '}'           { L _ RBRACE }
@@ -59,9 +60,9 @@ import SrcLoc
   ']'           { L _ RBRACK }
   ')'           { L _ RPAREN }
   '('           { L _ LPAREN }
+  ':'           { L _ COLON }
   ';'           { L _ SEMICOLON }
-  ':'            { L _ COLON }
-  ','            { L _ COMMA }
+  ','           { L _ COMMA }
 
 
 %nonassoc 'then' 'do' 'of'
@@ -79,36 +80,45 @@ import SrcLoc
 %%
 
 exp :: { LExp }
-  : 'nil'                         { sL1 $1 Nil }
-  | 'int'                         { sL1 $1 . Int $ retrieveINT $1 }
-  | 'string'                      { sL1 $1 . String $ retrieveSTRING $1 }
+  : 'nil'                                 { sL1 $1 Nil }
+  | 'int'                                 { sL1 $1 . Int $ retrieveINT $1 }
+  | 'string'                              { sL1 $1 . String $ retrieveSTRING $1 }
 
-  | 'id' '[' exp ']' 'of' exp  { sL2 $1 $6 $ ArrayCreate (retrieveID $1) $3 $6 }
-  | 'id' '{' fieldassigns '}'  { sL2 $1 $4 $ RecordCreate (retrieveID $1) (reverse $3) }
+  | 'id' '[' exp ']' 'of' exp             { sL2 $1 $6 $ ArrayCreate (retrieveID $1) $3 $6 }
+  | 'id' '{' fieldassigns '}'             { sL2 $1 $4 $ RecordCreate (retrieveID $1) (reverse $3) }
 
-  | lvalue                        { sL1 $1 $ Var $1 }
+  | lvalue                                { sL1 $1 $ Var $1 }
 
-  | 'id' '(' args ')'             { sL2 $1 $4 $ FunApply (retrieveID $1) (reverse $3) }
+  | 'id' '(' args ')'                     { sL2 $1 $4 $ FunApply (retrieveID $1) (reverse $3) }
 
-  | '-' exp     %prec UMINUS      { sL2 $1 $2 $ Op (sL1 $1 $ Int 0) Minus $2 }
-  | exp op exp                    { sL2 $1 $3 $ Op $1 $2 $3 }
-  | exp '&' exp                   { sL2 $1 $3 $ If $1 $3 (Just . sL1 $2 $ Int 0) }
-  | exp '|' exp                   { sL2 $1 $3 $ If $1 (sL1 $2 $ Int 1) (Just $3) }
-  | '(' exps ')'                   { sL2 $1 $3 $ Seq $2 }
+  | '-' exp     %prec UMINUS              { sL2 $1 $2 $ Op (sL1 $1 $ Int 0) Minus $2 }
+  | exp '+' exp                           { sL2 $1 $3 $ Op $1 Plus $3 }
+  | exp '-' exp                           { sL2 $1 $3 $ Op $1 Minus $3 }
+  | exp '*' exp                           { sL2 $1 $3 $ Op $1 Times $3 }
+  | exp '/' exp                           { sL2 $1 $3 $ Op $1 Div $3 }
+  | exp '=' exp                           { sL2 $1 $3 $ Op $1 Eq $3 }
+  | exp '<>' exp                          { sL2 $1 $3 $ Op $1 NEq $3 }
+  | exp '>' exp                           { sL2 $1 $3 $ Op $1 Gt $3 }
+  | exp '<' exp                           { sL2 $1 $3 $ Op $1 Lt $3 }
+  | exp '>=' exp                          { sL2 $1 $3 $ Op $1 Ge $3 }
+  | exp '<=' exp                          { sL2 $1 $3 $ Op $1 Le $3 }
+  | exp '&' exp                           { sL2 $1 $3 $ If $1 $3 (Just . sL1 $2 $ Int 0) }
+  | exp '|' exp                           { sL2 $1 $3 $ If $1 (sL1 $2 $ Int 1) (Just $3) }
+  | '(' exps ')'                          { sL2 $1 $3 $ Seq $2 }
 
-  | lvalue ':=' exp               { sL2 $1 $3 $ Assign $1 $3 }
+  | lvalue ':=' exp                       { sL2 $1 $3 $ Assign $1 $3 }
 
-  | 'if' exp 'then' exp            { sL2 $1 $4 $ If $2 $4 Nothing }
-  | 'if' exp 'then' exp 'else' exp { sL2 $1 $6 $ If $2 $4 (Just $6) }
-  | 'while' exp 'do' exp           { sL2 $1 $4 $ While $2 $4 }
+  | 'if' exp 'then' exp                   { sL2 $1 $4 $ If $2 $4 Nothing }
+  | 'if' exp 'then' exp 'else' exp        { sL2 $1 $6 $ If $2 $4 (Just $6) }
+  | 'while' exp 'do' exp                  { sL2 $1 $4 $ While $2 $4 }
   | 'for' 'id' ':=' exp 'to' exp 'do' exp { sL2 $1 $8 $ For (retrieveID $2) $4 $6 $8 }
-  | 'break'                        { sL1 $1 Break }
-  | 'let' decs 'in' exps 'end'     { sL2 $1 $5 $ Let (reverse $2) (reverse $4) }
+  | 'break'                               { sL1 $1 Break }
+  | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let (reverse $2) (reverse $4) }
 
 fieldassigns :: { [LFieldAssign] }
-  : {- empty -}                   { [] }
-  | 'id' '=' exp                  { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
-  | fieldassigns ',' 'id' '=' exp { (sL2 $3 $5 $ FieldAssign (retrieveID $3) $5) : $1 } -- left recursion
+  : {- empty -}                           { [] }
+  | 'id' '=' exp                          { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
+  | fieldassigns ',' 'id' '=' exp         { (sL2 $3 $5 $ FieldAssign (retrieveID $3) $5) : $1 } -- left recursion
 
 
 -- prevent shift/reduce conflict
@@ -119,17 +129,17 @@ fieldassigns :: { [LFieldAssign] }
 -- This cause the following shift/reduce conflict.
 -- exp -> 'id' . '[' exp ']' 'of' exp
 -- lvalue -> 'id' .
--- To resolve the conflict, adopt this redundant grammer.
+-- To resolve the conflict, adopt this redundant grammer and defer the reduce.
 
 lvalue :: { LValue }
-  : 'id'                 { sL1 $1 $ Id (retrieveID $1) }
-  | lvalue_record        { $1 }
-  | lvalue_array         { $1 }
+  : 'id'                      { sL1 $1 $ Id (retrieveID $1) }
+  | lvalue_record             { $1 }
+  | lvalue_array              { $1 }
 
 lvalue_record :: { LValue }
-  : 'id' '.' 'id'          { sL2 $1 $3 $ RecField (sL1 $1 $ Id (retrieveID $1)) (retrieveID $3) }
-  | lvalue_array '.' 'id'  { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
-  | lvalue_record '.' 'id' { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
+  : 'id' '.' 'id'             { sL2 $1 $3 $ RecField (sL1 $1 $ Id (retrieveID $1)) (retrieveID $3) }
+  | lvalue_array '.' 'id'     { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
+  | lvalue_record '.' 'id'    { sL2 $1 $3 $ RecField $1 (retrieveID $3) }
 
 lvalue_array :: { LValue }
   : 'id' '[' exp ']'          { sL2 $1 $4 $ ArrayIndex (sL1 $1 $ Id (retrieveID $1)) $3 }
@@ -142,37 +152,25 @@ args :: { [LExp] }
   | exp                  { [$1] }
   | args ',' exp         { $3 : $1 } -- left recursion
 
-op :: { Op }
-  : '+'                  { Plus }
-  | '-'                  { Minus }
-  | '*'                  { Times }
-  | '/'                  { Div }
-  | '='                  { Eq }
-  | '<>'                 { NEq }
-  | '>'                  { Gt }
-  | '<'                  { Lt }
-  | '>='                 { Ge }
-  | '<='                 { Le }
-
 decs :: { [LDec] }
   : {- empty -}          { [] }
   | decs dec             { $2 : $1 } -- left recursion
 
 dec :: { LDec }
-  : 'type' 'id' '=' type             { sL2 $1 $4 $ TypeDec (retrieveID $2) $4 }
-  | 'var' 'id' ':' 'id' ':=' exp  { sL2 $1 $6 $ VarDec (retrieveID $2) (Just (retrieveID $4)) $6 }
-  | 'var' 'id' ':=' exp              { sL2 $1 $4 $ VarDec (retrieveID $2) Nothing $4 }
+  : 'type' 'id' '=' type                               { sL2 $1 $4 $ TypeDec (retrieveID $2) $4 }
+  | 'var' 'id' ':' 'id' ':=' exp                       { sL2 $1 $6 $ VarDec (retrieveID $2) (Just (retrieveID $4)) $6 }
+  | 'var' 'id' ':=' exp                                { sL2 $1 $4 $ VarDec (retrieveID $2) Nothing $4 }
   | 'function' 'id' '(' tyfields ')' ':' 'id' '=' exp  { sL2 $1 $9 $ FunDec (retrieveID $2) $4 (Just $ retrieveID $7) $9 }
-  | 'function' 'id' '(' tyfields ')' '=' exp { sL2 $1 $7 $ FunDec (retrieveID $2) (reverse $4) Nothing $7 }
+  | 'function' 'id' '(' tyfields ')' '=' exp           { sL2 $1 $7 $ FunDec (retrieveID $2) (reverse $4) Nothing $7 }
 
 type :: { LType }
-  : 'id'              { sL1 $1 . TypeId $ retrieveID $1 }
-  | '{' tyfields '}'       { sL2 $1 $3 $ RecordType $2 }
-  | 'array' 'of' 'id' { sL2 $1 $3 $ ArrayType (retrieveID $3) }
+  : 'id'                 { sL1 $1 . TypeId $ retrieveID $1 }
+  | '{' tyfields '}'     { sL2 $1 $3 $ RecordType $2 }
+  | 'array' 'of' 'id'    { sL2 $1 $3 $ ArrayType (retrieveID $3) }
 
 tyfields :: { [LField] }
-  : {- empty -}          { [] }
-  | 'id' ':' 'id'     { [sL2 $1 $3 $ Field (retrieveID $1) (retrieveID $3)] }
+  : {- empty -}                { [] }
+  | 'id' ':' 'id'              { [sL2 $1 $3 $ Field (retrieveID $1) (retrieveID $3)] }
   | tyfields ',' 'id' ':' 'id' { (sL2 $3 $5 $ Field (retrieveID $3) (retrieveID $5) ) : $1} -- left recursion
 
 exps :: { [LExp] }

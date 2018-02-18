@@ -22,36 +22,36 @@ $alpha      = [A-Za-z]
 
 tiger:-
 
+<0>            "nil"         { tokenOf NIL }
+<0>            "let"         { tokenOf LET }
+<0>            "in"          { tokenOf IN }
+<0>            "end"         { tokenOf END }
 <0>            "type"        { tokenOf TYPE }
 <0>            "var"         { tokenOf VAR }
 <0>            "function"    { tokenOf FUNCTION }
-<0>            "break"       { tokenOf BREAK }
-<0>            "of"          { tokenOf OF }
-<0>            "end"         { tokenOf END }
-<0>            "in"          { tokenOf IN }
-<0>            "nil"         { tokenOf NIL }
-<0>            "let"         { tokenOf LET }
-<0>            "do"          { tokenOf DO }
-<0>            "to"          { tokenOf TO }
-<0>            "for"         { tokenOf FOR }
-<0>            "while"       { tokenOf WHILE }
-<0>            "else"        { tokenOf ELSE }
-<0>            "then"        { tokenOf THEN }
-<0>            "if"          { tokenOf IF }
 <0>            "array"       { tokenOf ARRAY }
+<0>            "of"          { tokenOf OF }
+<0>            "for"         { tokenOf FOR }
+<0>            "to"          { tokenOf TO }
+<0>            "while"       { tokenOf WHILE }
+<0>            "do"          { tokenOf DO }
+<0>            "break"       { tokenOf BREAK }
+<0>            "if"          { tokenOf IF }
+<0>            "then"        { tokenOf THEN }
+<0>            "else"        { tokenOf ELSE }
 <0>             :\=          { tokenOf ASSIGN }
-<0>             \|           { tokenOf OR }
-<0>             &            { tokenOf AND }
-<0>             \>\=         { tokenOf GE }
-<0>             \>           { tokenOf GT }
-<0>             \<\=         { tokenOf LE }
-<0>             \<           { tokenOf LT }
-<0>             \<\>         { tokenOf NEQ }
-<0>             \=           { tokenOf EQ }
-<0>             \/           { tokenOf DIV }
-<0>             \*           { tokenOf TIMES }
-<0>             \-           { tokenOf MINUS }
 <0>             \+           { tokenOf PLUS }
+<0>             \-           { tokenOf MINUS }
+<0>             \*           { tokenOf TIMES }
+<0>             \/           { tokenOf DIV }
+<0>             \=           { tokenOf EQ }
+<0>             \<\>         { tokenOf NEQ }
+<0>             \>           { tokenOf GT }
+<0>             \<           { tokenOf LT }
+<0>             \<\=         { tokenOf LE }
+<0>             \>\=         { tokenOf GE }
+<0>             &            { tokenOf AND }
+<0>             \|           { tokenOf OR }
 <0>             \.           { tokenOf DOT }
 <0>             \{           { tokenOf LBRACE }
 <0>             \}           { tokenOf RBRACE }
@@ -59,68 +59,68 @@ tiger:-
 <0>             \]           { tokenOf RBRACK }
 <0>             \)           { tokenOf RPAREN }
 <0>             \(           { tokenOf LPAREN }
-<0>             \;           { tokenOf SEMICOLON }
 <0>             :            { tokenOf COLON }
+<0>             \;           { tokenOf SEMICOLON }
 <0>             ","          { tokenOf COMMA }
 <0>             "/*"         { enterNewComment `andBegin` comment }
-<comment> "/*"         { embedComment }
-<comment> "*/"         { unembedComment }
-<comment> .            ;
-<comment> $newline           ;
-<0>             \"[^\"]*\"   { getString } -- TODO: follow the specification of Tiger about string
-<0>             $newline           ;
-<0>             $whitespace+ ;
-<0>             @number      { getInteger }
 <0>             @identifier  { getId }
+<0>             @number      { getInteger }
+<0>             \"[^\"]*\"   { getString } -- TODO: follow the specification of Tiger about string
+<0>             $newline     ;
+<0>             $whitespace+ ;
+<comment>       "/*"         { embedComment }
+<comment>       "*/"         { unembedComment }
+<comment>       .            ;
+<comment>       $newline     ;
 <0>             .            { lexerError }
 
 {
 
 data Token =
     EOF
+  | NIL
   | ID String
   | INT Int
   | STRING String
-  | COMMA
-  | COLON
-  | SEMICOLON
-  | LPAREN
-  | RPAREN
-  | LBRACK
-  | RBRACK
-  | LBRACE
-  | RBRACE
-  | DOT
+  | LET
+  | IN
+  | END
+  | TYPE
+  | VAR
+  | FUNCTION
+  | ARRAY
+  | OF
+  | FOR
+  | TO
+  | WHILE
+  | DO
+  | BREAK
+  | IF
+  | THEN
+  | ELSE
+  | ASSIGN
   | PLUS
   | MINUS
   | TIMES
   | DIV
   | EQ
   | NEQ
-  | LT
-  | LE
   | GT
+  | LT
   | GE
+  | LE
   | AND
   | OR
-  | ASSIGN
-  | ARRAY
-  | IF
-  | THEN
-  | ELSE
-  | WHILE
-  | FOR
-  | TO
-  | DO
-  | LET
-  | IN
-  | END
-  | OF
-  | BREAK
-  | NIL
-  | FUNCTION
-  | VAR
-  | TYPE
+  | DOT
+  | LBRACE
+  | RBRACE
+  | LBRACK
+  | RBRACK
+  | LPAREN
+  | RPAREN
+  | COLON
+  | SEMICOLON
+  | COMMA
   deriving (Show, Eq)
 
 type Lexeme = RealLocated Token
