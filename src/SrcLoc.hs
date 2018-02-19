@@ -5,7 +5,7 @@ data SrcLoc = SrcLoc FilePath !Int !Int deriving (Show, Eq)
 mkSrcLoc :: FilePath -> SrcLoc
 mkSrcLoc file = SrcLoc file 1 1
 advanceSrcLoc :: SrcLoc -> Char -> SrcLoc --TODO: handling tab
-advanceSrcLoc (SrcLoc f row col) '\n' = SrcLoc f (row + 1) 1
+advanceSrcLoc (SrcLoc f row _  ) '\n' = SrcLoc f (row + 1) 1
 advanceSrcLoc (SrcLoc f row col) _    = SrcLoc f row (col + 1)
 
 data RealSrcSpan = RealSrcSpan {

@@ -22,16 +22,19 @@ description:         Please see the README on Github at <https://github.com/fore
 dependencies:
 - base >= 4.7 && < 5
 - containers
-- extensible
-- mtl
-- array
 - bytestring
+- mtl
 
 library:
   source-dirs: src
   build-tools:
   - alex
   - happy
+  dependencies:
+  - array
+  - extensible
+  - template-haskell
+
 
 executables:
   compiler-exe:

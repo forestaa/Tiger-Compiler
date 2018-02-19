@@ -34,7 +34,7 @@ data PState = PState {
       } deriving (Show, Eq)
 
 initPState :: FilePath -> B.ByteString -> PState
-initPState file buffer = PState (mkSrcLoc file) buffer 0 0
+initPState file buf = PState (mkSrcLoc file) buf 0 0
 
 -- lexer and parser monad
 newtype P a = P {unP :: Eff '[StateDef PState, EitherDef String] a} deriving (Functor, Applicative, Monad, MonadError String, MonadState PState)
