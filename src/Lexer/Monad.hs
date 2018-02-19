@@ -44,7 +44,7 @@ runP :: P a -> FilePath -> B.ByteString -> Either String a
 runP p file bs = leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file bs
 
 failP :: String -> P a
-failP msg = throwError msg
+failP = throwError
 
 getInput :: P AlexInput
 getInput = do
