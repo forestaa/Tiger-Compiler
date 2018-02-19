@@ -3,7 +3,7 @@ module Tiger.Parser where
 
 import Prelude hiding (GT, EQ, LT)
 
-import Tiger.Syntax
+import Tiger.LSyntax
 import Tiger.Lexer
 import Lexer.Monad
 import SrcLoc
@@ -91,17 +91,17 @@ exp :: { LExp }
 
   | 'id' '(' args ')'                     { sL2 $1 $4 $ FunApply (retrieveID $1) (reverse $3) }
 
-  | '-' exp     %prec UMINUS              { sL2 $1 $2 $ Op (sL1 $1 $ Int 0) Minus $2 }
-  | exp '+' exp                           { sL2 $1 $3 $ Op $1 Plus $3 }
-  | exp '-' exp                           { sL2 $1 $3 $ Op $1 Minus $3 }
-  | exp '*' exp                           { sL2 $1 $3 $ Op $1 Times $3 }
-  | exp '/' exp                           { sL2 $1 $3 $ Op $1 Div $3 }
-  | exp '=' exp                           { sL2 $1 $3 $ Op $1 Eq $3 }
-  | exp '<>' exp                          { sL2 $1 $3 $ Op $1 NEq $3 }
-  | exp '>' exp                           { sL2 $1 $3 $ Op $1 Gt $3 }
-  | exp '<' exp                           { sL2 $1 $3 $ Op $1 Lt $3 }
-  | exp '>=' exp                          { sL2 $1 $3 $ Op $1 Ge $3 }
-  | exp '<=' exp                          { sL2 $1 $3 $ Op $1 Le $3 }
+  | '-' exp     %prec UMINUS              { sL2 $1 $2 $ Op (sL1 $1 $ Int 0) (sL1 $1 Minus) $2 }
+  | exp '+' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Plus) $3 }
+  | exp '-' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Minus) $3 }
+  | exp '*' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Times) $3 }
+  | exp '/' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Div) $3 }
+  | exp '=' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Eq) $3 }
+  | exp '<>' exp                          { sL2 $1 $3 $ Op $1 (sL1 $2 NEq) $3 }
+  | exp '>' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Gt) $3 }
+  | exp '<' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Lt) $3 }
+  | exp '>=' exp                          { sL2 $1 $3 $ Op $1 (sL1 $2 Ge) $3 }
+  | exp '<=' exp                          { sL2 $1 $3 $ Op $1 (sL1 $2 Le) $3 }
   | exp '&' exp                           { sL2 $1 $3 $ If $1 $3 (Just . sL1 $2 $ Int 0) }
   | exp '|' exp                           { sL2 $1 $3 $ If $1 (sL1 $2 $ Int 1) (Just $3) }
   | '(' exps ')'                          { sL2 $1 $3 $ Seq $2 }
@@ -184,9 +184,8 @@ exps :: { [LExp] }
 parserError :: Lexeme -> P a
 parserError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
 
-retrieveID :: Lexeme -> Id
-retrieveID l = case unLoc l of
-                  ID id -> id
+retrieveID :: Lexeme -> LId
+retrieveID (L loc (ID id)) = L loc id
 retrieveINT :: Lexeme -> Int
 retrieveINT l = case unLoc l of
                   INT i -> i

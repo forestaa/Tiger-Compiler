@@ -38,9 +38,7 @@ data Exp =
   | Break
   | Let {decs :: [Dec], bodys :: [Exp]}
   deriving (Show, Eq)
-
 data Value = Id Id | RecField Value Id | ArrayIndex Value Exp deriving (Show, Eq)
-
 data FieldAssign = FieldAssign Id Exp deriving (Show, Eq)
 data Op = Plus | Minus | Times | Div | Eq | NEq | Lt | Le | Gt | Ge deriving (Show, Eq)
 
