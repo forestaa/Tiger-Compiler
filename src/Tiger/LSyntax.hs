@@ -4,8 +4,8 @@
 module Tiger.LSyntax where
 
 import SrcLoc
-import Tiger.Syntax
+import qualified Tiger.Syntax as S
 
 import AbstSyntax.TH
 
-$(deriveFAbstSyntaxes ''RealLocated [''Id, ''Exp, ''Value, ''FieldAssign, ''Op, ''Dec, ''Field, ''Type])
+$(deriveFAbstSyntaxes ''RealLocated [''S.Id, ''S.Exp, ''S.Value, ''S.FieldAssign, ''S.Op, ''S.Dec, ''S.Field, ''S.Type])

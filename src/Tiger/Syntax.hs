@@ -2,7 +2,6 @@
 
 module Tiger.Syntax where
 
-
 import SrcLoc
 
 
