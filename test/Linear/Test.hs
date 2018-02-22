@@ -6,6 +6,7 @@ import Control.Monad
 
 import Lexer.Monad
 
+import Linear.LSyntax
 import Linear.Lexer
 import Linear.Parser
 import Linear.Interpreter
@@ -27,5 +28,5 @@ interpreterTest = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
   case runP parser file bs of
-    Right ast -> void $ run M.empty ast
+    Right ast -> void $ run M.empty (unLStm ast)
     Left msg -> print msg
