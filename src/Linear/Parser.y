@@ -15,6 +15,7 @@ import SrcLoc
 %monad { P }
 %lexer { lexer } { L _ EOF }
 
+%left ';'
 %left '+' '-'
 %left '*' '/'
 
