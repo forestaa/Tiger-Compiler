@@ -1,62 +1,50 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-
 module Tiger.Syntax where
-
 
 import SrcLoc
 
 
 type Id = String
 
-type LExp = RealLocated LExp'
-type LValue = RealLocated LValue'
-type LFieldAssign = RealLocated LFieldAssign'
-type LDec = RealLocated LDec'
-type LType = RealLocated LType'
-type LField = RealLocated LField'
-
-
-data LExp' =
+data Exp =
   -- literals
     Nil
   | Int Int
   | String String
 
   -- array and record creation
-  | ArrayCreate  {typeid :: Id, size :: LExp, init :: LExp}
-  | RecordCreate {typeid :: Id, fields :: [LFieldAssign]}
+  | ArrayCreate  {typeid :: Id, size :: Exp, init :: Exp}
+  | RecordCreate {typeid :: Id, fields :: [FieldAssign]}
 
   -- variables, field, elements of an array
-  | Var LValue
+  | Var Value
 
   -- function application
-  | FunApply { func :: Id, args :: [LExp]}
+  | FunApply { func :: Id, args :: [Exp]}
 
   -- operations
-  | Op {left :: LExp, op :: Op, right :: LExp}
-  | Seq [LExp]
+  | Op {left :: Exp, op :: Op, right :: Exp}
+  | Seq [Exp]
 
   -- assignment
-  | Assign {var :: LValue, exp :: LExp}
+  | Assign {var :: Value, exp :: Exp}
 
   -- control structure
-  | If {bool :: LExp, then' :: LExp, else' :: Maybe LExp}
-  | While {bool :: LExp, body :: LExp}
-  | For {id :: Id, from :: LExp, to :: LExp, body :: LExp}
+  | If {bool :: Exp, then' :: Exp, else' :: Maybe Exp}
+  | While {bool :: Exp, body :: Exp}
+  | For {id :: Id, from :: Exp, to :: Exp, body :: Exp}
   | Break
-  | Let {decs :: [LDec], bodys :: [LExp]}
+  | Let {decs :: [Dec], bodys :: [Exp]}
   deriving (Show, Eq)
-
-data LValue' = Id Id | RecField LValue Id | ArrayIndex LValue LExp deriving (Show, Eq)
-
-data LFieldAssign' = FieldAssign Id LExp deriving (Show, Eq)
+data Value = Id Id | RecField Value Id | ArrayIndex Value Exp deriving (Show, Eq)
+data FieldAssign = FieldAssign Id Exp deriving (Show, Eq)
 data Op = Plus | Minus | Times | Div | Eq | NEq | Lt | Le | Gt | Ge deriving (Show, Eq)
 
-data LDec' =
-   FunDec {id :: Id, args :: [LField], rettype :: Maybe Id, body :: LExp}
- | VarDec {id :: Id, t :: Maybe Id, init :: LExp}
- | TypeDec {id :: Id, ty :: LType}
+data Dec =
+   FunDec {id :: Id, args :: [Field], rettype :: Maybe Id, body :: Exp}
+ | VarDec {id :: Id, t :: Maybe Id, init :: Exp}
+ | TypeDec {id :: Id, ty :: Type}
  deriving (Show, Eq)
-data LType' = TypeId Id | RecordType [LField] | ArrayType Id deriving (Show, Eq)
-data LField' = Field {id :: Id, typeid :: Id} deriving (Show, Eq)
+data Type = TypeId Id | RecordType [Field] | ArrayType Id deriving (Show, Eq)
+data Field = Field {id :: Id, typeid :: Id} deriving (Show, Eq)

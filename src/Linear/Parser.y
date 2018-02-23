@@ -1,7 +1,7 @@
 {
 module Linear.Parser where
 
-import Linear.Syntax
+import Linear.LSyntax
 import Linear.Lexer
 import Lexer.Monad
 import SrcLoc
@@ -37,18 +37,18 @@ import SrcLoc
 %%
 
 S :: { LStm }
-  : S ';' S         { sL1 $2 $ CompoundStm $1 $3 }
-  | id ':=' E       { sL2 $1 $2 $ AssignStm (retrieveID $1) $3 }
-  | print '(' L ')' { sL1 $1 $ PrintStm (reverse $3) }
+  : S ';' S         { sL2 $1 $3 $ CompoundStm $1 $3 }
+  | id ':=' E       { sL2 $1 $3 $ AssignStm (retrieveID $1) $3 }
+  | print '(' L ')' { sL2 $1 $4 $ PrintStm (reverse $3) }
 
 E :: { LExp }
   : id              { sL1 $1 $ Id (retrieveID $1) }
   | num             { sL1 $1 $ Num (retrieveNUM $1) }
-  | E '+' E         { sL1 $2 $ Plus $1 $3 }
-  | E '-' E         { sL1 $2 $ Minus $1 $3 }
-  | E '*' E         { sL1 $2 $ Times $1 $3 }
-  | E '/' E         { sL1 $2 $ Div $1 $3 }
-  | '(' S ',' E ')' { sL1 $3 $ ESeq $2 $4 }
+  | E '+' E         { sL2 $1 $3 $ Plus $1 $3 }
+  | E '-' E         { sL2 $1 $3 $ Minus $1 $3 }
+  | E '*' E         { sL2 $1 $3 $ Times $1 $3 }
+  | E '/' E         { sL2 $1 $3 $ Div $1 $3 }
+  | '(' S ',' E ')' { sL2 $1 $5 $ ESeq $2 $4 }
 
 L :: { [LExp] }
   : E               { [$1] }
@@ -60,8 +60,8 @@ parserError :: Lexeme -> P a
 parserError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
 
 
-retrieveID :: Lexeme -> String
-retrieveID (L _ (ID id)) = id
+retrieveID :: Lexeme -> LId
+retrieveID (L loc (ID id)) = L loc id
 
 retrieveNUM :: Lexeme -> Int
 retrieveNUM (L _ (NUM n)) = n

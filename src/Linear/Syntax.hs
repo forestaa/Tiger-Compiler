@@ -6,23 +6,18 @@ import SrcLoc
 
 
 type Id = String
-type Value = Int
-type Env = M.Map Id Value
+type Env = M.Map Id Int
 
 
--- TODO: research template Haskell to generate LStm automatically from Stm
-type LStm = RealLocated LStm'
-type LExp = RealLocated LExp'
-
-data LStm' = CompoundStm LStm LStm
-           | AssignStm Id LExp
-           | PrintStm [LExp]
-           deriving (Show, Eq)
-data LExp' = Id Id
-           | Num Value
-           | Plus LExp LExp
-           | Minus LExp LExp
-           | Times LExp LExp
-           | Div LExp LExp
-           | ESeq LStm LExp
-           deriving (Show, Eq)
+data Stm = CompoundStm Stm Stm
+         | AssignStm Id Exp
+         | PrintStm [Exp]
+         deriving (Show, Eq)
+data Exp = Id Id
+         | Num Int
+         | Plus Exp Exp
+         | Minus Exp Exp
+         | Times Exp Exp
+         | Div Exp Exp
+         | ESeq Stm Exp
+         deriving (Show, Eq)

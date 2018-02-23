@@ -5,7 +5,7 @@ import Control.Monad.Except
 
 import Lexer.Monad
 
-import Tiger.Syntax
+import Tiger.LSyntax
 import Tiger.Lexer
 import Tiger.Parser
 
