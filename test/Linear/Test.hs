@@ -9,7 +9,7 @@ import Lexer.Monad
 import Linear.LSyntax
 import Linear.Lexer
 import Linear.Parser
-import Linear.Interpreter
+import Linear.Eval
 
 lexerTest :: IO ()
 lexerTest = do
@@ -23,8 +23,8 @@ parserTest = do
   bs <- B.readFile file
   print $ runP parser file bs
 
-interpreterTest :: IO ()
-interpreterTest = do
+evalTest :: IO ()
+evalTest = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
   case runP parser file bs of

@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeOperators         #-}
 
 
-module Linear.Interpreter where
+module Linear.Eval where
 
 import           Control.Monad.Except
 import           Control.Monad.IO.Class
@@ -23,27 +23,26 @@ runIODef :: Eff '[IODef] r -> IO r
 runIODef = retractEff
 
 run :: Env -> Stm -> IO (Either String (), Env)
-run env stm = runIODef $ runStateEff @ "env" (runEitherDef $ interpreter stm) env
+run env stm = runIODef $ runStateEff @ "env" (runEitherDef $ eval stm) env
 
-
-interpreter :: Stm -> Eff '[EitherDef String, "env" >: State Env, IODef] ()
-interpreter (CompoundStm s s') = interpreter s >> interpreter s'
-interpreter (AssignStm x e) = do
-  v <- eval e
+eval :: Stm -> Eff '[EitherDef String, "env" >: State Env, IODef] ()
+eval (CompoundStm s s') = eval s >> eval s'
+eval (AssignStm x e) = do
+  v <- evalExp e
   modifyEff #env (M.insert x v)
-interpreter (PrintStm es) = do
-  vs <- mapM eval es
+eval (PrintStm es) = do
+  vs <- mapM evalExp es
   liftIO $ print vs
 
-eval :: Exp -> Eff '[EitherDef String, "env" >: State Env, IODef] Int
-eval (Id x) = do
+evalExp :: Exp -> Eff '[EitherDef String, "env" >: State Env, IODef] Int
+evalExp (Id x) = do
   env <- getEff #env
   case M.lookup x env of
     Just v  -> return v
     Nothing -> throwError ("undefined variable: " ++ x)
-eval (Num v) = return v
-eval (Plus  e1 e2) = (+) <$> eval e1 <*> eval e2
-eval (Minus e1 e2) = (-) <$> eval e1 <*> eval e2
-eval (Times e1 e2) = (*) <$> eval e1 <*> eval e2
-eval (Div   e1 e2) = div <$> eval e1 <*> eval e2
-eval (ESeq stm e) = interpreter stm >> eval e
+evalExp (Num v) = return v
+evalExp (Plus  e1 e2) = (+) <$> evalExp e1 <*> evalExp e2
+evalExp (Minus e1 e2) = (-) <$> evalExp e1 <*> evalExp e2
+evalExp (Times e1 e2) = (*) <$> evalExp e1 <*> evalExp e2
+evalExp (Div   e1 e2) = div <$> evalExp e1 <*> evalExp e2
+evalExp (ESeq stm e) = eval stm >> evalExp e
