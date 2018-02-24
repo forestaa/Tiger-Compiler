@@ -3,10 +3,12 @@ module Tiger.Parser where
 
 import Prelude hiding (GT, EQ, LT)
 
+import Env
+import SrcLoc
+import Lexer.Monad
+
 import Tiger.LSyntax
 import Tiger.Lexer
-import Lexer.Monad
-import SrcLoc
 
 }
 
@@ -113,7 +115,7 @@ exp :: { LExp }
   | 'while' exp 'do' exp                  { sL2 $1 $4 $ While $2 $4 }
   | 'for' 'id' ':=' exp 'to' exp 'do' exp { sL2 $1 $8 $ For (retrieveID $2) $4 $6 $8 }
   | 'break'                               { sL1 $1 Break }
-  | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let (reverse $2) (reverse $4) }
+  | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let (reverse $2) (sL2 $3 $5 $ Seq (reverse $4)) }
 
 fieldassigns :: { [LFieldAssign] }
   : {- empty -}                           { [] }

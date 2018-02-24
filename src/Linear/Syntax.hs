@@ -2,12 +2,8 @@ module Linear.Syntax where
 
 import qualified Data.Map as M
 
+import Env
 import SrcLoc
-
-
-type Id = String
-type Env = M.Map Id Int
-
 
 data Stm = CompoundStm Stm Stm
          | AssignStm Id Exp

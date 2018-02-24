@@ -3,9 +3,10 @@
 
 module Tiger.LSyntax where
 
+import Env
 import SrcLoc
 
 import qualified Tiger.Syntax as S
 import AbstSyntax.TH
 
-$(mkFAbstSyntaxes ''RealLocated [''S.Id, ''S.Exp, ''S.Value, ''S.FieldAssign, ''S.Op, ''S.Dec, ''S.Field, ''S.Type])
+$(mkFAbstSyntaxes ''RealLocated [''S.Exp, ''S.Value, ''S.FieldAssign, ''S.Op, ''S.Dec, ''S.Field, ''S.Type])

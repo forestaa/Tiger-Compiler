@@ -1,10 +1,12 @@
 {
 module Linear.Parser where
 
+import Env
+import SrcLoc
+import Lexer.Monad
+
 import Linear.LSyntax
 import Linear.Lexer
-import Lexer.Monad
-import SrcLoc
 }
 
 %name parser

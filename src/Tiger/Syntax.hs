@@ -2,10 +2,10 @@
 
 module Tiger.Syntax where
 
+import Env
 import SrcLoc
 
 
-type Id = String
 
 data Exp =
   -- literals
@@ -35,7 +35,7 @@ data Exp =
   | While {bool :: Exp, body :: Exp}
   | For {id :: Id, from :: Exp, to :: Exp, body :: Exp}
   | Break
-  | Let {decs :: [Dec], bodys :: [Exp]}
+  | Let {decs :: [Dec], body :: Exp}
   deriving (Show, Eq)
 data Value = Id Id | RecField Value Id | ArrayIndex Value Exp deriving (Show, Eq)
 data FieldAssign = FieldAssign Id Exp deriving (Show, Eq)

@@ -16,12 +16,12 @@ import           Data.Extensible.Effect.Default
 import qualified Data.Map.Strict                as M
 
 import Linear.Syntax
-import SrcLoc
 
 type IODef = "IO" >: IO
 runIODef :: Eff '[IODef] r -> IO r
 runIODef = retractEff
 
+type Env = M.Map String Int
 run :: Env -> Stm -> IO (Either String (), Env)
 run env stm = runIODef $ runStateEff @ "env" (runEitherDef $ eval stm) env
 
