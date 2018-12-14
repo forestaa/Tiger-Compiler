@@ -1,9 +1,12 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Env where
 
 import qualified Data.Map.Strict as M
 
-import SrcLoc
+import Control.Monad.Except
 
+import SrcLoc
 
 type Id = String
 type LId = RealLocated String
@@ -19,10 +22,12 @@ initEnv xs = Env [M.fromList xs]
 insert :: LId -> a -> Env a -> Env a
 insert (L _ id) a (Env (env:envs)) = Env (M.insert id a env : envs)
 
-lookup :: LId -> Env a -> Maybe a
-lookup (L _ id) (Env []) = Nothing
-lookup (L _ id) (Env (env:_)) = M.lookup id env
-
+lookup :: MonadError String m => LId -> Env a -> m a
+lookup (L loc id) (Env []) = throwError $ show loc ++ ": fatal: environment stack is empty"
+lookup (L loc id) (Env (env:_)) =
+  case M.lookup id env of
+    Just a -> return a
+    Nothing -> throwError $ show loc ++ ": undefined: " ++ show id
 beginScope :: Env a -> Env a
 beginScope (Env []) = Env []
 beginScope (Env envs) = Env (head envs : envs)

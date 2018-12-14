@@ -1,5 +1,6 @@
 module SrcLoc where
 
+import Data.List
 
 data SrcLoc = SrcLoc FilePath !Int !Int deriving (Show, Eq)
 mkSrcLoc :: FilePath -> SrcLoc
@@ -14,7 +15,9 @@ data RealSrcSpan = RealSrcSpan {
         srcSCol :: !Int,
         srcERow :: !Int,
         srcECol :: !Int
-      } deriving (Show, Eq)
+      } deriving (Eq)
+instance Show RealSrcSpan where
+  show (RealSrcSpan f sr sc _ _) = intercalate ":" [f, show sr, show sc]
 mkRealSrcSpan :: SrcLoc -> Int -> RealSrcSpan
 mkRealSrcSpan (SrcLoc file row col) len = RealSrcSpan file row col row (col + len)
 combineRealSrcSpan :: RealSrcSpan -> RealSrcSpan -> RealSrcSpan

@@ -1,0 +1,95 @@
+-- This file has been generated from package.yaml by hpack version 0.20.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 0260e868331c70ae308a37e5488e34c8adfe5ef0dd8e9e966ab477923928b5e5
+
+name:           Tiger-Compiler
+version:        0.1.0.0
+synopsis:       Short description of your package
+description:    Please see the README on Github at <https://github.com/forestaa/Tiger-Compiler#readme>
+homepage:       https://github.com/forestaa/Tiger-Compiler#readme
+bug-reports:    https://github.com/forestaa/Tiger-Compiler/issues
+author:         Daichi Morita
+maintainer:     t.daichi.3@gmail.com
+copyright:      2017 Daichi Morita
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/forestaa/Tiger-Compiler
+
+library
+  hs-source-dirs:
+      src
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , extensible
+    , mtl
+    , template-haskell
+  build-tools:
+      alex
+    , happy
+  exposed-modules:
+      AbstSyntax.TH
+      Env
+      IR
+      Lexer.Monad
+      Linear.Eval
+      Linear.Lexer
+      Linear.LSyntax
+      Linear.Parser
+      Linear.Syntax
+      SrcLoc
+      Tiger.Eval
+      Tiger.Lexer
+      Tiger.LSyntax
+      Tiger.Parser
+      Tiger.Syntax
+      Tiger.Typing
+  other-modules:
+      Paths_Tiger_Compiler
+  default-language: Haskell2010
+
+executable compiler-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Tiger-Compiler
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , mtl
+  other-modules:
+      Paths_Tiger_Compiler
+  default-language: Haskell2010
+
+test-suite compiler-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Tiger-Compiler
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , mtl
+  other-modules:
+      Linear.Test
+      Tiger.Test
+      Paths_Tiger_Compiler
+  default-language: Haskell2010

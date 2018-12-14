@@ -1,6 +1,6 @@
-name:                compiler
+name:                Tiger-Compiler
 version:             0.1.0.0
-github:              "forestaa/compiler"
+github:              "forestaa/Tiger-Compiler"
 license:             BSD3
 author:              "Daichi Morita"
 maintainer:          "t.daichi.3@gmail.com"
@@ -17,7 +17,7 @@ synopsis:            Short description of your package
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on Github at <https://github.com/forestaa/compiler#readme>
+description:         Please see the README on Github at <https://github.com/forestaa/Tiger-Compiler#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -45,7 +45,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - compiler
+    - Tiger-Compiler
 
 tests:
   compiler-test:
@@ -56,4 +56,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - compiler
+    - Tiger-Compiler
