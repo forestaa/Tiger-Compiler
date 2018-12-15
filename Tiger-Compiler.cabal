@@ -1,8 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.20.0.
+-- This file has been generated from package.yaml by hpack version 0.28.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0260e868331c70ae308a37e5488e34c8adfe5ef0dd8e9e966ab477923928b5e5
+-- hash: 450c93f02c39ccf5cda63c5fed49d9cce1369561697f87133497d7329f5591d8
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -17,7 +17,6 @@ license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 cabal-version:  >= 1.10
-
 extra-source-files:
     ChangeLog.md
     README.md

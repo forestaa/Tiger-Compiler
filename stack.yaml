@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-10.5
+resolver: nightly-2018-12-15
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -39,7 +39,8 @@ packages:
 - .
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps:
+- extensible-0.4.10.1
 # - intero-0.1.24
 # - git: git@github.com:DanielG/ghc-mod.git
 #   commit: c3530f75d5c539c91ed0b8d38e90d66cbaa66a35
