@@ -1,9 +1,11 @@
 module Linear.Syntax where
 
-import qualified Data.Map as M
+import RIO
+-- import qualified RIO.Map as Map
+-- import qualified Data.Map as M
 
 import Env
-import SrcLoc
+-- import SrcLoc
 
 data Stm = CompoundStm Stm Stm
          | AssignStm Id Exp

@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 450c93f02c39ccf5cda63c5fed49d9cce1369561697f87133497d7329f5591d8
+-- hash: 121750b6b91b0a847346df11d98defa7aa5e42d4fcda59e17246a5b22555e8ac
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -28,13 +28,17 @@ source-repository head
 library
   hs-source-dirs:
       src
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors
   build-depends:
       array
     , base >=4.7 && <5
     , bytestring
     , containers
     , extensible
+    , lens
     , mtl
+    , rio
     , template-haskell
   build-tools:
       alex
@@ -64,13 +68,16 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
     , base >=4.7 && <5
     , bytestring
     , containers
+    , lens
     , mtl
+    , rio
   other-modules:
       Paths_Tiger_Compiler
   default-language: Haskell2010
@@ -80,13 +87,16 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
     , base >=4.7 && <5
     , bytestring
     , containers
+    , lens
     , mtl
+    , rio
   other-modules:
       Linear.Test
       Tiger.Test

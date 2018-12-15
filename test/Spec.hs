@@ -1,3 +1,4 @@
+import RIO
 import qualified Tiger.Test as T
 import qualified Linear.Test as L
 

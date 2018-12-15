@@ -1,6 +1,9 @@
 {
 module Linear.Parser where
 
+import RIO
+import RIO.List.Partial ((!!))
+
 import Env
 import SrcLoc
 import Lexer.Monad

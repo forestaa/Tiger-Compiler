@@ -1,8 +1,12 @@
 module Linear.Test where
 
+import RIO
+import System.IO
+
 import qualified Data.ByteString.Lazy as B
-import qualified Data.Map.Strict as M
-import Control.Monad
+-- import qualified Data.Map.Strict as M
+import qualified RIO.Map as Map
+-- import Control.Monad
 
 import Lexer.Monad
 
@@ -28,5 +32,5 @@ evalTest = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
   case runP parser file bs of
-    Right ast -> void $ run M.empty (unLStm ast)
+    Right ast -> void $ run Map.empty (unLStm ast)
     Left msg -> print msg

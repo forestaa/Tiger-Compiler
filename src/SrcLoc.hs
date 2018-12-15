@@ -1,6 +1,8 @@
 module SrcLoc where
 
-import Data.List
+import RIO
+
+import RIO.List
 
 data SrcLoc = SrcLoc FilePath !Int !Int deriving (Show, Eq)
 mkSrcLoc :: FilePath -> SrcLoc

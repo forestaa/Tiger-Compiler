@@ -3,6 +3,8 @@
 
 module Lexer.Monad where
 
+import RIO
+
 import Data.Word (Word8)
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Internal as B (w2c)

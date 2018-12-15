@@ -1,5 +1,8 @@
 module Tiger.Test where
 
+import RIO
+import System.IO
+
 import qualified Data.ByteString.Lazy as B
 import Control.Monad.Except
 

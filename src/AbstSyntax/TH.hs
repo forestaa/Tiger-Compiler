@@ -2,9 +2,10 @@
 
 module AbstSyntax.TH where
 
-import Data.List
-import Control.Monad
-import Control.Arrow
+import RIO
+
+-- import Data.List
+import RIO.List
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
@@ -16,9 +17,8 @@ mkFAbstSyntax :: Name -> Name -> Q [Dec]
 mkFAbstSyntax f syntax = do
   finfo <- reify f
   case finfo of
-    TyConI (DataD _ _ vars _ cons _) -> do
-      when (length vars /= 1 && length cons /= 1) $ fail ("mkFAbstSyntax: The functor should have only one type argument and only one constructor: " ++ show f)
-      mkFAbstSyntaxDefs f syntax (head cons)
+    TyConI (DataD _ _ [_] _ [con] _) -> mkFAbstSyntaxDefs f syntax con
+    TyConI (DataD _ _ _ _ _ _) -> fail ("mkFAbstSyntax: The functor should have only one type argument and only one constructor: " ++ show f)
     a -> fail $ "mkFAbstSyntax: This pattern is not implemented"  ++ show a
 
 

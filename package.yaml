@@ -21,9 +21,17 @@ description:         Please see the README on Github at <https://github.com/fore
 
 dependencies:
 - base >= 4.7 && < 5
-- containers
 - bytestring
+- containers
+- lens
 - mtl
+- rio
+
+default-extensions:
+- DataKinds
+- NoImplicitPrelude
+- OverloadedLabels
+- TypeOperators
 
 library:
   source-dirs: src
@@ -34,6 +42,12 @@ library:
   - array
   - extensible
   - template-haskell
+  ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wredundant-constraints
+  - -fno-warn-unticked-promoted-constructors
 
 
 executables:
