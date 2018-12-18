@@ -5,9 +5,6 @@ module Tiger.Syntax where
 import RIO
 
 import Env
--- import SrcLoc
-
-
 
 data Exp =
   -- literals

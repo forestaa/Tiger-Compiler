@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 121750b6b91b0a847346df11d98defa7aa5e42d4fcda59e17246a5b22555e8ac
+-- hash: c7d57a296f31a8650a2a9cbbe8750a500d2b66cb686cc71f23dc38d15b68b56e
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -16,10 +18,9 @@ copyright:      2017 Daichi Morita
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
-    ChangeLog.md
     README.md
+    ChangeLog.md
 
 source-repository head
   type: git

@@ -1,51 +1,73 @@
-{-# LANGUAGE DataKinds #-}
+{-@ LIQUID "--exactdc" @-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Env where
+module Env (
+  Id,
+  LId,
+  unLId,
+  Env,
+  EnvX,
+  empty,
+  insert,
+  Env.lookup,
+  beginScope,
+  endScope,
+) where
 
-
-import Control.Monad.Except
-import Control.Lens ((.~), (%~))
-import Data.Extensible
-
-import RIO
-import qualified RIO.List as L
+import RIO hiding (lookup)
 import qualified RIO.Map as Map
 
 import SrcLoc
 
 
-
 type Id = String
-type LId = RealLocated String
+type LId = RealLocated Id
 unLId :: LId -> Id
 unLId (L _ id) = id
 
-type EnvError = String
-data EnvOp = BeginScope | Push Id deriving (Eq, Show)
-newtype Env a = Env (Record '["stack" :> [EnvOp], "env" :> Map.Map Id [a]]) deriving (Eq, Show)
 
+data ScopeOp = Begin | Push Id deriving (Eq, Show)
+data Env a = Env { stack :: [ScopeOp], env :: Map.Map Id [a]} deriving (Eq, Show)
+{-@ data Env a = Env { stack :: [ScopeOp], env :: (Map Id { v: [a] | len v > 0 })} @-}
+{-@ type NEEnv a = {e: Env a | scopeNum e > 0} @-}
+{-@ type EnvN a N = {e: Env a | scopeNum e = N} @-}
+{-@ type EnvX a E = {e: Env a | scopeNum e = scopeNum E} @-}
+type EnvX a e = Env a
+
+{-@ measure beginNum @-}
+{-@ beginNum :: s: [ScopeOp] -> {v: Nat | (v <= len s) && (len s > 0 && head s == Begin => v == 1 + beginNum (tail s)) && (len s > 0 && not (head s == Begin) => v == beginNum (tail s)) && (len s == 0 => v == 0) } @-}
+beginNum :: [ScopeOp] -> Int
+beginNum [] = 0
+beginNum (Begin:xs) = 1 + beginNum xs
+beginNum (_:xs) = beginNum xs
+{-@ measure scopeNum @-}
+{-@ scopeNum :: e: Env a -> {n: Nat | n == beginNum (stack e) } @-}
+scopeNum :: Env a -> Int
+scopeNum (Env s _) = beginNum s
+
+{-@ empty :: EnvN a 0 @-}
 empty :: Env a
-empty = Env $ #stack @= [] <: #env @= Map.empty <: nil
+empty = Env [] Map.empty
 
-insert :: LId -> a -> Env a -> Env a
-insert (L _ id) a (Env env) = Env $ env & #stack %~ (:) (Push id) & #env %~ Map.adjust ((:) a) id
+{-@ insert :: Id -> a -> e:Env a -> EnvN a {scopeNum e} @-}
+insert :: Id -> a -> Env a -> Env a
+insert id a (Env s e) = Env { stack = Push id : s, env = Map.adjust ((:) a) id e }
 
-lookup :: MonadError EnvError m => LId -> Env a -> m a
-lookup (L loc id) (Env env) = case (env ^. #env) Map.!? id of
-  Just [] -> throwError $ concat [show loc, ": not in scope: ", show id]
+lookup :: Id -> Env a -> Maybe a
+lookup id (Env _ e) = case Map.lookup id e of
   Just (a:_) -> return a
-  Nothing -> throwError $ show loc ++ ": undefined: " ++ show id
+  Nothing -> Nothing
 
+{-@ beginScope :: e: Env a -> EnvN a {1 + scopeNum e} @-}
 beginScope :: Env a -> Env a
-beginScope (Env env) = Env $ env & #stack %~ (:) BeginScope
+beginScope e = e { stack = Begin : stack e }
 
-endScope :: MonadError EnvError m => Env a -> m (Env a)
-endScope = return
--- endScope (Env env) = case L.uncons (env ^. #stack) of
---     Just ((Push id), stack) -> case L.tailMaybe ((env ^. #env) Map.!? id) of
---         Just rest -> endScope . Env $ env & #stack .~ stack & #env %~ Map.adjust (const rest) id
+{-@ endScope :: e: NEEnv a -> EnvN a {scopeNum e - 1} / [len (stack e)] @-}
+endScope :: Env a -> Env a
+endScope (Env (Push id:rest) e) = endScope $ Env rest (Map.update pop id e)
+  where
+    pop []  = Nothing
+    pop [_] = Nothing
+    pop (_:as) = Just as
+endScope (Env (Begin:rest) e) = Env rest e
 
--- endScope :: Env a -> Env a
--- endScope (Env []) = Env []
--- endScope (Env (_:envs)) = Env envs
