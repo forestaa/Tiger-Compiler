@@ -3,7 +3,7 @@
 
 module Tiger.LSyntax where
 
-import Env
+import Id
 import SrcLoc
 
 import qualified Tiger.Syntax as S

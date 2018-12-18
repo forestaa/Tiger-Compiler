@@ -4,7 +4,7 @@ module Tiger.Syntax where
 
 import RIO
 
-import Env
+import Id
 
 data Exp =
   -- literals

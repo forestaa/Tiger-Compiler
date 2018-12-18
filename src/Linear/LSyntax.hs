@@ -2,7 +2,7 @@
 
 module Linear.LSyntax where
 
-import Env
+import Id
 import SrcLoc
 
 import AbstSyntax.TH

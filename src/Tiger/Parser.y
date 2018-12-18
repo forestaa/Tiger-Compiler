@@ -3,7 +3,7 @@ module Tiger.Parser where
 
 import Prelude hiding (GT, EQ, LT)
 
-import Env
+import Id
 import SrcLoc
 import Lexer.Monad
 

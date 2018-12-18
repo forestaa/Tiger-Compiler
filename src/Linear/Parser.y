@@ -4,7 +4,7 @@ module Linear.Parser where
 import RIO
 import RIO.List.Partial ((!!))
 
-import Env
+import Id
 import SrcLoc
 import Lexer.Monad
 

@@ -2,7 +2,7 @@ module Linear.Syntax where
 
 import RIO
 
-import Env
+import Id
 
 data Stm = CompoundStm Stm Stm
          | AssignStm Id Exp

@@ -2,9 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Env (
-  Id,
-  LId,
-  unLId,
   Env,
   EnvX,
   empty,
@@ -17,13 +14,7 @@ module Env (
 import RIO hiding (lookup)
 import qualified RIO.Map as Map
 
-import SrcLoc
-
-
-type Id = String
-type LId = RealLocated Id
-unLId :: LId -> Id
-unLId (L _ id) = id
+import Id
 
 
 data ScopeOp = Begin | Push Id deriving (Eq, Show)
