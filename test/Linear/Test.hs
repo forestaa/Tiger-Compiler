@@ -4,9 +4,6 @@ import RIO
 import System.IO
 
 import qualified Data.ByteString.Lazy as B
--- import qualified Data.Map.Strict as M
-import qualified RIO.Map as Map
--- import Control.Monad
 
 import Lexer.Monad
 
@@ -32,5 +29,5 @@ evalTest = do
   let file = "test/Linear/samples/test.ln"
   bs <- B.readFile file
   case runP parser file bs of
-    Right ast -> void $ run Map.empty (unLStm ast)
+    Right ast -> void $ runInit (unLStm ast)
     Left msg -> print msg

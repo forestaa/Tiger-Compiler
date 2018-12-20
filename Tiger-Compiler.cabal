@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b13bb8b5b6925be07ec60c1859b7139eb26717ec93f02e74e9d3fe66f0f66d3c
+-- hash: 8b2d4a2f9075cd482208e81a5cf5d5c98768983d53bceb5919e889c9c926eb85
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -29,8 +29,8 @@ source-repository head
 library
   hs-source-dirs:
       src
-  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeApplications TypeOperators
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
   build-depends:
       array
     , base >=4.7 && <5
@@ -70,7 +70,7 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -89,7 +89,7 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
-  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeOperators
+  default-extensions: DataKinds NoImplicitPrelude OverloadedLabels TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler

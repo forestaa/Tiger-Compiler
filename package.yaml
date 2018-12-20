@@ -31,6 +31,7 @@ default-extensions:
 - DataKinds
 - NoImplicitPrelude
 - OverloadedLabels
+- TypeApplications
 - TypeOperators
 
 library:
@@ -48,6 +49,7 @@ library:
   - -Wincomplete-record-updates
   - -Wredundant-constraints
   - -fno-warn-unticked-promoted-constructors
+  - -fno-warn-name-shadowing
 
 
 executables:

@@ -1,7 +1,6 @@
 module Linear.Syntax where
 
 import RIO
-
 import Id
 
 data Stm = CompoundStm Stm Stm
