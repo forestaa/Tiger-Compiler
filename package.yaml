@@ -30,8 +30,10 @@ dependencies:
 default-extensions:
 - DataKinds
 - GeneralizedNewtypeDeriving
+- FlexibleContexts
 - NoImplicitPrelude
 - OverloadedLabels
+- PolyKinds
 - TupleSections
 - TypeApplications
 - TypeOperators
