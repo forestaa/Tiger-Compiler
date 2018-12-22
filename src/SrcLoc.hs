@@ -32,7 +32,7 @@ combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
 -- data RealLocated e = L RealSrcSpan e deriving (Show, Eq)
 data RealLocated e = L RealSrcSpan e deriving (Eq)
 instance Show e => Show (RealLocated e) where
-  show (L _ e) = show e
+  show (L loc e) = locatedMessage loc $ show e
 
 unLoc :: RealLocated a -> a
 unLoc (L _ a) = a
@@ -42,3 +42,6 @@ sL1 (L span1 _) = L span1
 
 sL2 :: RealLocated a -> RealLocated b -> c -> RealLocated c
 sL2 (L span1 _) (L span2 _) = L (combineRealSrcSpan span1 span2)
+
+locatedMessage :: RealSrcSpan -> String -> String
+locatedMessage loc message = concat [show loc, ": ", message]
