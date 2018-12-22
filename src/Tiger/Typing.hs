@@ -213,7 +213,16 @@ typingFieldAssign :: T.LFieldAssign -> Typing (Id, Type)
 typingFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> typingExp e
 
 typingDec :: T.LDec -> Typing ()
--- typingDec (L loc (T.FunDec _ _ _ _)) = throwError . L loc $ NotImplemented
+typingDec (L loc (T.FunDec (L _ id) args (Just retid) body)) = do
+  argsty <- mapM typingField args 
+  retty <- lookupTypeId retid
+  modifyEff #var (E.insert id . Fun $ #domains @= snd <$> argsty <: #codomain @= retty <: nil)
+  modifyEff #var E.beginScope
+  modifyEff #var (\e -> foldr (\(id, ty) -> E.insert id (Var ty)) e argsty)
+  bodyty <- typingExp body
+  if bodyty == retty
+    then modifyEff #var E.endScope >> return ()
+    else throwError . L loc $ NotImplemented
 typingDec (L loc (T.VarDec (L _ id) (Just typeid) e)) = do
   ty <- lookupTypeId typeid
   ty' <- typingExp e
