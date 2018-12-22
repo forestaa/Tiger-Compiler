@@ -11,6 +11,7 @@ import Lexer.Monad
 import Tiger.LSyntax
 import Tiger.Lexer
 import Tiger.Parser
+import Tiger.Typing
 
 
 test :: IO ()
@@ -20,20 +21,28 @@ test = testAll
 testAll :: IO ()
 testAll = runExceptT (traverse test1 testcases) >>= print
 
-test1 :: FilePath -> ExceptT String IO LExp
+test1 :: FilePath -> ExceptT String IO ()
 test1 file = do
-  ExceptT $ scannerTest file
-  ExceptT $ parserTest file
+  -- scannerTest file
+  e <- parserTest file
+  ty <- liftEither $ typingTest e
+  liftIO . putStrLn $ concat ["file: ", show file, ", type = ", show ty]
+    
 
-scannerTest :: FilePath -> IO (Either String [Lexeme])
+
+scannerTest :: FilePath -> ExceptT String IO [Lexeme]
 scannerTest file = do
-  bs <- B.readFile file
-  return $ scanner file bs
+  bs <- liftIO $ B.readFile file
+  liftEither $ scanner file bs
 
-parserTest :: FilePath -> IO (Either String LExp)
+-- parserTest :: FilePath -> IO (Either String LExp)
+parserTest :: FilePath -> ExceptT String IO LExp
 parserTest file = do
-  bs <- B.readFile file
-  return $ runP parser file bs
+  bs <- liftIO $ B.readFile file
+  liftEither $ runP parser file bs
+
+typingTest :: LExp -> Either String Type
+typingTest e = mapLeft show . runTyping $ typingExp e
 
 testcases :: [FilePath]
 testcases = (++) <$> (("test/Tiger/samples/test" ++) <$> cases) <*> [".tig"]
