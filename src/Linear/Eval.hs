@@ -14,22 +14,27 @@ runIODef :: Eff '[IODef] r -> IO r
 runIODef = retractEff
 
 type EnvL = E.Env Int
-run :: EnvL -> Stm -> IO (Either String (), EnvL)
-run env stm = runIODef $ runStateEff @ "env" (runEitherDef $ eval stm) env
+type Output = [String]
+run :: EnvL -> Stm -> (Either String (), Output)
+run env stm = leaveEff . flip (runStateEff @"output") [] $ flip (evalStateEff @"env") env . runEitherDef $ eval stm
 
-runInit :: Stm -> IO (Either String (), EnvL)
+runInit :: Stm -> (Either String (), Output)
 runInit = run E.empty
 
-eval :: Stm -> Eff '[EitherDef String, "env" >: State EnvL, IODef] ()
+-- evalInit :: Stm -> (Either String ())
+-- evalInit = fmap fst . run E.empty
+
+eval :: Stm -> Eff '[EitherDef String, "env" >: State EnvL, "output" >: State Output] ()
 eval (CompoundStm s s') = eval s >> eval s'
 eval (AssignStm x e) = do
   v <- evalExp e
   modifyEff #env (E.insert x v)
 eval (PrintStm es) = do
   vs <- mapM evalExp es
-  liftIO $ print vs
+  modifyEff #output $ flip (++) (map show vs)
+  -- liftIO $ print vs
 
-evalExp :: Exp -> Eff '[EitherDef String, "env" >: State EnvL, IODef] Int
+evalExp :: Exp -> Eff '[EitherDef String, "env" >: State EnvL, "output" >: State Output] Int
 evalExp (Id x) = do
   env <- getEff #env
   case E.lookup x env of
@@ -46,4 +51,3 @@ evalExp (ESeq stm e) = do
   v <- evalExp e
   modifyEff #env E.endScope
   return v
-

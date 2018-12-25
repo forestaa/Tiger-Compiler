@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4be48b04f2edf427cee9fb82e9b25bc51362eb725f11d54e7658612daa46e17c
+-- hash: 7e7ab86a27aaefb84596caed09218606dd83c62aff5345ffbba196c6f46b115b
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -96,11 +96,16 @@ test-suite compiler-test
     , base >=4.7 && <5
     , bytestring
     , containers
+    , hspec
     , lens
     , mtl
     , rio
   other-modules:
-      Linear.Test
-      Tiger.Test
+      Linear.EvalSpec
+      Linear.LexerSpec
+      Linear.ParserSpec
+      Tiger.LexerSpec
+      Tiger.ParserSpec
+      Tiger.TypingSpec
       Paths_Tiger_Compiler
   default-language: Haskell2010

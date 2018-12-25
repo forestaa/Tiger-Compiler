@@ -1,0 +1,8 @@
+/* invalid mutually recursive type declaration */
+let
+  type a = int
+  type b = c
+  type c = b
+in
+  1
+end
