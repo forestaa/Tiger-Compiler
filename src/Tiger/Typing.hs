@@ -60,25 +60,28 @@ data TypingError = VariableUndefined Id
                  | VariableMismatchedWithDeclaredType Id Type Type
                  | TypeUndefined Id
                  | ExpectedType T.LExp Type Type
+                 | ExpectedTypes [T.LExp] [Type] [Type]
                  | ExpectedUnitType T.LExp Type
                  | ExpectedIntType T.LExp Type
                  | ExpectedRecordType T.LValue Type
                  | ExpectedArrayType T.LValue Type
                  | MissingRecordField T.LValue Type Id
                  | InvalidRecTypeDeclaration [T.LDec]
-                 | NotImplemented
+                 | NotImplemented String
 instance Show TypingError where
   show (VariableUndefined id) = "undefined variable: " ++ show id
   show (VariableMismatchedWithDeclaredType id ty ty') = concat ["Couldn't match type: expression doesn't match with declared type: id = ", show id, ", declared type: ", show ty, ", actual type: ", show ty']
   show (TypeUndefined id) = "undefined type: " ++ show id
   show (ExpectedType (L _ e) ty ty') = concat ["Couldn't mach type: ", show ty, " type expected: exp = ", show e, ", actual type = ", show ty']
+  show (ExpectedTypes es types types') = concat [
+    "Couldn't match types: ", show types, " exptected: exps = ", show es, ", actual types = ", show types']
   show (ExpectedUnitType (L _ e) ty) = concat ["Couldn't match type: unit type expected: exp = ", show e, ", actual type: ", show ty]
   show (ExpectedIntType (L _ e) ty) = concat ["Couldn't match type: int type expected: exp = ", show e, ", actual type: ", show ty]
   show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
   show (MissingRecordField (L _ v) ty id) = concat ["Record field missing: value = ", show v, ", type = ", show ty, ", field = ", show id]
   show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations", show decs]
-  show NotImplemented = "not implemented"
+  show (NotImplemented msg) = "not implemented: " ++ msg
 
 runTyping :: Typing a -> Either (RealLocated TypingError) a
 runTyping = leaveEff . runEitherDef . flip (evalStateEff @"id") 0 . evalVEnvEff . evalTEnvEff
@@ -158,7 +161,7 @@ typingExp (L loc (T.RecordCreate typeid fields)) = do
     TRecord r -> do
       let m = Map.toList $ r ^. #map
       fieldsty <- mapM typingFieldAssign fields
-      whenM (comp m fieldsty) $ throwError . L loc $ NotImplemented
+      whenM (comp m fieldsty) $ throwError . L loc $ NotImplemented ""
       return ty
     _ -> throwError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
@@ -177,10 +180,11 @@ typingExp (L loc (T.FunApply func args)) = do
   case v of
     Fun ty -> do
       argsty <- mapM typingExp args
-      if argsty == ty ^. #domains
-        then return $ ty ^. #codomain
-        else throwError . L loc $ NotImplemented
-    Var _ -> throwError . L loc $ NotImplemented
+      domains <- mapM skipName $ ty ^. #domains
+      if argsty == domains
+        then skipName $ ty ^. #codomain
+        else throwError . L loc $ ExpectedTypes args domains argsty
+    Var _ -> throwError . L loc $ NotImplemented "2"
 typingExp (L _ (T.Op left _ right)) = do
   checkInt left
   checkInt right
@@ -191,14 +195,14 @@ typingExp (L loc (T.Assign var exp)) = do
   expty <- typingExp exp
   if varty == expty
     then return TUnit
-    else throwError . L loc $ NotImplemented
+    else throwError . L loc $ NotImplemented "3"
 typingExp (L loc (T.If bool then' (Just else'))) = do
   checkInt bool
   thenty <- typingExp then'
   elsety <- typingExp else'
   if thenty == elsety
     then return thenty
-    else throwError . L loc $ NotImplemented
+    else throwError . L loc $ NotImplemented "4"
 typingExp (L loc (T.If bool then' Nothing)) = do
   checkInt bool
   thenty <- typingExp then'
@@ -217,7 +221,7 @@ typingExp (L loc (T.For (L _ id) from to body)) = do
     bodyty <- typingExp body 
     if bodyty == TUnit
       then return TUnit
-      else throwError . L loc $ NotImplemented
+      else throwError . L loc $ NotImplemented "5"
 typingExp (L _ T.Break) = return TUnit
 typingExp (L loc (T.Let decs body)) = do
   let (typedecs, rest) = List.partition isTypeDec decs
@@ -230,11 +234,15 @@ typingExp (L loc (T.Let decs body)) = do
   withTEnvScope $ do
     zipM_ (\lid ty -> insertType (unLId lid) ty) typenames types
     withVEnvScope $ do
+      let fundecs = List.filter isFunDec rest
+      mapM_ insertFunEntry fundecs
       mapM_ typingDec rest
       typingExp body
   where
     isTypeDec (L _ (T.TypeDec _ _)) = True
     isTypeDec _ = False
+    isFunDec (L _ (T.FunDec _ _ _ _)) = True
+    isFunDec _ = False
     name (L _ (T.TypeDec lid _)) = lid
     zipM_ _ [] _ = return ()
     zipM_ _ _ [] = return ()
@@ -274,7 +282,7 @@ typingValue (L loc (T.Id id)) = do
   var <- lookupVarId id
   case var of
     Var ty -> return ty -- neccesary to consider the case of NAME type
-    Fun ty -> throwError . L loc $ NotImplemented
+    Fun ty -> throwError . L loc $ NotImplemented "6"
 typingValue (L loc (T.RecField v (L _ field))) = do
   ty <- typingValue v
   case ty of
@@ -293,19 +301,25 @@ typingValue (L loc (T.ArrayIndex v e)) = do
 typingFieldAssign :: T.LFieldAssign -> Typing (Id, Type)
 typingFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> typingExp e
 
+insertFunEntry :: T.LDec -> Typing ()
+insertFunEntry (L _ (T.FunDec (L _ id) args ret _)) = insertVar id . Fun $ #domains @= map (TName . typeid) args <: #codomain @= retty <: nil
+  where
+    typeid (L _ (T.Field _ id)) = id
+    retty = case ret of
+      Just retid -> TName retid
+      Nothing -> TUnit
+
 typingDec :: T.LDec -> Typing (Maybe Type)
-typingDec (L loc (T.FunDec (L _ id) args (Just retid) body)) = do
+typingDec (L loc (T.FunDec _ args ret body)) = do
   argsty <- mapM typingField args 
-  retty <- lookupTypeId retid
-  insertVar id . Fun $ #domains @= snd <$> argsty <: #codomain @= retty <: nil
+  retty <- maybe (return TUnit) lookupTypeId ret
   withVEnvScope $ do
-    -- modifyEff #var (\e -> foldr (\(id, ty) -> E.insert id (Var ty)) e argsty)
     mapM_ (\(id, ty) -> insertVar id (Var ty)) argsty
     bodyty <- typingExp body
     if bodyty == retty
       then return Nothing
-      else throwError . L loc $ NotImplemented
-typingDec (L loc (T.FunDec (L _ id) args (Nothing) body)) = throwError . L loc $ NotImplemented
+      -- else throwError . L loc $ NotImplemented "8"
+      else throwError . L loc $ ExpectedType body retty bodyty
 typingDec (L loc (T.VarDec (L _ id) (Just typeid) e)) = do
   ty <- lookupTypeId typeid >>= skipName
   -- traceM (tshow ty)
