@@ -12,7 +12,7 @@ import qualified Data.ByteString.Lazy as B
 import Control.Monad.Except
 
 spec :: Spec
-spec = do
+spec =
   describe "parser test" $ do
     it "samples/test**.tig" $ do
       let cases = ((:) '0' . show <$> [1..9]) ++ (map show [10..48])

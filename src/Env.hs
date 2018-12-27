@@ -5,11 +5,11 @@ module Env (
   lookup,
   beginScope,
   endScope,
+  withEnvScope,
 ) where
 
 import RIO hiding (lookup)
 import qualified RIO.Map as Map
-import qualified RIO.List.Partial as List
 
 import Control.Lens ((.~), (%~))
 import Data.Extensible
@@ -33,7 +33,6 @@ lookup :: (Show a) => Id -> Env a -> Maybe a
 lookup id (Env env) = case (env ^. #env) Map.!? id of
   Just (a:_) -> return a
   Nothing -> Nothing
-  -- _ -> trace (tshow id) Nothing >> trace (tshow env) Nothing
 
 beginScope :: Env a -> Env a
 beginScope (Env env) = Env $ env & #stack %~ (:) Begin
@@ -45,3 +44,10 @@ endScope (Env env) = case env ^. #stack of
   where
     pop [a] = Nothing
     pop (_:as) = Just as
+
+withEnvScope :: Associate k (State (Env a)) xs => Proxy k -> Eff xs b -> Eff xs b
+withEnvScope k t = do
+  modifyEff k beginScope
+  a <- t
+  modifyEff k endScope
+  return a

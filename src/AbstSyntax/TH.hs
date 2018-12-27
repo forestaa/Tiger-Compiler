@@ -3,9 +3,8 @@
 module AbstSyntax.TH where
 
 import RIO
+import qualified RIO.List as List
 
--- import Data.List
-import RIO.List
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
@@ -101,10 +100,10 @@ mkUnFClause fcon con = do
 
 mkUnFPatExp :: Con -> Q (Pat, Exp)
 mkUnFPatExp (NormalC con args) = do
-  (pats, exps) <- unzip <$> traverse (mkUnFPatExpUnit . snd) args
+  (pats, exps) <- List.unzip <$> traverse (mkUnFPatExpUnit . snd) args
   return (ConP (mkName $ nameBase con) pats, foldl' AppE (ConE con) exps)
 mkUnFPatExp (RecC con args) = do
-  (pats, exps) <- unzip <$> traverse (mkUnFPatExpUnit . thd) args
+  (pats, exps) <- List.unzip <$> traverse (mkUnFPatExpUnit . thd) args
   return (ConP (mkName $ nameBase con) pats, foldl' AppE (ConE con) exps)
   where
     thd (_,_,z) = z

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: eed97d867991dd292e59dfee820d935047a9af4f44469e8dd770c24112581bcf
+-- hash: 6f36b8974fcc4a737d9664858e234c73e9cbbc214846dcda24d78f3748bb7a3c
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -56,7 +56,6 @@ library
       Linear.Parser
       Linear.Syntax
       SrcLoc
-      Tiger.Eval
       Tiger.Lexer
       Tiger.LSyntax
       Tiger.Parser

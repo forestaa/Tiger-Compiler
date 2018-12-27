@@ -1,7 +1,5 @@
 module Tiger.Typing where
 
-
-
 import RIO
 import qualified RIO.List as List
 import qualified RIO.Map as Map
@@ -126,16 +124,10 @@ insertType :: Id -> Type -> Typing ()
 insertType id ty = modifyEff #type $ E.insert id ty
 insertVar :: Id -> Var -> Typing ()
 insertVar id v = modifyEff #var $ E.insert id v
-withEnvScope :: Associate k (State (E.Env a)) xs => Proxy k -> Eff xs b -> Eff xs b
-withEnvScope k t = do
-  modifyEff k E.beginScope
-  a <- t
-  modifyEff k E.endScope
-  return a
 withTEnvScope :: Typing a -> Typing a
-withTEnvScope = withEnvScope #type
+withTEnvScope = E.withEnvScope #type
 withVEnvScope :: Typing a -> Typing a
-withVEnvScope = withEnvScope #var
+withVEnvScope = E.withEnvScope #var
 
 checkInt :: T.LExp -> Typing ()
 checkInt e@(L loc _) = do

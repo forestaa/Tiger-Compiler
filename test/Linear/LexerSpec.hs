@@ -7,8 +7,8 @@ import RIO
 import qualified Data.ByteString.Lazy as B
 
 spec :: Spec
-spec = do
-  describe "lexer test" $ do
+spec =
+  describe "lexer test" $
     it "samples/test.ln" $ do
       let file = "test/Linear/samples/test.ln"
       bs <- B.readFile file
