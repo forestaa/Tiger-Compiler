@@ -7,6 +7,7 @@ import qualified RIO.List as List
 import qualified RIO.Map as Map
 import qualified RIO.Set as Set
 
+import Control.Monad.Cont
 import Control.Monad.State (modify, gets)
 import Control.Monad.Except
 import Control.Lens ((.~))
@@ -166,11 +167,10 @@ typingExp (L loc (T.RecordCreate typeid fields)) = do
     TRecord r -> do
       let m = Map.toList $ r ^. #map
       fieldsty <- mapM typingFieldAssign fields
-      whenM (comp m fieldsty) $ throwError . L loc $ NotImplemented ""
+      whenM (comp m fieldsty) $ throwError . L loc $ NotImplemented "1"
       return ty
     _ -> throwError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
-    --TODO: needs test
     comp [] [] = return True
     comp ((id, TName tyid):as) bs = do
       ty <- skipName (TName tyid)
@@ -244,7 +244,6 @@ typingExp (L loc (T.Let decs body)) = do
   let (typedecs, rest) = List.partition isTypeDec decs
   let typenames = map name typedecs
   checkInvalidRecType loc typedecs
-    --TODO: take care of array or one field record, which leads to ill-defined type
   types <- withTEnvScope $ do
     mapM_ (\lid -> insertType (unLId lid) (TName lid)) typenames
     mapM (fmap (fromMaybe TNil) . typingDec) typedecs
@@ -271,31 +270,19 @@ checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L l
     runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
 checkSameNameDec' :: [T.LDec] -> Eff '["type" >: State (Set.Set Id), "var" >: State (Set.Set Id), "func" >: State (Set.Set Id)] Bool
 checkSameNameDec' [] = return True
-checkSameNameDec' (L _ (T.FunDec (L _ id) _ _ _):decs) = do
-  b <- getsEff #func (Set.member id)
-  if b
-    then return False
-    else do
-      c <- getsEff #var (Set.member id)
-      if c
-        then return False
-        else do
-          modifyEff #func (Set.insert id)
-          checkSameNameDec' decs
-checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = do
-  b <- getsEff #func (Set.member id)
-  if b
-    then return False
-    else do
-      modifyEff #var (Set.insert id)
-      checkSameNameDec' decs
-checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = do
-  b <- getsEff #type (Set.member id)
-  if b
-    then return False
-    else do
-      modifyEff #type (Set.insert id)
-      checkSameNameDec' decs
+checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = (`runContT` return) . callCC $ \exit -> do
+  lift (getsEff #func (Set.member id)) >>= bool (return True) (exit False)
+  lift (getsEff #var (Set.member id)) >>= bool (return True) (exit False)
+  lift $ modifyEff #func (Set.insert id)
+  lift $ checkSameNameDec' decs
+checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = (`runContT` return) . callCC $ \exit -> do
+  lift (getsEff #func (Set.member id)) >>= bool (return True) (exit False)
+  lift $ modifyEff #var (Set.insert id)
+  lift $ checkSameNameDec' decs
+checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = (`runContT` return) . callCC $ \exit -> do
+  lift (getsEff #type (Set.member id)) >>= bool (return True) (exit False)
+  lift $ modifyEff #type (Set.insert id)
+  lift $ checkSameNameDec' decs
 checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Typing ()
 checkInvalidRecType loc decs = do
   res <- mapM runCheckInvalidRecType ids
@@ -308,22 +295,15 @@ checkInvalidRecType loc decs = do
     ids = map fst idtypes
     runCheckInvalidRecType = flip  evalStateDef Set.empty . flip runReaderDef (Map.fromList idtypes) . checkInvalidRecType'
 checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, "id" >: State Int, EitherDef (RealLocated TypingError)] Bool
-checkInvalidRecType' id = do
-  b <- gets (Set.member id)
-  if b
-    then return False
-    else do
-      decs <- ask
-      case decs Map.!? id of
-        Just (L _ (T.TypeId (L _ id'))) -> do
-          m <- getsEff #type (E.lookup id')
-          case m of
-            Just _ -> return True
-            Nothing -> do
-              modify (Set.insert id)
-              checkInvalidRecType' id'
-        _ -> return True
-
+checkInvalidRecType' id = (`runContT` return) . callCC $ \exit -> do
+  lift (gets (Set.member id)) >>= bool (return True) (exit False)
+  decs <- ask
+  case decs Map.!? id of
+    Just (L _ (T.TypeId (L _ id'))) -> do
+      lift (getsEff #type (isJust . E.lookup id')) >>= bool (return True) (exit True)
+      lift $ modify (Set.insert id)
+      lift $ checkInvalidRecType' id'
+    _ -> return True
 
 typingValue :: T.LValue -> Typing Type
 typingValue (L loc (T.Id id)) = do
@@ -366,11 +346,9 @@ typingDec (L loc (T.FunDec _ args ret body)) = do
     bodyty <- typingExp body
     if bodyty == retty
       then return Nothing
-      -- else throwError . L loc $ NotImplemented "8"
       else throwError . L loc $ ExpectedType body retty bodyty
 typingDec (L loc (T.VarDec (L _ id) (Just typeid) e)) = do
   ty <- lookupTypeId typeid >>= skipName
-  -- traceM (tshow ty)
   ty' <- typingExp e
   if ty <= ty' -- opposite to subtyping
     then modifyEff #var (E.insert id (Var ty)) >> return Nothing
