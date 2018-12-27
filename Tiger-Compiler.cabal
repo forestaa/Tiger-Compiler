@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7e7ab86a27aaefb84596caed09218606dd83c62aff5345ffbba196c6f46b115b
+-- hash: eed97d867991dd292e59dfee820d935047a9af4f44469e8dd770c24112581bcf
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -29,7 +29,7 @@ source-repository head
 library
   hs-source-dirs:
       src
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
   build-depends:
       array
@@ -70,7 +70,7 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -89,7 +89,7 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler

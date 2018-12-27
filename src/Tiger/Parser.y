@@ -87,11 +87,11 @@ exp :: { LExp }
   | 'string'                              { sL1 $1 . String $ retrieveSTRING $1 }
 
   | 'id' '[' exp ']' 'of' exp             { sL2 $1 $6 $ ArrayCreate (retrieveID $1) $3 $6 }
-  | 'id' '{' fieldassigns '}'             { sL2 $1 $4 $ RecordCreate (retrieveID $1) (reverse $3) }
+  | 'id' '{' fieldassigns '}'             { sL2 $1 $4 $ RecordCreate (retrieveID $1) $3 }
 
   | lvalue                                { sL1 $1 $ Var $1 }
 
-  | 'id' '(' args ')'                     { sL2 $1 $4 $ FunApply (retrieveID $1) (reverse $3) }
+  | 'id' '(' args ')'                     { sL2 $1 $4 $ FunApply (retrieveID $1) $3 }
 
   | '-' exp     %prec UMINUS              { sL2 $1 $2 $ Op (sL1 $1 $ Int 0) (sL1 $1 Minus) $2 }
   | exp '+' exp                           { sL2 $1 $3 $ Op $1 (sL1 $2 Plus) $3 }
@@ -115,12 +115,12 @@ exp :: { LExp }
   | 'while' exp 'do' exp                  { sL2 $1 $4 $ While $2 $4 }
   | 'for' 'id' ':=' exp 'to' exp 'do' exp { sL2 $1 $8 $ For (retrieveID $2) $4 $6 $8 }
   | 'break'                               { sL1 $1 Break }
-  | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let (reverse $2) (sL2 $3 $5 $ Seq (reverse $4)) }
+  | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let $2 (sL2 $3 $5 $ Seq $4) }
 
 fieldassigns :: { [LFieldAssign] }
   : {- empty -}                           { [] }
   | 'id' '=' exp                          { [sL2 $1 $3 $ FieldAssign (retrieveID $1) $3] }
-  | fieldassigns ',' 'id' '=' exp         { (sL2 $3 $5 $ FieldAssign (retrieveID $3) $5) : $1 } -- left recursion
+  | fieldassigns ',' 'id' '=' exp         { foldr (:) [sL2 $3 $5 $ FieldAssign (retrieveID $3) $5] $1 } -- left recursion
 
 
 -- prevent shift/reduce conflict
@@ -152,18 +152,18 @@ lvalue_array :: { LValue }
 args :: { [LExp] }
   : {- empty -}          { [] }
   | exp                  { [$1] }
-  | args ',' exp         { $3 : $1 } -- left recursion
+  | args ',' exp         { foldr (:) [$3] $1 } -- left recursion
 
 decs :: { [LDec] }
   : {- empty -}          { [] }
-  | decs dec             { $2 : $1 } -- left recursion
+  | decs dec             { foldr (:) [$2] $1 } -- left recursion
 
 dec :: { LDec }
   : 'type' 'id' '=' type                               { sL2 $1 $4 $ TypeDec (retrieveID $2) $4 }
   | 'var' 'id' ':' 'id' ':=' exp                       { sL2 $1 $6 $ VarDec (retrieveID $2) (Just (retrieveID $4)) $6 }
   | 'var' 'id' ':=' exp                                { sL2 $1 $4 $ VarDec (retrieveID $2) Nothing $4 }
   | 'function' 'id' '(' tyfields ')' ':' 'id' '=' exp  { sL2 $1 $9 $ FunDec (retrieveID $2) $4 (Just $ retrieveID $7) $9 }
-  | 'function' 'id' '(' tyfields ')' '=' exp           { sL2 $1 $7 $ FunDec (retrieveID $2) (reverse $4) Nothing $7 }
+  | 'function' 'id' '(' tyfields ')' '=' exp           { sL2 $1 $7 $ FunDec (retrieveID $2) $4 Nothing $7 }
 
 type :: { LType }
   : 'id'                 { sL1 $1 . TypeId $ retrieveID $1 }
@@ -173,12 +173,12 @@ type :: { LType }
 tyfields :: { [LField] }
   : {- empty -}                { [] }
   | 'id' ':' 'id'              { [sL2 $1 $3 $ Field (retrieveID $1) (retrieveID $3)] }
-  | tyfields ',' 'id' ':' 'id' { (sL2 $3 $5 $ Field (retrieveID $3) (retrieveID $5) ) : $1} -- left recursion
+  | tyfields ',' 'id' ':' 'id' { foldr (:) [sL2 $3 $5 $ Field (retrieveID $3) (retrieveID $5)] $1} -- left recursion
 
 exps :: { [LExp] }
   : {- empty -}          { [] }
   | exp                  { [$1] }
-  | exps ';' exp         { $3 : $1 }  -- left recursion
+  | exps ';' exp         { foldr (:) [$3] $1 }  -- left recursion
 
 
 {

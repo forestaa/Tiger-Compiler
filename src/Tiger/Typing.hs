@@ -31,6 +31,7 @@ data Type = TNil
           deriving (Show)
 data Var = Var Type 
          | Fun (Record '["domains" :> [Type], "codomain" :> Type])
+         deriving (Show)
 instance Eq Type where
   TNil == TNil = True
   TUnit == TUnit = True
@@ -67,6 +68,8 @@ data TypingError = VariableUndefined Id
                  | ExpectedArrayType T.LValue Type
                  | MissingRecordField T.LValue Type Id
                  | InvalidRecTypeDeclaration [T.LDec]
+                 | MultiDeclaredName [T.LDec]
+                 | AssignNilWithNoRecordAnnotation
                  | NotImplemented String
 instance Show TypingError where
   show (VariableUndefined id) = "undefined variable: " ++ show id
@@ -80,7 +83,9 @@ instance Show TypingError where
   show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
   show (MissingRecordField (L _ v) ty id) = concat ["Record field missing: value = ", show v, ", type = ", show ty, ", field = ", show id]
-  show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations", show decs]
+  show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
+  show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
+  show AssignNilWithNoRecordAnnotation = "nil assigned with no type annotation"
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 runTyping :: Typing a -> Either (RealLocated TypingError) a
@@ -185,15 +190,26 @@ typingExp (L loc (T.FunApply func args)) = do
         then skipName $ ty ^. #codomain
         else throwError . L loc $ ExpectedTypes args domains argsty
     Var _ -> throwError . L loc $ NotImplemented "2"
-typingExp (L _ (T.Op left _ right)) = do
-  checkInt left
-  checkInt right
-  return TInt
+typingExp (L loc (T.Op left (L _ op) right))
+  | isEqNEq op = do
+    leftty <- typingExp left
+    rightty <- typingExp right
+    if leftty <= rightty  || rightty <= leftty
+      then return TInt
+      else throwError . L loc $ ExpectedType right leftty rightty
+  | otherwise = do
+    checkInt left
+    checkInt right
+    return TInt
+  where
+    isEqNEq T.Eq = True
+    isEqNEq T.NEq = True
+    isEqNEq _ = False
 typingExp (L _ (T.Seq exps)) = foldM (const typingExp) TUnit exps
 typingExp (L loc (T.Assign var exp)) = do
   varty <- typingValue var
   expty <- typingExp exp
-  if varty == expty
+  if varty <= expty
     then return TUnit
     else throwError . L loc $ NotImplemented "3"
 typingExp (L loc (T.If bool then' (Just else'))) = do
@@ -202,7 +218,7 @@ typingExp (L loc (T.If bool then' (Just else'))) = do
   elsety <- typingExp else'
   if thenty == elsety
     then return thenty
-    else throwError . L loc $ NotImplemented "4"
+    else throwError . L loc $ ExpectedType else' thenty elsety
 typingExp (L loc (T.If bool then' Nothing)) = do
   checkInt bool
   thenty <- typingExp then'
@@ -224,6 +240,7 @@ typingExp (L loc (T.For (L _ id) from to body)) = do
       else throwError . L loc $ NotImplemented "5"
 typingExp (L _ T.Break) = return TUnit
 typingExp (L loc (T.Let decs body)) = do
+  checkSameNameDec loc decs
   let (typedecs, rest) = List.partition isTypeDec decs
   let typenames = map name typedecs
   checkInvalidRecType loc typedecs
@@ -248,6 +265,37 @@ typingExp (L loc (T.Let decs body)) = do
     zipM_ _ _ [] = return ()
     zipM_ f (a:as) (b:bs) = f a b >> zipM_ f as bs
 
+checkSameNameDec :: RealSrcSpan -> [T.LDec] -> Typing ()
+checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L loc $ MultiDeclaredName decs
+  where
+    runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
+checkSameNameDec' :: [T.LDec] -> Eff '["type" >: State (Set.Set Id), "var" >: State (Set.Set Id), "func" >: State (Set.Set Id)] Bool
+checkSameNameDec' [] = return True
+checkSameNameDec' (L _ (T.FunDec (L _ id) _ _ _):decs) = do
+  b <- getsEff #func (Set.member id)
+  if b
+    then return False
+    else do
+      c <- getsEff #var (Set.member id)
+      if c
+        then return False
+        else do
+          modifyEff #func (Set.insert id)
+          checkSameNameDec' decs
+checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = do
+  b <- getsEff #func (Set.member id)
+  if b
+    then return False
+    else do
+      modifyEff #var (Set.insert id)
+      checkSameNameDec' decs
+checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = do
+  b <- getsEff #type (Set.member id)
+  if b
+    then return False
+    else do
+      modifyEff #type (Set.insert id)
+      checkSameNameDec' decs
 checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Typing ()
 checkInvalidRecType loc decs = do
   res <- mapM runCheckInvalidRecType ids
@@ -272,7 +320,7 @@ checkInvalidRecType' id = do
           case m of
             Just _ -> return True
             Nothing -> do
-              modify (Set.insert id')
+              modify (Set.insert id)
               checkInvalidRecType' id'
         _ -> return True
 
@@ -291,7 +339,7 @@ typingValue (L loc (T.RecField v (L _ field))) = do
       Nothing -> throwError . L loc $ MissingRecordField v ty field
     _ -> throwError . L loc $ ExpectedRecordType v ty
 typingValue (L loc (T.ArrayIndex v e)) = do
-  ty <- typingValue v
+  ty <- typingValue v >>= skipName
   case ty of
     TArray a -> do
       checkInt e
@@ -327,8 +375,9 @@ typingDec (L loc (T.VarDec (L _ id) (Just typeid) e)) = do
   if ty <= ty' -- opposite to subtyping
     then modifyEff #var (E.insert id (Var ty)) >> return Nothing
     else throwError . L loc $ VariableMismatchedWithDeclaredType id ty ty'
-typingDec (L _ (T.VarDec (L _ id) Nothing e)) = do
+typingDec (L loc (T.VarDec (L _ id) Nothing e)) = do
   t <- typingExp e
+  when (t == TNil) . throwError . L loc $ AssignNilWithNoRecordAnnotation
   modifyEff #var $ E.insert id (Var t)
   return Nothing
 typingDec (L _ (T.TypeDec _ ty)) = Just <$> typingType ty

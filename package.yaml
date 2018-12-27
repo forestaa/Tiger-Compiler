@@ -34,6 +34,7 @@ default-extensions:
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds
+- ScopedTypeVariables
 - TupleSections
 - TypeApplications
 - TypeOperators
