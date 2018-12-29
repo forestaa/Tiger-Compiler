@@ -17,6 +17,7 @@ import Id
 import SrcLoc
 import qualified Tiger.LSyntax as T
 
+import ContEff
 
 newtype Unique = Unique Int deriving (Eq, Show)
 data Type = TNil 
@@ -25,7 +26,6 @@ data Type = TNil
           | TString 
           | TRecord (Record '["map" :> Map.Map Id Type, "id" :> Unique]) 
           | TArray (Record '["range" :> Type, "id" :> Unique]) 
-          -- | TName (Record '["name" :> Id, "type" :> Maybe Type])
           | TName LId
           deriving (Show)
 data Var = Var Type 
@@ -262,19 +262,19 @@ checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L l
     runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
 checkSameNameDec' :: [T.LDec] -> Eff '["type" >: State (Set.Set Id), "var" >: State (Set.Set Id), "func" >: State (Set.Set Id)] Bool
 checkSameNameDec' [] = return True
-checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = (`runContT` return) . callCC $ \exit -> do
-  lift (getsEff #func (Set.member id)) >>= bool (return True) (exit False)
-  lift (getsEff #var (Set.member id)) >>= bool (return True) (exit False)
-  lift $ modifyEff #func (Set.insert id)
-  lift $ checkSameNameDec' decs
-checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = (`runContT` return) . callCC $ \exit -> do
-  lift (getsEff #func (Set.member id)) >>= bool (return True) (exit False)
-  lift $ modifyEff #var (Set.insert id)
-  lift $ checkSameNameDec' decs
-checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = (`runContT` return) . callCC $ \exit -> do
-  lift (getsEff #type (Set.member id)) >>= bool (return True) (exit False)
-  lift $ modifyEff #type (Set.insert id)
-  lift $ checkSameNameDec' decs
+checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
+  getsEff #func (Set.member id) >>= bool (return True) (exit False)
+  getsEff #var (Set.member id) >>= bool (return True) (exit False)
+  modifyEff #func (Set.insert id)
+  castEff $ checkSameNameDec' decs
+checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
+  getsEff #func (Set.member id) >>= bool (return True) (exit False)
+  modifyEff #var (Set.insert id)
+  castEff $ checkSameNameDec' decs
+checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
+  getsEff #type (Set.member id) >>= bool (return True) (exit False)
+  modifyEff #type (Set.insert id)
+  castEff $ checkSameNameDec' decs
 checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Typing ()
 checkInvalidRecType loc decs = do
   res <- mapM runCheckInvalidRecType ids
@@ -287,14 +287,14 @@ checkInvalidRecType loc decs = do
     ids = map fst idtypes
     runCheckInvalidRecType = flip  evalStateDef Set.empty . flip runReaderDef (Map.fromList idtypes) . checkInvalidRecType'
 checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, "id" >: State Int, EitherDef (RealLocated TypingError)] Bool
-checkInvalidRecType' id = (`runContT` return) . callCC $ \exit -> do
-  lift (gets (Set.member id)) >>= bool (return True) (exit False)
+checkInvalidRecType' id = flip (runContEff @"Cont") return . callCC $ \exit -> do
+  gets (Set.member id) >>= bool (return True) (exit False)
   decs <- ask
   case decs Map.!? id of
     Just (L _ (T.TypeId (L _ id'))) -> do
-      lift (getsEff #type (isJust . E.lookup id')) >>= bool (return True) (exit True)
-      lift $ modify (Set.insert id)
-      lift $ checkInvalidRecType' id'
+      getsEff #type (isJust . E.lookup id') >>= bool (return True) (exit True)
+      modify (Set.insert id)
+      castEff $ checkInvalidRecType' id'
     _ -> return True
 
 typingValue :: T.LValue -> Typing Type
@@ -364,4 +364,4 @@ typingType (L _ (T.ArrayType typeid)) = do
   return . TArray $ #range @= ty <: #id @= id <: nil
 
 typingField :: T.LField -> Typing (Id, Type)
-typingField (L _ (T.Field (L _ id) typeid)) = (id,) <$> lookupTypeId typeid
+typingField (L _ (T.Field (L _ id) typeid)) = (id,) <$> lookupTypeId typeid 

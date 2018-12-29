@@ -25,12 +25,14 @@ dependencies:
 - containers
 - lens
 - mtl
+- monad-skeleton
 - rio
 
 default-extensions:
 - DataKinds
 - GeneralizedNewtypeDeriving
 - FlexibleContexts
+- FlexibleInstances
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds

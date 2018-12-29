@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6f36b8974fcc4a737d9664858e234c73e9cbbc214846dcda24d78f3748bb7a3c
+-- hash: 6cd8845c4da0d91f253f169f9b19f446f89960d0a967390a666447d19d23c61b
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -29,7 +29,7 @@ source-repository head
 library
   hs-source-dirs:
       src
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
   build-depends:
       array
@@ -38,6 +38,7 @@ library
     , containers
     , extensible
     , lens
+    , monad-skeleton
     , mtl
     , rio
     , template-haskell
@@ -46,6 +47,7 @@ library
     , happy
   exposed-modules:
       AbstSyntax.TH
+      ContEff
       Env
       Id
       IR
@@ -69,7 +71,7 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -77,6 +79,7 @@ executable compiler-exe
     , bytestring
     , containers
     , lens
+    , monad-skeleton
     , mtl
     , rio
   other-modules:
@@ -88,7 +91,7 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
+  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables TupleSections TypeApplications TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -97,6 +100,7 @@ test-suite compiler-test
     , containers
     , hspec
     , lens
+    , monad-skeleton
     , mtl
     , rio
   other-modules:

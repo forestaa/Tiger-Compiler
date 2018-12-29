@@ -42,7 +42,7 @@ endScope (Env env) = case env ^. #stack of
   (Push id):rest -> endScope . Env $ env & #stack .~ rest & #env %~ Map.update pop id
   Begin:rest -> Env $ env & #stack .~ rest
   where
-    pop [a] = Nothing
+    pop [_] = Nothing
     pop (_:as) = Just as
 
 withEnvScope :: Associate k (State (Env a)) xs => Proxy k -> Eff xs b -> Eff xs b
