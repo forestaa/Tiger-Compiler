@@ -29,7 +29,7 @@ insert id a (Env env) = Env $ env & #stack %~ (:) (Push id) & #env %~ Map.alter 
     f Nothing = Just [a]
     f (Just as) = Just (a:as)
 
-lookup :: (Show a) => Id -> Env a -> Maybe a
+lookup :: Id -> Env a -> Maybe a
 lookup id (Env env) = case (env ^. #env) Map.!? id of
   Just (a:_) -> return a
   Nothing -> Nothing
