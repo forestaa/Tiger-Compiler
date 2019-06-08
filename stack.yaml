@@ -42,8 +42,10 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- github: fumieval/extensible
-  commit: 11049374e8e1123fc5e9ea2f9531511915ec39c9
+- github: forestaa/extensible
+  commit: b4d44ba100302dc7a9b2a7cd01c420334c830f52
+- github: fumieval/membership
+  commit: 344952e3b1f0f12c39cc2b0ace531cfc322a64d8
 # - extensible-0.5
 # - intero-0.1.24
 # - git: git@github.com:DanielG/ghc-mod.git
