@@ -16,10 +16,9 @@ import qualified Env as E
 import Id
 import SrcLoc
 import qualified Tiger.LSyntax as T
+import UniqueID
 
--- import ContEff
 
-newtype Unique = Unique Int deriving (Eq, Show)
 data Type = TNil 
           | TUnit 
           | TInt 
@@ -55,7 +54,7 @@ initVEnv = foldr (uncurry E.insert) E.empty []
 evalVEnvEff :: Eff (("var" >: State VEnv) ': xs) a -> Eff xs a
 evalVEnvEff = flip (evalStateEff @"var") initVEnv
 
-type Typing a = Eff '["type" >: State TEnv, "var" >: State VEnv, "id" >: State Int, EitherDef (RealLocated TypingError)] a
+type Typing a = Eff '["type" >: State TEnv, "var" >: State VEnv, UniqueIDEff, EitherDef (RealLocated TypingError)] a
 data TypingError = VariableUndefined Id
                  | VariableMismatchedWithDeclaredType Id Type Type
                  | TypeUndefined Id
@@ -88,13 +87,8 @@ instance Show TypingError where
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 runTyping :: Typing a -> Either (RealLocated TypingError) a
-runTyping = leaveEff . runEitherDef . flip (evalStateEff @"id") 0 . evalVEnvEff . evalTEnvEff
+runTyping = leaveEff . runEitherDef . runUniqueIDEff . evalVEnvEff . evalTEnvEff
 
-getid :: Typing Unique
-getid = do
-  id <- getEff #id
-  putEff #id (id + 1)
-  return $ Unique id
 
 skipName :: Type -> Typing Type
 skipName (TName id) = do
@@ -286,7 +280,7 @@ checkInvalidRecType loc decs = do
     idtypes = map idAndType decs
     ids = map fst idtypes
     runCheckInvalidRecType = flip  evalStateDef Set.empty . flip runReaderDef (Map.fromList idtypes) . checkInvalidRecType'
-checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, "id" >: State Int, EitherDef (RealLocated TypingError)] Bool
+checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, UniqueIDEff, EitherDef (RealLocated TypingError)] Bool
 checkInvalidRecType' id = flip (runContEff @"Cont") return . callCC $ \exit -> do
   gets (Set.member id) >>= bool (return True) (exit False)
   decs <- ask
@@ -356,11 +350,11 @@ typingType :: T.LType -> Typing Type
 typingType (L _ (T.TypeId typeid)) = lookupTypeId typeid
 typingType (L _ (T.RecordType fields)) = do
   fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
-  id <- getid
+  id <- getIDEff
   return . TRecord $ #map @= fieldmap <: #id @= id <: nil
 typingType (L _ (T.ArrayType typeid)) = do
   ty <- lookupTypeId typeid
-  id <- getid
+  id <- getIDEff
   return . TArray $ #range @= ty <: #id @= id <: nil
 
 typingField :: T.LField -> Typing (Id, Type)
