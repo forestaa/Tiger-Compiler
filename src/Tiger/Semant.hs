@@ -1,4 +1,4 @@
-module Tiger.Typing where
+module Tiger.Semant where
 
 import RIO
 import qualified RIO.List as List
@@ -17,7 +17,7 @@ import Id
 import SrcLoc
 import qualified Tiger.LSyntax as T
 
-import ContEff
+-- import ContEff
 
 newtype Unique = Unique Int deriving (Eq, Show)
 data Type = TNil 
