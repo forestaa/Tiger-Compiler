@@ -45,7 +45,7 @@ endScope (Env env) = case env ^. #stack of
     pop [_] = Nothing
     pop (_:as) = Just as
 
-withEnvScope :: Associate k (State (Env a)) xs => Proxy k -> Eff xs b -> Eff xs b
+withEnvScope :: Lookup xs k (State (Env a)) => Proxy k -> Eff xs b -> Eff xs b
 withEnvScope k t = do
   modifyEff k beginScope
   a <- t
