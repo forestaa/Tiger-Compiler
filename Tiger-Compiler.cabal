@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.1.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6cd8845c4da0d91f253f169f9b19f446f89960d0a967390a666447d19d23c61b
+-- hash: 13a5b3acd756ad5e2f39a3b6abb7158982b2e3ab90d822f75b65838aa61c9aca
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -47,7 +47,6 @@ library
     , happy
   exposed-modules:
       AbstSyntax.TH
-      ContEff
       Env
       Id
       IR

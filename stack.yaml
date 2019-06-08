@@ -16,7 +16,7 @@
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
 # resolver: nightly-2018-12-23
-resolver: lts-13.0
+resolver: lts-13.14
 # resolver: lts-12.14
 
 # User packages to be built.
@@ -42,7 +42,9 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- extensible-0.5
+- github: fumieval/extensible
+  commit: 11049374e8e1123fc5e9ea2f9531511915ec39c9
+# - extensible-0.5
 # - intero-0.1.24
 # - git: git@github.com:DanielG/ghc-mod.git
 #   commit: c3530f75d5c539c91ed0b8d38e90d66cbaa66a35
