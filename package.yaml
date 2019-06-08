@@ -37,6 +37,7 @@ default-extensions:
 - OverloadedLabels
 - PolyKinds
 - ScopedTypeVariables
+- StandaloneDeriving
 - TupleSections
 - TypeApplications
 - TypeOperators
