@@ -32,7 +32,7 @@ data Exp =
   -- control structure
   | If {bool :: Exp, then' :: Exp, else' :: Maybe Exp}
   | While {bool :: Exp, body :: Exp}
-  | For {id :: Id, from :: Exp, to :: Exp, body :: Exp}
+  | For {id :: Id, escape :: Bool, from :: Exp, to :: Exp, body :: Exp}
   | Break
   | Let {decs :: [Dec], body :: Exp}
   deriving (Show, Eq)
@@ -42,8 +42,8 @@ data Op = Plus | Minus | Times | Div | Eq | NEq | Lt | Le | Gt | Ge deriving (Sh
 
 data Dec =
    FunDec {id :: Id, args :: [Field], rettype :: Maybe Id, body :: Exp}
- | VarDec {id :: Id, t :: Maybe Id, init :: Exp}
+ | VarDec {id :: Id, escape :: Bool, t :: Maybe Id, init :: Exp}
  | TypeDec {id :: Id, ty :: Type}
  deriving (Show, Eq)
 data Type = TypeId Id | RecordType [Field] | ArrayType Id deriving (Show, Eq)
-data Field = Field {id :: Id, typeid :: Id} deriving (Show, Eq)
+data Field = Field {id :: Id, escape :: Bool, typeid :: Id} deriving (Show, Eq)

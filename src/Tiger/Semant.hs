@@ -215,7 +215,7 @@ typingExp (L _ (T.While bool body)) = do
   checkInt bool
   checkUnit body
   return TUnit
-typingExp (L loc (T.For (L _ id) from to body)) = do
+typingExp (L loc (T.For (L _ id) _ from to body)) = do
   checkInt from
   checkInt to
   withTEnvScope $ do
@@ -261,7 +261,7 @@ checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"Co
   getsEff #var (Set.member id) >>= bool (return True) (exit False)
   modifyEff #func (Set.insert id)
   castEff $ checkSameNameDec' decs
-checkSameNameDec' (L _ (T.VarDec (L _ id) _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
+checkSameNameDec' (L _ (T.VarDec (L _ id) _ _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
   getsEff #func (Set.member id) >>= bool (return True) (exit False)
   modifyEff #var (Set.insert id)
   castEff $ checkSameNameDec' decs
@@ -318,7 +318,7 @@ typingFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> typingExp e
 insertFunEntry :: T.LDec -> Typing ()
 insertFunEntry (L _ (T.FunDec (L _ id) args ret _)) = insertVar id . Fun $ #domains @= map (TName . typeid) args <: #codomain @= retty <: nil
   where
-    typeid (L _ (T.Field _ id)) = id
+    typeid (L _ (T.Field _ _ id)) = id
     retty = case ret of
       Just retid -> TName retid
       Nothing -> TUnit
@@ -333,13 +333,13 @@ typingDec (L loc (T.FunDec _ args ret body)) = do
     if bodyty == retty
       then return Nothing
       else throwError . L loc $ ExpectedType body retty bodyty
-typingDec (L loc (T.VarDec (L _ id) (Just typeid) e)) = do
+typingDec (L loc (T.VarDec (L _ id) _ (Just typeid) e)) = do
   ty <- lookupTypeId typeid >>= skipName
   ty' <- typingExp e
   if ty <= ty' -- opposite to subtyping
     then modifyEff #var (E.insert id (Var ty)) >> return Nothing
     else throwError . L loc $ VariableMismatchedWithDeclaredType id ty ty'
-typingDec (L loc (T.VarDec (L _ id) Nothing e)) = do
+typingDec (L loc (T.VarDec (L _ id) _ Nothing e)) = do
   t <- typingExp e
   when (t == TNil) . throwError . L loc $ AssignNilWithNoRecordAnnotation
   modifyEff #var $ E.insert id (Var t)
@@ -358,4 +358,6 @@ typingType (L _ (T.ArrayType typeid)) = do
   return . TArray $ #range @= ty <: #id @= id <: nil
 
 typingField :: T.LField -> Typing (Id, Type)
-typingField (L _ (T.Field (L _ id) typeid)) = (id,) <$> lookupTypeId typeid 
+typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeId typeid 
+
+

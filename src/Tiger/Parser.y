@@ -113,7 +113,7 @@ exp :: { LExp }
   | 'if' exp 'then' exp                   { sL2 $1 $4 $ If $2 $4 Nothing }
   | 'if' exp 'then' exp 'else' exp        { sL2 $1 $6 $ If $2 $4 (Just $6) }
   | 'while' exp 'do' exp                  { sL2 $1 $4 $ While $2 $4 }
-  | 'for' 'id' ':=' exp 'to' exp 'do' exp { sL2 $1 $8 $ For (retrieveID $2) $4 $6 $8 }
+  | 'for' 'id' ':=' exp 'to' exp 'do' exp { sL2 $1 $8 $ For (retrieveID $2) False $4 $6 $8 }
   | 'break'                               { sL1 $1 Break }
   | 'let' decs 'in' exps 'end'            { sL2 $1 $5 $ Let $2 (sL2 $3 $5 $ Seq $4) }
 
@@ -160,8 +160,8 @@ decs :: { [LDec] }
 
 dec :: { LDec }
   : 'type' 'id' '=' type                               { sL2 $1 $4 $ TypeDec (retrieveID $2) $4 }
-  | 'var' 'id' ':' 'id' ':=' exp                       { sL2 $1 $6 $ VarDec (retrieveID $2) (Just (retrieveID $4)) $6 }
-  | 'var' 'id' ':=' exp                                { sL2 $1 $4 $ VarDec (retrieveID $2) Nothing $4 }
+  | 'var' 'id' ':' 'id' ':=' exp                       { sL2 $1 $6 $ VarDec (retrieveID $2) False (Just (retrieveID $4)) $6 }
+  | 'var' 'id' ':=' exp                                { sL2 $1 $4 $ VarDec (retrieveID $2) False Nothing $4 }
   | 'function' 'id' '(' tyfields ')' ':' 'id' '=' exp  { sL2 $1 $9 $ FunDec (retrieveID $2) $4 (Just $ retrieveID $7) $9 }
   | 'function' 'id' '(' tyfields ')' '=' exp           { sL2 $1 $7 $ FunDec (retrieveID $2) $4 Nothing $7 }
 
@@ -172,8 +172,8 @@ type :: { LType }
 
 tyfields :: { [LField] }
   : {- empty -}                { [] }
-  | 'id' ':' 'id'              { [sL2 $1 $3 $ Field (retrieveID $1) (retrieveID $3)] }
-  | tyfields ',' 'id' ':' 'id' { foldr (:) [sL2 $3 $5 $ Field (retrieveID $3) (retrieveID $5)] $1} -- left recursion
+  | 'id' ':' 'id'              { [sL2 $1 $3 $ Field (retrieveID $1) False (retrieveID $3)] }
+  | tyfields ',' 'id' ':' 'id' { foldr (:) [sL2 $3 $5 $ Field (retrieveID $3) False (retrieveID $5)] $1} -- left recursion
 
 exps :: { [LExp] }
   : {- empty -}          { [] }
