@@ -256,17 +256,17 @@ checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L l
     runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
 checkSameNameDec' :: [T.LDec] -> Eff '["type" >: State (Set.Set Id), "var" >: State (Set.Set Id), "func" >: State (Set.Set Id)] Bool
 checkSameNameDec' [] = return True
-checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
-  getsEff #func (Set.member id) >>= bool (return True) (exit False)
-  getsEff #var (Set.member id) >>= bool (return True) (exit False)
+checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"cont") return $ do
+  getsEff #func (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
+  getsEff #var (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   modifyEff #func (Set.insert id)
   castEff $ checkSameNameDec' decs
-checkSameNameDec' (L _ (T.VarDec (L _ id) _ _ _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
-  getsEff #func (Set.member id) >>= bool (return True) (exit False)
+checkSameNameDec' (L _ (T.VarDec (L _ id) _ _ _):decs) = flip (runContEff @"cont") return $ do
+  getsEff #func (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   modifyEff #var (Set.insert id)
   castEff $ checkSameNameDec' decs
-checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = flip (runContEff @"Cont") return . callCC $ \exit -> do
-  getsEff #type (Set.member id) >>= bool (return True) (exit False)
+checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = flip (runContEff @"cont") return $ do
+  getsEff #type (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   modifyEff #type (Set.insert id)
   castEff $ checkSameNameDec' decs
 checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Typing ()
