@@ -13,7 +13,7 @@ import Control.Monad.Except
 
 spec :: Spec
 spec =
-  describe "parser test" $ do
+  describe "typing test" $ do
     it "then and else type differ" . runErrorTypingTest $ testcase "test09.tig"
     it "body of while is not unit" . runErrorTypingTest $ testcase "test10.tig"
     it "hi in for is not int" . runErrorTypingTest $ testcase "test11.tig"
@@ -47,6 +47,14 @@ spec =
     it "valid test" $ do
       let testcases = (++) <$> (("test/Tiger/samples/test" ++) <$> valid) <*> [".tig"]
       res <- runExceptT (traverse typingTest testcases)
+      res `shouldSatisfy` isRight
+    it "merge.tig" $ do
+      let merge = "test/Tiger/samples/merge.tig"
+      res <- runExceptT (typingTest merge)
+      res `shouldSatisfy` isRight
+    it "queens.tig" $ do
+      let merge = "test/Tiger/samples/queens.tig"
+      res <- runExceptT (typingTest merge)
       res `shouldSatisfy` isRight
   where
     testcase s = "test/Tiger/samples/" ++ s

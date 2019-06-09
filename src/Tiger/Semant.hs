@@ -50,7 +50,18 @@ evalTEnvEff :: Eff (("type" >: State TEnv) ': xs) a -> Eff xs a
 evalTEnvEff = flip (evalStateEff @"type") initTEnv
 type VEnv = E.Env Var
 initVEnv :: VEnv
-initVEnv = foldr (uncurry E.insert) E.empty []
+initVEnv = foldr (uncurry E.insert) E.empty [
+  ("print", Fun $ #domains @= [TString] <: #codomain @= TUnit <: nil),
+  ("flush", Fun $ #domains @= [] <: #codomain @= TUnit <: nil),
+  ("getchar", Fun $ #domains @= [] <: #codomain @= TString <: nil),
+  ("ord", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
+  ("chr", Fun $ #domains @= [TInt] <: #codomain @= TString <: nil),
+  ("size", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
+  ("substring", Fun $ #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil),
+  ("concat", Fun $ #domains @= [TString, TString] <: #codomain @= TString <: nil),
+  ("not", Fun $ #domains @= [TInt] <: #codomain @= TInt <: nil),
+  ("exit", Fun $ #domains @= [TInt] <: #codomain @= TUnit <: nil)
+  ]
 evalVEnvEff :: Eff (("var" >: State VEnv) ': xs) a -> Eff xs a
 evalVEnvEff = flip (evalStateEff @"var") initVEnv
 
@@ -170,7 +181,7 @@ typingExp (L loc (T.FunApply func args)) = do
   v <- lookupVarId func
   case v of
     Fun ty -> do
-      argsty <- mapM typingExp args
+      argsty <- mapM (skipName <=< typingExp) args
       domains <- mapM skipName $ ty ^. #domains
       if argsty == domains
         then skipName $ ty ^. #codomain
@@ -202,7 +213,7 @@ typingExp (L loc (T.If bool then' (Just else'))) = do
   checkInt bool
   thenty <- typingExp then'
   elsety <- typingExp else'
-  if thenty == elsety
+  if thenty <= elsety || elsety <= thenty
     then return thenty
     else throwError . L loc $ ExpectedType else' thenty elsety
 typingExp (L loc (T.If bool then' Nothing)) = do
@@ -219,7 +230,7 @@ typingExp (L loc (T.For (L _ id) _ from to body)) = do
   checkInt from
   checkInt to
   withTEnvScope $ do
-    insertType id TInt
+    insertVar id $ Var TInt
     bodyty <- typingExp body 
     if bodyty == TUnit
       then return TUnit
@@ -256,7 +267,7 @@ checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L l
     runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
 checkSameNameDec' :: [T.LDec] -> Eff '["type" >: State (Set.Set Id), "var" >: State (Set.Set Id), "func" >: State (Set.Set Id)] Bool
 checkSameNameDec' [] = return True
-checkSameNameDec' (L loc (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"cont") return $ do
+checkSameNameDec' (L _ (T.FunDec (L _ id) _ _ _):decs) = flip (runContEff @"cont") return $ do
   getsEff #func (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   getsEff #var (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   modifyEff #func (Set.insert id)
@@ -281,12 +292,12 @@ checkInvalidRecType loc decs = do
     ids = map fst idtypes
     runCheckInvalidRecType = flip  evalStateDef Set.empty . flip runReaderDef (Map.fromList idtypes) . checkInvalidRecType'
 checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, "id" >: UniqueEff, EitherDef (RealLocated TypingError)] Bool
-checkInvalidRecType' id = flip (runContEff @"Cont") return . callCC $ \exit -> do
-  gets (Set.member id) >>= bool (return True) (exit False)
+checkInvalidRecType' id = flip (runContEff @"cont") return $ do
+  gets (Set.member id) >>= bool (return True) (contEff #cont $ const (return False))
   decs <- ask
   case decs Map.!? id of
     Just (L _ (T.TypeId (L _ id'))) -> do
-      getsEff #type (isJust . E.lookup id') >>= bool (return True) (exit True)
+      getsEff #type (isJust . E.lookup id') >>= bool (return True) (contEff #cont $ const (return True))
       modify (Set.insert id)
       castEff $ checkInvalidRecType' id'
     _ -> return True
@@ -296,7 +307,7 @@ typingValue (L loc (T.Id id)) = do
   var <- lookupVarId id
   case var of
     Var ty -> return ty -- neccesary to consider the case of NAME type
-    Fun ty -> throwError . L loc $ NotImplemented "6"
+    Fun _ -> throwError . L loc $ NotImplemented "6"
 typingValue (L loc (T.RecField v (L _ field))) = do
   ty <- typingValue v
   case ty of
@@ -360,4 +371,6 @@ typingType (L _ (T.ArrayType typeid)) = do
 typingField :: T.LField -> Typing (Id, Type)
 typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeId typeid 
 
+
+-- markEscape :: T.LExp -> T.LExp
 
