@@ -1,4 +1,15 @@
-module SrcLoc where
+module SrcLoc (
+  advanceSrcLoc,
+  dummyRealLocated,
+  mkRealSrcSpan,
+  mkSrcLoc,
+  sL1,
+  sL2,
+  SrcLoc(..),
+  unLoc,
+  RealLocated(..),
+  RealSrcSpan(..)
+)where
 
 import RIO
 
@@ -44,3 +55,6 @@ sL2 (L span1 _) (L span2 _) = L (combineRealSrcSpan span1 span2)
 
 locatedMessage :: RealSrcSpan -> String -> String
 locatedMessage loc message = concat [show loc, ": ", message]
+
+dummyRealLocated :: e -> RealLocated e
+dummyRealLocated = L (mkRealSrcSpan (mkSrcLoc "dummy") 0)

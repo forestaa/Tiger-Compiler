@@ -8,4 +8,4 @@ import SrcLoc
 import AbstSyntax.TH
 import qualified Linear.Syntax as S
 
-$(mkFAbstSyntaxes ''RealLocated [''S.Stm, ''S.Exp])
+$(mkFAbstSyntaxes ''RealLocated 'dummyRealLocated [''S.Stm, ''S.Exp])

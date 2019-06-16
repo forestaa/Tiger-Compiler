@@ -3,26 +3,32 @@
 module AbstSyntax.TH where
 
 import RIO
+import RIO.Char (toLower)
 import qualified RIO.List as List
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
 
-mkFAbstSyntaxes :: Name -> [Name] -> Q [Dec]
-mkFAbstSyntaxes f = fmap concat . traverse (mkFAbstSyntax f)
+-- Functor(?) f traverse declarations of syntax tree
+-- e.g.) RealLocated + e = RealLocated e
+mkFAbstSyntaxes :: Name -> Name -> [Name] -> Q [Dec]
+mkFAbstSyntaxes f wrapF = fmap concat . traverse (mkFAbstSyntax f wrapF)
 
-mkFAbstSyntax :: Name -> Name -> Q [Dec]
-mkFAbstSyntax f syntax = do
+-- validation of f
+-- f must have 1 constructor and 1 type variable
+mkFAbstSyntax :: Name -> Name -> Name -> Q [Dec]
+mkFAbstSyntax f wrapF syntax = do
   finfo <- reify f
   case finfo of
-    TyConI (DataD _ _ [_] _ [con] _) -> mkFAbstSyntaxDefs f syntax con
+    TyConI (DataD _ _ [_] _ [con] _) -> mkFAbstSyntaxDefs f wrapF syntax con
     TyConI (DataD _ _ _ _ _ _) -> fail ("mkFAbstSyntax: The functor should have only one type argument and only one constructor: " ++ show f)
     a -> fail $ "mkFAbstSyntax: This pattern is not implemented"  ++ show a
 
 
-mkFAbstSyntaxDefs :: Name -> Name -> Con -> Q [Dec]
-mkFAbstSyntaxDefs f syntax fcon = do
+-- costruct syntax tree
+mkFAbstSyntaxDefs :: Name -> Name -> Name -> Con -> Q [Dec]
+mkFAbstSyntaxDefs f wrapF syntax fcon = do
   dataInfo <- reify syntax
   case dataInfo of
     TyConI (DataD _ _ vars _ cons _) -> do
@@ -35,8 +41,11 @@ mkFAbstSyntaxDefs f syntax fcon = do
 
           unF = mkUnFName syntax
           sig = mkUnFSig unF fsyntax syntax
-      fun <- mkUnF unF fcon cons
-      return [datadec, synonym, sig, fun]
+
+          syntaxToFSyntax = mkSyntaxToFSyntaxName syntax
+      unFFun <- mkUnF unF fcon cons
+      syntaxToFSyntaxFun <- mkSyntaxToFSyntax syntaxToFSyntax wrapF cons
+      return [datadec, synonym, sig, unFFun, syntaxToFSyntaxFun]
     TyConI (TySynD _ _ _) -> do
       x <- newName "x"
       let fsyntax = mkFSyntaxName syntax
@@ -48,12 +57,16 @@ mkFAbstSyntaxDefs f syntax fcon = do
       return [synonym, sig, fun]
     a -> fail $ "mkFAbstSyntaxDefs: This pattern is not implemented: " ++ show a
 
+wrappedName :: String -> String
+wrappedName = (:) 'L'
 mkFSyntaxName :: Name -> Name
-mkFSyntaxName = mkName . (:) 'L' . nameBase
+mkFSyntaxName = mkName . wrappedName . nameBase
 mkFSyntaxName' :: Name -> Name
-mkFSyntaxName' name = mkName $ nameBase (mkFSyntaxName name) ++ "'"
+mkFSyntaxName' = mkName . (++ "'") . wrappedName . nameBase
 mkUnFName :: Name -> Name
-mkUnFName = mkName . ("un" ++) . nameBase . mkFSyntaxName
+mkUnFName = mkName . ("un" ++) . wrappedName . nameBase
+mkSyntaxToFSyntaxName :: Name -> Name
+mkSyntaxToFSyntaxName = mkName . (\s -> fmap toLower s ++ "To" ++ wrappedName s) . nameBase
 
 renameCon :: Con -> Con
 renameCon (NormalC con args) = NormalC (mkName $ nameBase con) (renameBangType <$> args)
@@ -123,3 +136,35 @@ mkUnFPatExpUnit (AppT f (ConT con)) = do
   let unF = mkUnFName con
   return (VarP x, AppE (AppE (VarE 'fmap) (VarE unF)) (VarE x))
 mkUnFPatExpUnit t = fail $ "mkUnFPatExpUnit: This pattern is not implemented: " ++ show t
+
+mkSyntaxToFSyntax :: Name -> Name -> [Con] -> Q Dec
+mkSyntaxToFSyntax f wrapF syncons = funD f (mkSyntaxToFSyntaxClause wrapF <$> syncons)
+
+mkSyntaxToFSyntaxClause :: Name -> Con -> Q Clause
+mkSyntaxToFSyntaxClause wrapF con = do
+  (pat, exp) <- mkSyntaxToFSyntaxPatExp wrapF con
+  return $ Clause [pat] (NormalB exp) []
+
+mkSyntaxToFSyntaxPatExp :: Name -> Con -> Q (Pat, Exp)
+mkSyntaxToFSyntaxPatExp wrapF (NormalC con args) = do
+  (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . snd) args
+  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE . mkName $ nameBase con) exps))
+mkSyntaxToFSyntaxPatExp wrapF (RecC con args) = do
+  (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . thd) args
+  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE . mkName $ nameBase con) exps))
+  where
+    thd (_,_,z) = z
+
+mkSyntaxToFSyntaxPatExpUnit :: Type -> Q (Pat, Exp)
+mkSyntaxToFSyntaxPatExpUnit (ConT con)
+  | con == ''Int || con == ''String || con == ''Bool = do
+    x <- newName "x"
+    return (VarP x, VarE x)
+  | otherwise = do
+    let syntaxToFSyntax = mkSyntaxToFSyntaxName con
+    x <- newName "x"
+    return (VarP x, AppE (VarE syntaxToFSyntax) (VarE x))
+mkSyntaxToFSyntaxPatExpUnit (AppT f (ConT con)) = do
+  let syntaxToFSyntax = mkSyntaxToFSyntaxName con
+  x <- newName "x"
+  return (VarP x, AppE (AppE (VarE 'fmap) (VarE syntaxToFSyntax)) (VarE x))

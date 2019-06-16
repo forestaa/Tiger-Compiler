@@ -6,7 +6,7 @@ module Tiger.LSyntax where
 import Id
 import SrcLoc
 
-import qualified Tiger.Syntax as S
+import qualified Tiger.Syntax as T
 import AbstSyntax.TH
 
-$(mkFAbstSyntaxes ''RealLocated [''S.Exp, ''S.Value, ''S.FieldAssign, ''S.Op, ''S.Dec, ''S.Field, ''S.Type])
+$(mkFAbstSyntaxes ''RealLocated 'dummyRealLocated [''T.Exp, ''T.Value, ''T.FieldAssign, ''T.Op, ''T.Dec, ''T.Field, ''T.Type])
