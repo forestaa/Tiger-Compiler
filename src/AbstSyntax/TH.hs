@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module AbstSyntax.TH where
+module AbstSyntax.TH (mkFAbstSyntaxes) where
 
 import RIO
 import RIO.Char (toLower)
@@ -26,26 +26,17 @@ mkFAbstSyntax f wrapF syntax = do
     a -> fail $ "mkFAbstSyntax: This pattern is not implemented"  ++ show a
 
 
--- costruct syntax tree
+-- costruct syntax tree and functions
 mkFAbstSyntaxDefs :: Name -> Name -> Name -> Con -> Q [Dec]
 mkFAbstSyntaxDefs f wrapF syntax fcon = do
   dataInfo <- reify syntax
   case dataInfo of
     TyConI (DataD _ _ vars _ cons _) -> do
       unless (null vars) $ fail ("mkFAbstSyntaxDefs: The Type should not have any type arguments: " ++ show syntax)
-      let fsyntax  = mkFSyntaxName syntax
-          fsyntax' = mkFSyntaxName' syntax
-          cons'   = renameCon <$> cons
-          datadec = mkFData' fsyntax' cons'
-          synonym = mkFSynonym fsyntax f fsyntax'
-
-          unF = mkUnFName syntax
-          sig = mkUnFSig unF fsyntax syntax
-
-          syntaxToFSyntax = mkSyntaxToFSyntaxName syntax
-      unFFun <- mkUnF unF fcon cons
-      syntaxToFSyntaxFun <- mkSyntaxToFSyntax syntaxToFSyntax wrapF cons
-      return [datadec, synonym, sig, unFFun, syntaxToFSyntaxFun]
+      let (datadec, synonym) = mkFDataSyn f syntax cons
+      (unFFun, unFSig) <- mkUnF syntax fcon cons
+      (sToFSFun, sToFSSig) <- mkSyntaxToFSyntax syntax wrapF cons
+      return [datadec, synonym, unFFun, unFSig, sToFSFun, sToFSSig]
     TyConI (TySynD _ _ _) -> do
       x <- newName "x"
       let fsyntax = mkFSyntaxName syntax
@@ -57,20 +48,24 @@ mkFAbstSyntaxDefs f wrapF syntax fcon = do
       return [synonym, sig, fun]
     a -> fail $ "mkFAbstSyntaxDefs: This pattern is not implemented: " ++ show a
 
+mkNameWith :: (String -> String) -> Name -> Name
+mkNameWith f = mkName . f . nameBase
+reMkName :: Name -> Name
+reMkName = mkNameWith id
 wrappedName :: String -> String
 wrappedName = (:) 'L'
 mkFSyntaxName :: Name -> Name
-mkFSyntaxName = mkName . wrappedName . nameBase
+mkFSyntaxName = mkNameWith wrappedName
 mkFSyntaxName' :: Name -> Name
-mkFSyntaxName' = mkName . (++ "'") . wrappedName . nameBase
+mkFSyntaxName' = mkNameWith $ (++ "'") . wrappedName
 mkUnFName :: Name -> Name
-mkUnFName = mkName . ("un" ++) . wrappedName . nameBase
+mkUnFName = mkNameWith $ ("un" ++) . wrappedName
 mkSyntaxToFSyntaxName :: Name -> Name
-mkSyntaxToFSyntaxName = mkName . (\s -> fmap toLower s ++ "To" ++ wrappedName s) . nameBase
+mkSyntaxToFSyntaxName = mkNameWith $ \s -> fmap toLower s ++ "To" ++ wrappedName s
 
 renameCon :: Con -> Con
-renameCon (NormalC con args) = NormalC (mkName $ nameBase con) (renameBangType <$> args)
-renameCon (RecC con args) = RecC (mkName $ nameBase con) (renameVarBangType <$> args)
+renameCon (NormalC con args) = NormalC (reMkName con) (renameBangType <$> args)
+renameCon (RecC con args) = RecC (reMkName con) (renameVarBangType <$> args)
 
 renameBangType :: BangType -> BangType
 renameBangType (bang, t) = (bang, renameType t)
@@ -90,6 +85,21 @@ mkFData' fsyntax' cons = DataD [] fsyntax' [] Nothing cons [DerivClause Nothing 
 mkFSynonym :: Name -> Name -> Name -> Dec
 mkFSynonym fsyntax f syntax = TySynD fsyntax [] (AppT (ConT f) (ConT syntax))
 
+mkFDataSyn :: Name -> Name -> [Con] -> (Dec, Dec)
+mkFDataSyn f syntax cons = (mkFData' fsyntax' cons', mkFSynonym fsyntax f fsyntax')
+  where
+    fsyntax  = mkFSyntaxName syntax
+    fsyntax' = mkFSyntaxName' syntax
+    cons'   = renameCon <$> cons
+
+mkUnF :: Name -> Con -> [Con] -> Q (Dec, Dec)
+mkUnF syntax fcon cons = do
+  let unF = mkUnFName syntax
+      fsyntax  = mkFSyntaxName syntax
+      sig = mkUnFSig unF fsyntax syntax
+  unFFun <- mkUnFFun unF fcon cons
+  return (unFFun, sig)
+    
 mkUnFSig :: Name -> Name -> Name -> Dec
 mkUnFSig unF fsyntax syntax = SigD unF (AppT (AppT ArrowT (ConT fsyntax)) (ConT syntax))
 
@@ -97,14 +107,13 @@ mkUnFSyn :: Name -> Con -> Name -> Dec
 mkUnFSyn unF con x = FunD unF [Clause [mkUnFPat (VarP x) con] (NormalB (VarE x)) []]
 
 mkUnFPat :: Pat -> Con -> Pat
-mkUnFPat p (NormalC con args) = ConP con (mkUnFPatArg p . snd <$> args)
+mkUnFPat p (NormalC con args) = ConP con (mkUnFPatArg . snd <$> args)
+  where
+    mkUnFPatArg (VarT _) = p
+    mkUnFPatArg _ = WildP
 
-mkUnFPatArg :: Pat -> Type -> Pat
-mkUnFPatArg p (VarT _) = p
-mkUnFPatArg p _ = WildP
-
-mkUnF :: Name -> Con -> [Con] -> Q Dec
-mkUnF unF fcon syncons = funD unF (mkUnFClause fcon <$> syncons)
+mkUnFFun :: Name -> Con -> [Con] -> Q Dec
+mkUnFFun unF fcon syncons = funD unF (mkUnFClause fcon <$> syncons)
 
 mkUnFClause :: Con -> Con -> Q Clause
 mkUnFClause fcon con = do
@@ -137,8 +146,21 @@ mkUnFPatExpUnit (AppT f (ConT con)) = do
   return (VarP x, AppE (AppE (VarE 'fmap) (VarE unF)) (VarE x))
 mkUnFPatExpUnit t = fail $ "mkUnFPatExpUnit: This pattern is not implemented: " ++ show t
 
-mkSyntaxToFSyntax :: Name -> Name -> [Con] -> Q Dec
-mkSyntaxToFSyntax f wrapF syncons = funD f (mkSyntaxToFSyntaxClause wrapF <$> syncons)
+
+mkSyntaxToFSyntax :: Name -> Name -> [Con] -> Q (Dec, Dec)
+mkSyntaxToFSyntax syntax wrapF syncons = do
+  let f = mkSyntaxToFSyntaxName syntax
+      sig = mkSyntaxToFSyntaxSig f syntax
+  fun <- mkSyntaxToFSyntaxFun f wrapF syncons
+  return (fun, sig)
+
+mkSyntaxToFSyntaxSig ::  Name -> Name -> Dec
+mkSyntaxToFSyntaxSig f syntax = SigD f (AppT (AppT ArrowT (ConT syntax)) (ConT fsyntax))
+  where
+    fsyntax = mkFSyntaxName syntax
+
+mkSyntaxToFSyntaxFun :: Name -> Name -> [Con] -> Q Dec
+mkSyntaxToFSyntaxFun f wrapF syncons = funD f (mkSyntaxToFSyntaxClause wrapF <$> syncons)
 
 mkSyntaxToFSyntaxClause :: Name -> Con -> Q Clause
 mkSyntaxToFSyntaxClause wrapF con = do
@@ -148,10 +170,10 @@ mkSyntaxToFSyntaxClause wrapF con = do
 mkSyntaxToFSyntaxPatExp :: Name -> Con -> Q (Pat, Exp)
 mkSyntaxToFSyntaxPatExp wrapF (NormalC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . snd) args
-  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE . mkName $ nameBase con) exps))
+  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
 mkSyntaxToFSyntaxPatExp wrapF (RecC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . thd) args
-  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE . mkName $ nameBase con) exps))
+  return (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
   where
     thd (_,_,z) = z
 
