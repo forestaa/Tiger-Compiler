@@ -3,6 +3,7 @@ module Env (
   empty,
   insert,
   lookup,
+  adjust,
   beginScope,
   endScope,
   withEnvScope,
@@ -33,6 +34,9 @@ lookup :: Id -> Env a -> Maybe a
 lookup id (Env env) = case (env ^. #env) Map.!? id of
   Just (a:_) -> return a
   Nothing -> Nothing
+
+adjust :: (a -> a) -> Id -> Env a -> Env a
+adjust f id (Env env) = Env $ env & #env %~ Map.adjust (\(a:as) -> f a : as) id
 
 beginScope :: Env a -> Env a
 beginScope (Env env) = Env $ env & #stack %~ (:) Begin
