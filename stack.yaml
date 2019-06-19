@@ -43,7 +43,7 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
 - github: forestaa/extensible
-  commit: b4d44ba100302dc7a9b2a7cd01c420334c830f52
+  commit: c0c9567b309a4fd291c184f1d5869dd2e5e3b8c4
 - github: fumieval/membership
   commit: 344952e3b1f0f12c39cc2b0ace531cfc322a64d8
 # - extensible-0.5
