@@ -5,7 +5,6 @@ import qualified RIO.List as List
 import qualified RIO.Map as Map
 import qualified RIO.Set as Set
 
-import Control.Monad.Cont
 import Control.Monad.State (modify, gets)
 import Control.Monad.Except
 import Control.Lens ((.~))
@@ -370,5 +369,3 @@ typingType (L _ (T.ArrayType typeid)) = do
 
 typingField :: T.LField -> Typing (Id, Type)
 typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeId typeid 
-
-
