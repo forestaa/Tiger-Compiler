@@ -64,7 +64,7 @@ initVEnv = foldr (uncurry E.insert) E.empty [
 evalVEnvEff :: Eff (("var" >: State VEnv) ': xs) a -> Eff xs a
 evalVEnvEff = flip (evalStateEff @"var") initVEnv
 
-type Typing a = Eff '["type" >: State TEnv, "var" >: State VEnv, "id" >: UniqueEff, EitherDef (RealLocated TypingError)] a
+type TypingEff = '["type" >: State TEnv, "var" >: State VEnv, "id" >: UniqueEff, EitherDef (RealLocated TypingError)]
 data TypingError = VariableUndefined Id
                  | VariableMismatchedWithDeclaredType Id Type Type
                  | TypeUndefined Id
@@ -96,54 +96,54 @@ instance Show TypingError where
   show AssignNilWithNoRecordAnnotation = "nil assigned with no type annotation"
   show (NotImplemented msg) = "not implemented: " ++ msg
 
-runTyping :: Typing a -> Either (RealLocated TypingError) a
+runTyping :: Eff TypingEff a -> Either (RealLocated TypingError) a
 runTyping = leaveEff . runEitherDef . runUniqueEff . evalVEnvEff . evalTEnvEff
 
 
-skipName :: Type -> Typing Type
+skipName :: (Lookup xs "type" (State TEnv), MonadError (RealLocated TypingError) (Eff xs)) => Type -> Eff xs Type
 skipName (TName id) = do
   ty <- lookupTypeId id
   skipName ty
 skipName a@(TArray arr) = case arr ^. #range of
   TName id -> do
-    ty <- lookupTypeId id >>= skipName
+    ty <-skipName =<< lookupTypeId id
     pure . TArray $ arr & #range .~ ty
   _ -> pure a
 skipName ty = pure ty
-lookupTypeId :: LId -> Typing Type
+lookupTypeId :: (Lookup xs "type" (State TEnv), MonadError (RealLocated TypingError) (Eff xs)) => LId -> Eff xs Type
 lookupTypeId (L loc id) = do
   m <- E.lookup id <$> getEff #type
   case m of
     Nothing -> throwError . L loc $ TypeUndefined id
     Just ty -> pure ty
-lookupVarId :: LId -> Typing Var
+lookupVarId :: (Lookup xs "var" (State VEnv), MonadError (RealLocated TypingError) (Eff xs)) => LId -> Eff xs Var
 lookupVarId (L loc id) = do
   m <- E.lookup id <$> getEff #var
   case m of
     Nothing -> throwError . L loc $ VariableUndefined id
     Just v -> pure v
-lookupSkipName :: LId -> Typing Type
+lookupSkipName :: (Lookup xs "type" (State TEnv), MonadError (RealLocated TypingError) (Eff xs)) => LId -> Eff xs Type
 lookupSkipName = (skipName =<<) . lookupTypeId 
-insertType :: Id -> Type -> Typing ()
+insertType :: (Lookup xs "type" (State TEnv)) => Id -> Type -> Eff xs ()
 insertType id ty = modifyEff #type $ E.insert id ty
-insertVar :: Id -> Var -> Typing ()
+insertVar :: (Lookup xs "var" (State VEnv)) => Id -> Var -> Eff xs ()
 insertVar id v = modifyEff #var $ E.insert id v
-withTEnvScope :: Typing a -> Typing a
+withTEnvScope :: (Lookup xs "type" (State TEnv)) => Eff xs a -> Eff xs a
 withTEnvScope = E.withEnvScope #type
-withVEnvScope :: Typing a -> Typing a
+withVEnvScope :: (Lookup xs "var" (State VEnv)) => Eff xs a -> Eff xs a
 withVEnvScope = E.withEnvScope #var
 
-checkInt :: T.LExp -> Typing ()
+checkInt :: T.LExp -> Eff TypingEff ()
 checkInt e@(L loc _) = do
   ty <- typingExp e
   unless (ty == TInt) . throwError . L loc $ ExpectedIntType e ty
-checkUnit :: T.LExp -> Typing ()
+checkUnit :: T.LExp -> Eff TypingEff ()
 checkUnit e@(L loc _) = do
   ty <- typingExp e
   unless (ty == TUnit) . throwError . L loc $ ExpectedIntType e ty
 
 type IRType = ((), Type)
-typingExp :: T.LExp -> Typing Type
+typingExp :: T.LExp -> Eff TypingEff Type
 typingExp (L _ T.Nil) = pure TNil
 typingExp (L _ (T.Int _)) = pure TInt
 typingExp (L _ (T.String _)) = pure TString
@@ -260,7 +260,7 @@ typingExp (L loc (T.Let decs body)) = do
     zipM_ _ _ [] = pure ()
     zipM_ f (a:as) (b:bs) = f a b >> zipM_ f as bs
 
-checkSameNameDec :: RealSrcSpan -> [T.LDec] -> Typing ()
+checkSameNameDec :: RealSrcSpan -> [T.LDec] -> Eff TypingEff ()
 checkSameNameDec loc decs = unless (runCheckSameNameDec decs) . throwError . L loc $ MultiDeclaredName decs
   where
     runCheckSameNameDec = leaveEff . flip (evalStateEff @"func") Set.empty . flip (evalStateEff @"var") Set.empty . flip (evalStateEff @"type") Set.empty . checkSameNameDec'
@@ -279,7 +279,7 @@ checkSameNameDec' (L _ (T.TypeDec (L _ id) _):decs) = flip (runContEff @"cont") 
   getsEff #type (Set.member id) >>= bool (pure True) (contEff #cont $ const (pure False))
   modifyEff #type (Set.insert id)
   castEff $ checkSameNameDec' decs
-checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Typing ()
+checkInvalidRecType :: RealSrcSpan -> [T.LDec] -> Eff TypingEff ()
 checkInvalidRecType loc decs = do
   res <- mapM runCheckInvalidRecType ids
   if and res
@@ -290,7 +290,7 @@ checkInvalidRecType loc decs = do
     idtypes = map idAndType decs
     ids = map fst idtypes
     runCheckInvalidRecType = flip  evalStateDef Set.empty . flip runReaderDef (Map.fromList idtypes) . checkInvalidRecType'
-checkInvalidRecType' :: Id -> Eff '[ReaderDef (Map.Map Id T.LType), StateDef (Set Id), "type" >: State TEnv, "var" >: State VEnv, "id" >: UniqueEff, EitherDef (RealLocated TypingError)] Bool
+checkInvalidRecType' :: Id -> Eff (ReaderDef (Map.Map Id T.LType) ': StateDef (Set Id) ': TypingEff) Bool
 checkInvalidRecType' id = flip (runContEff @"cont") pure $ do
   gets (Set.member id) >>= bool (pure True) (contEff #cont $ const (pure False))
   decs <- ask
@@ -301,7 +301,7 @@ checkInvalidRecType' id = flip (runContEff @"cont") pure $ do
       castEff $ checkInvalidRecType' id'
     _ -> pure True
 
-typingValue :: T.LValue -> Typing Type
+typingValue :: T.LValue -> Eff TypingEff Type
 typingValue (L loc (T.Id id)) = do
   var <- lookupVarId id
   case var of
@@ -322,10 +322,10 @@ typingValue (L loc (T.ArrayIndex v e)) = do
       pure $ a ^. #range
     _ -> throwError . L loc $ ExpectedArrayType v ty
 
-typingFieldAssign :: T.LFieldAssign -> Typing (Id, Type)
+typingFieldAssign :: T.LFieldAssign -> Eff TypingEff (Id, Type)
 typingFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> typingExp e
 
-insertFunEntry :: T.LDec -> Typing ()
+insertFunEntry :: (Lookup xs "var" (State VEnv)) => T.LDec -> Eff xs ()
 insertFunEntry (L _ (T.FunDec (L _ id) args ret _)) = insertVar id . Fun $ #domains @= map (TName . typeid) args <: #codomain @= retty <: nil
   where
     typeid (L _ (T.Field _ _ id)) = id
@@ -333,7 +333,7 @@ insertFunEntry (L _ (T.FunDec (L _ id) args ret _)) = insertVar id . Fun $ #doma
       Just retid -> TName retid
       Nothing -> TUnit
 
-typingDec :: T.LDec -> Typing (Maybe Type)
+typingDec :: T.LDec -> Eff TypingEff (Maybe Type)
 typingDec (L loc (T.FunDec _ args ret body)) = do
   argsty <- mapM typingField args 
   retty <- maybe (pure TUnit) lookupTypeId ret
@@ -356,7 +356,7 @@ typingDec (L loc (T.VarDec (L _ id) _ Nothing e)) = do
   pure Nothing
 typingDec (L _ (T.TypeDec _ ty)) = Just <$> typingType ty
 
-typingType :: T.LType -> Typing Type
+typingType :: (Lookup xs "type" (State TEnv), MonadError (RealLocated TypingError) (Eff xs), Lookup xs "id" (State Unique)) => T.LType -> Eff xs Type
 typingType (L _ (T.TypeId typeid)) = lookupTypeId typeid
 typingType (L _ (T.RecordType fields)) = do
   fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
@@ -367,5 +367,5 @@ typingType (L _ (T.ArrayType typeid)) = do
   id <- getUniqueEff #id
   pure . TArray $ #range @= ty <: #id @= id <: nil
 
-typingField :: T.LField -> Typing (Id, Type)
+typingField :: (Lookup xs "type" (State TEnv), MonadError (RealLocated TypingError) (Eff xs)) => T.LField -> Eff xs (Id, Type)
 typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeId typeid 
