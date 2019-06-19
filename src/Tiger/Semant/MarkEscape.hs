@@ -20,7 +20,7 @@ withDepthIncre t = do
   modifyEff #depth $ (+) 1
   a <- t
   modifyEff #depth $ flip (-) 1
-  return a
+  pure a
 
 validateVarUsage :: [Id] -> Eff EscapeEff a -> Eff EscapeEff ([Bool], a)
 validateVarUsage ids t = E.withEnvScope #env $ do
@@ -28,7 +28,7 @@ validateVarUsage ids t = E.withEnvScope #env $ do
   modifyEff #env $ \e -> foldr (`E.insert` d) e ids
   a <- t
   ds <- getsEff #env $ \e -> foldr (\id -> (:) (fromJust (E.lookup id e))) [] ids
-  return ((<) d <$> ds, a)
+  pure ((<) d <$> ds, a)
 
 traverseExp :: T.LExp -> Eff EscapeEff T.LExp
 traverseExp (L loc (T.Var v)) = L loc . T.Var <$> traverseValue v
@@ -44,7 +44,7 @@ traverseExp (L loc (T.For id _ from to body)) = do
   from' <- traverseExp from
   to' <- traverseExp to
   (escs, body') <- validateVarUsage [unLId id] $ traverseExp body
-  return . L loc $ T.For id (List.head escs) from' to' body'
+  pure . L loc $ T.For id (List.head escs) from' to' body'
 traverseExp (L loc (T.Let [] body)) = L loc . T.Let [] <$> traverseExp body
 traverseExp (L loc (T.Let (d:ds) body)) = do
     d' <- traverseDec d
@@ -52,24 +52,18 @@ traverseExp (L loc (T.Let (d:ds) body)) = do
       L loc' (T.VarDec id b t init) -> do
         (escs, lets) <- validateVarUsage [unLId id] $ traverseExp (L loc (T.Let ds body))
         case lets of
-          L _ (T.Let decs' body') -> return . L loc $ T.Let (L loc' (T.VarDec id (b || List.head escs) t init) : decs') body'
+          L _ (T.Let decs' body') -> pure . L loc $ T.Let (L loc' (T.VarDec id (b || List.head escs) t init) : decs') body'
       d' -> do
         lets <- traverseExp (L loc (T.Let ds body))
         case lets of
-          L _  (T.Let decs' body') -> return . L loc $ T.Let (d' : decs') body'
-  where
-    getId (L _ (T.FunDec id _ _ _)) = unLId id
-    getId (L _ (T.VarDec id _ _ _)) = unLId id
-    getId (L _ (T.TypeDec id _)) = unLId id
-    isVarDec (L _ (T.VarDec _ _ _ _)) = True
-    isVarDec _ = False
-traverseExp le = return le
+          L _  (T.Let decs' body') -> pure . L loc $ T.Let (d' : decs') body'
+traverseExp le = pure le
 
 traverseValue :: T.LValue -> Eff EscapeEff T.LValue
 traverseValue (L loc (T.Id id)) = do
   d <- getEff #depth
   modifyEff #env $ E.adjust (max d) (unLId id)
-  return $ L loc (T.Id id)
+  pure $ L loc (T.Id id)
 traverseValue (L loc (T.RecField v id)) = L loc . flip T.RecField id <$> traverseValue v
 traverseValue (L loc (T.ArrayIndex v e)) = L loc <$> (T.ArrayIndex <$> traverseValue v <*> traverseExp e)
 
@@ -80,7 +74,7 @@ traverseDec :: T.LDec -> Eff EscapeEff T.LDec
 traverseDec (L loc (T.FunDec func args rettype body)) = withDepthIncre $ do
   let ids = map (\(L _ (T.Field id _ _)) -> unLId id) args
   (escs, body') <- validateVarUsage ids (traverseExp body)
-  let args' = (\((L loc (T.Field id _ typeid)), esc) -> L loc (T.Field id esc typeid)) <$> zip args escs
-  return . L loc $ T.FunDec func args' rettype body'
+  let args' = (\(L loc (T.Field id _ typeid), esc) -> L loc (T.Field id esc typeid)) <$> zip args escs
+  pure . L loc $ T.FunDec func args' rettype body'
 traverseDec (L loc (T.VarDec id esc t init)) = L loc . T.VarDec id esc t <$> traverseExp init
-traverseDec ty = return ty
+traverseDec ty = pure ty

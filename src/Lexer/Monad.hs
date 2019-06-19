@@ -51,7 +51,7 @@ failP = throwError
 getInput :: P AlexInput
 getInput = do
   s <- get
-  return $ AlexInput (location s) (buffer s)
+  pure $ AlexInput (location s) (buffer s)
 
 setInput :: AlexInput -> P ()
 setInput (AlexInput loc buf) = modify $ \s -> s{location = loc, buffer = buf}

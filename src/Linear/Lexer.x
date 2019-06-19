@@ -70,7 +70,7 @@ scanner = runP loop
     loop = do
       tk <- lexToken
       case tk of
-        L _ EOF -> return [tk]
+        L _ EOF -> pure [tk]
         _       -> (:) tk <$> loop
 
 lexToken :: P Lexeme
@@ -78,7 +78,7 @@ lexToken = do
   inp@(AlexInput loc _) <- getInput
   sc <- getLexState
   case alexScan inp sc of
-    AlexEOF -> return $ L (mkRealSrcSpan loc 0) EOF
+    AlexEOF -> pure $ L (mkRealSrcSpan loc 0) EOF
     AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file, ":", show row, ":", show col, ": lexer error"]
     AlexSkip inp' _ -> setInput inp' >> lexToken
     AlexToken inp' len action -> setInput inp' >> action inp len
@@ -87,16 +87,16 @@ lexerError :: Action a
 lexerError (AlexInput (SrcLoc file row col) buf) len = failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the caracter: ", B.unpack $ B.take (fromIntegral len) buf]
 
 tokenOf :: Token -> Action Lexeme
-tokenOf tk (AlexInput loc _) len = return $ L (mkRealSrcSpan loc len) tk
+tokenOf tk (AlexInput loc _) len = pure $ L (mkRealSrcSpan loc len) tk
 
 getNum :: Action Lexeme
 getNum (AlexInput loc@(SrcLoc file row col) buf) len = case B.readInt bstr of
   Nothing -> failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the integer:", B.unpack $ B.take (fromIntegral len) buf]
-  Just (i, _) -> return $ L (mkRealSrcSpan loc len) (NUM i)
+  Just (i, _) -> pure $ L (mkRealSrcSpan loc len) (NUM i)
   where
     bstr = B.take (fromIntegral len) buf
 
 getId :: Action Lexeme
-getId (AlexInput loc buf) len = return . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
+getId (AlexInput loc buf) len = pure . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
 
 }

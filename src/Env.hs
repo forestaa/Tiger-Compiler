@@ -32,7 +32,7 @@ insert id a (Env env) = Env $ env & #stack %~ (:) (Push id) & #env %~ Map.alter 
 
 lookup :: Id -> Env a -> Maybe a
 lookup id (Env env) = case (env ^. #env) Map.!? id of
-  Just (a:_) -> return a
+  Just (a:_) -> pure a
   Nothing -> Nothing
 
 adjust :: (a -> a) -> Id -> Env a -> Env a
@@ -54,4 +54,4 @@ withEnvScope k t = do
   modifyEff k beginScope
   a <- t
   modifyEff k endScope
-  return a
+  pure a

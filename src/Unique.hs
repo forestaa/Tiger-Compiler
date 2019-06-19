@@ -15,7 +15,7 @@ getUniqueEff :: Lookup xs k (State Unique) => Proxy k -> Eff xs Unique
 getUniqueEff k = do
   Unique id <- getEff k
   putEff k (Unique (id + 1))
-  return $ Unique id
+  pure $ Unique id
 
 newtype Temp = Temp Unique
 newTemp :: Lookup xs k (State Unique) => Proxy k -> Eff xs Temp
