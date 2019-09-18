@@ -2,3 +2,5 @@
 compiler.cabal
 *~
 /tiger/
+
+.vscode/
