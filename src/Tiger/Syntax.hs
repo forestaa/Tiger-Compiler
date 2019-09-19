@@ -8,9 +8,9 @@ import Id
 
 data Exp =
   -- literals
-    Nil
-  | Int Int
+    Int Int
   | String String
+  | Nil
 
   -- array and record creation
   | ArrayCreate  {typeid :: Id, size :: Exp, init :: Exp}
