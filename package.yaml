@@ -23,16 +23,20 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - containers
+- extensible
 - lens
 - mtl
 - monad-skeleton
 - rio
 
 default-extensions:
+- ConstraintKinds
 - DataKinds
+- GADTs
 - GeneralizedNewtypeDeriving
 - FlexibleContexts
 - FlexibleInstances
+- LambdaCase
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds
@@ -50,7 +54,6 @@ library:
   - happy
   dependencies:
   - array
-  - extensible
   - template-haskell
   ghc-options:
   - -Wall

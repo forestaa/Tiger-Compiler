@@ -1,8 +1,8 @@
-module Tiger.SemantSpec (spec) where
+module Tiger.Semant.TypingSpec (spec) where
 
 import Test.Hspec
 import Tiger.Parser
-import Tiger.Semant
+import Tiger.Semant.Typing
 
 import Lexer.Monad
 

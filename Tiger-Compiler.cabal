@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b3a8e3dbd77b95bc70b093eaaf5c26ab837b4bf80b689ea2e05fccd9229c0235
+-- hash: 71951db9d9257d9837ca2e92b1b525a9eb3ae067671c995da9e9be54591aa47c
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -29,7 +29,7 @@ source-repository head
 library
   hs-source-dirs:
       src
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
+  default-extensions: ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
   build-depends:
       array
@@ -61,9 +61,9 @@ library
       Tiger.Lexer
       Tiger.LSyntax
       Tiger.Parser
-      Tiger.Semant
       Tiger.Semant.MarkEscape
       Tiger.Semant.Translate
+      Tiger.Semant.Typing
       Tiger.Syntax
       Unique
   other-modules:
@@ -74,13 +74,14 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
+  default-extensions: ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
     , base >=4.7 && <5
     , bytestring
     , containers
+    , extensible
     , lens
     , monad-skeleton
     , mtl
@@ -94,13 +95,14 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
-  default-extensions: DataKinds GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
+  default-extensions: ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
     , base >=4.7 && <5
     , bytestring
     , containers
+    , extensible
     , hspec
     , lens
     , monad-skeleton
@@ -113,6 +115,7 @@ test-suite compiler-test
       Tiger.LexerSpec
       Tiger.ParserSpec
       Tiger.Semant.MarkEscapeSpec
-      Tiger.SemantSpec
+      Tiger.Semant.TranslateSpec
+      Tiger.Semant.TypingSpec
       Paths_Tiger_Compiler
   default-language: Haskell2010
