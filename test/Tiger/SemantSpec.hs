@@ -33,7 +33,7 @@ translateSpec = describe "translate test" $
           translateExp . dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
     case result of
       Left e -> expectationFailure $ show e
-      Right e -> e `shouldBe` (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp (F.fp (Proxy @FrameMock))))), TInt)
+      Right e -> e `shouldBe` (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp (F.fp @FrameMock)))), TInt)
 
 -- spec =
 --   describe "typing test" $ do

@@ -45,7 +45,7 @@ popNestingLevel :: NestingLevel f -> Maybe (Level f, NestingLevel f)
 popNestingLevel (NestingLevel []) = Nothing
 popNestingLevel (NestingLevel (level:levels)) = Just (level, NestingLevel levels)
 pullInStaticLinks :: forall f. F.Frame f => Level f -> NestingLevel f -> Maybe IR.Exp
-pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level) . (`evalStateDef` IR.Temp (F.fp (Proxy :: Proxy f))) $ pullInStaticLinksInternal current
+pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level) . (`evalStateDef` IR.Temp (F.fp @f)) $ pullInStaticLinksInternal current
   where
     pullInStaticLinksInternal level = case popNestingLevel level of
       Nothing -> throwError ()
@@ -83,7 +83,7 @@ pullInStaticLinksEff :: (Lookup xs "nestingLevel" (NestingLevelEff f), F.Frame f
 pullInStaticLinksEff level = pullInStaticLinks level <$> getNestingLevelEff
 
 
-newLevel :: (Lookup xs "temp" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f), F.Frame f) => Label -> [Bool] -> Eff xs (Level f)
+newLevel :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f), F.Frame f) => Label -> [Bool] -> Eff xs (Level f)
 newLevel label formals = do
   u <- getUniqueEff #nestingLevel
   frame <- F.newFrame label (True : formals)

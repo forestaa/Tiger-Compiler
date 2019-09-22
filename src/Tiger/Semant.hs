@@ -166,7 +166,7 @@ translateValue (L loc (T.RecField lv (L _ field))) = do
   (varExp, ty) <- translateValue lv
   case ty of
     TRecord r -> case Map.lookup field (r ^. #map) of
-      Just ty -> pure . (, ty) $ valueRecFieldExp (Proxy :: Proxy f) varExp (Partial.fromJust (Map.lookupIndex field (r ^. #map)))
+      Just ty -> pure . (, ty) $ valueRecFieldExp @f varExp (Partial.fromJust (Map.lookupIndex field (r ^. #map)))
       Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
     _ -> throwEff #translateError . L loc $ ExpectedRecordType lv ty
 translateValue (L loc (T.ArrayIndex lv le)) =
@@ -174,7 +174,7 @@ translateValue (L loc (T.ArrayIndex lv le)) =
     (varExp, TArray a) -> do
       (indexExp, indexTy) <- translateExp le
       checkInt indexTy le
-      pure . (, a ^. #range) $ valueArrayIndexExp (Proxy :: Proxy f) varExp indexExp
+      pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
     (_, ty) -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
 --   ty <- typingValue v >>= skipName
 --   case ty of

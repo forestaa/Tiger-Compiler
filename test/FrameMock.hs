@@ -27,7 +27,7 @@ formals :: FrameMock -> [AccessMock]
 formals (FrameMock r) = r ^. #formals
 allocLocal :: (Lookup xs "temp" U.UniqueEff) => FrameMock -> Bool -> Eff xs (FrameMock, AccessMock)
 allocLocal frame False = (frame, ) . InReg <$> U.newTemp
-allocLocal (FrameMock r) True = pure (FrameMock $ set #numberOfLocals numberOfLocals r, InFrame $ - numberOfLocals * F.wordSize (Proxy :: Proxy FrameMock))
+allocLocal (FrameMock r) True = pure (FrameMock $ set #numberOfLocals numberOfLocals r, InFrame $ - numberOfLocals * wordSize)
   where
     numberOfLocals = r ^. #numberOfLocals + 1
 exp :: AccessMock -> IR.Exp -> IR.Exp
@@ -40,7 +40,7 @@ instance F.Frame FrameMock where
   name = name
   formals = formals
   allocLocal = allocLocal
-  fp _ = U.Temp $ U.Unique 100000
+  fp = U.Temp $ U.Unique 100000
   exp = exp
-  wordSize _ = wordSize
+  wordSize = wordSize
 

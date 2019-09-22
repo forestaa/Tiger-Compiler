@@ -19,9 +19,9 @@ valueIdExpSpec :: Spec
 valueIdExpSpec = describe "simpleVarExp test" $
   it "current level" . runUniqueLevelEff $ do
     label1 <- U.newLabel
-    level1 <- newLevel label1 []
+    level1 <- newLevel @FrameMock label1 []
     allocateLocalOnCurrentLevel True >>= \case
       Nothing -> pure $ expectationFailure "something happens"
       Just access -> do
-        me <- valueIdExp (Access (#level @= (level1 :: Level FrameMock) <: #access @= access <: nil))
-        pure $ me `shouldBe` Just (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp (F.fp (Proxy :: Proxy FrameMock))))))
+        me <- valueIdExp (Access (#level @= level1 <: #access @= access <: nil))
+        pure $ me `shouldBe` Just (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp (F.fp @FrameMock)))))

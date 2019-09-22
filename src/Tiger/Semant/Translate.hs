@@ -54,10 +54,10 @@ valueIdExp :: (
   , Lookup xs "nestingLevel" (NestingLevelEff f)
   ) => Access f -> Eff xs (Maybe Exp)
 valueIdExp (Access r) = fmap (Ex . F.exp (r ^. #access)) <$> pullInStaticLinksEff (r ^. #level)
-valueRecFieldExp :: (F.Frame f) => Proxy f -> Exp -> Int -> Exp
-valueRecFieldExp p (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Minus recordVarExp (IR.Const (fieldNumber * F.wordSize p)))
-valueArrayIndexExp :: F.Frame f => Proxy f -> Exp -> Exp -> Exp
-valueArrayIndexExp p (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Minus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize p))))
+valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
+valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Minus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
+valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
+valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Minus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 
 -- data VarEntry f = Var (Access f)
 

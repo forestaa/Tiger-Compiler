@@ -38,6 +38,7 @@ dependencies:
 - rio
 
 default-extensions:
+- AllowAmbiguousTypes
 - ConstraintKinds
 - DataKinds
 - GADTs
