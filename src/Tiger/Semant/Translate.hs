@@ -1,21 +1,12 @@
 module Tiger.Semant.Translate where
 
 import RIO
-import qualified RIO.List.Partial as List
-import Control.Monad.State.Strict
-import Control.Monad.Error.Class
+import Data.Extensible
+
+import qualified Frame as F
 import qualified IR
 import qualified Unique as U
 
-import qualified Env as E
-import qualified Frame as F
-import qualified Tiger.LSyntax as T
-import qualified Tiger.Semant.Types
-
-import Id
-import SrcLoc
-import Data.Extensible
-import Data.Extensible.Effect.Default
 import Tiger.Semant.Types
 
 
