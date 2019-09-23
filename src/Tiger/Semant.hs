@@ -161,7 +161,7 @@ translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
-
+translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
@@ -269,6 +269,24 @@ translateWhileLoop bool body = do
     checkUnit bodyTy body
     (, TUnit) <$> whileLoopExp boolExp bodyExp
 
+translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateForLoop (L loc (lid, escape, from, to, body)) = translateExp (L loc (T.Let dec whileBody))
+  where
+    dec = [sL2 lid from (T.VarDec lid escape Nothing from)]
+    whileBody = L loc (T.While
+      (sL1 to (T.Op
+        (sL1 lid (T.Var $ sL1 lid (T.Id lid)))
+        (sL1 to T.Le)
+        to))
+      (sL1 body $ T.Seq [
+          body
+        , sL1 body $ T.Assign
+          (sL1 lid (T.Id lid))
+          (sL1 body $ T.Op (sL1 lid
+            (T.Var $ sL1 lid (T.Id lid)))
+            (sL1 body T.Plus)
+            (sL1 body $ T.Int 1))
+        ]))
 
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type
