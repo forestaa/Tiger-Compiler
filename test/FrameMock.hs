@@ -33,6 +33,10 @@ allocLocal (FrameMock r) True = pure (FrameMock $ set #numberOfLocals numberOfLo
 exp :: AccessMock -> IR.Exp -> IR.Exp
 exp (InFrame k) e = IR.Mem (IR.BinOp IR.Plus (IR.Const k) e)
 exp (InReg t) _ = IR.Temp t
+externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
+externalCall s args = do
+  label <- U.namedLabel s
+  pure $ IR.Call (IR.Name label) args
 
 instance F.Frame FrameMock where
   type Access FrameMock = AccessMock
@@ -43,4 +47,5 @@ instance F.Frame FrameMock where
   fp = U.Temp $ U.Unique 100000
   exp = exp
   wordSize = wordSize
+  externalCall = externalCall
 

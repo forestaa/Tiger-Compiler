@@ -15,6 +15,7 @@ class Frame f where
   fp :: U.Temp
   exp :: Access f -> IR.Exp -> IR.Exp
   wordSize :: Int
+  externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
 
 
 data Frag f where
