@@ -8,6 +8,7 @@ import qualified IR
 import qualified Unique as U
 
 import Tiger.Semant.Types
+import qualified Tiger.LSyntax as T
 
 
 data Exp = Ex IR.Exp | Nx IR.Stm | Cx (U.Label -> U.Label -> IR.Stm)
@@ -50,6 +51,34 @@ valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Minus 
 valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Minus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 
+-- TODO: string comparison
+binOpExp :: T.LOp' -> Exp -> Exp -> Exp
+binOpExp op left right
+  | isArithmetic op = arithmeticOpExp (arithmeticOpConvert op) left right
+  | otherwise = condOpExp (relOpConvert op) left right
+  where
+    isArithmetic T.Plus = True
+    isArithmetic T.Minus = True
+    isArithmetic T.Times = True
+    isArithmetic T.Div = True
+    isArithmetic _ = False
+
+    arithmeticOpConvert T.Plus  = IR.Plus
+    arithmeticOpConvert T.Minus = IR.Minus
+    arithmeticOpConvert T.Times = IR.Mul
+    arithmeticOpConvert T.Div   = IR.Div
+
+    relOpConvert T.Eq    = IR.Eq
+    relOpConvert T.NEq   = IR.Ne
+    relOpConvert T.Lt    = IR.Lt
+    relOpConvert T.Le    = IR.Le
+    relOpConvert T.Gt    = IR.Gt
+    relOpConvert T.Ge    = IR.Ge
+
+arithmeticOpExp :: IR.BinOp -> Exp -> Exp -> Exp
+arithmeticOpExp op (Ex left) (Ex right) = Ex $ IR.BinOp op left right
+condOpExp :: IR.RelOp -> Exp -> Exp -> Exp
+condOpExp op (Ex left) (Ex right) = Cx $ \t f -> IR.CJump op left right t f
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)

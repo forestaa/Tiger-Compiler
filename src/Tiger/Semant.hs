@@ -155,6 +155,7 @@ checkInt ty e@(L loc _) =
 
 translateExp :: HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Var v)) = translateValue v
+translateExp e@(L loc (T.Op left (L _ op) right)) = translateBinOp e
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
@@ -176,12 +177,25 @@ translateValue (L loc (T.ArrayIndex lv le)) =
       checkInt indexTy le
       pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
     (_, ty) -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
---   ty <- typingValue v >>= skipName
---   case ty of
---     TArray a -> do
---       checkInt e
---       pure $ a ^. #range
---     _ -> throwEff #translateError . L loc $ ExpectedArrayType v ty
+
+translateBinOp :: HasTranslateEff xs f => T.LOp -> Eff xs (Exp, Type)
+translateBinOp (L loc (T.Op left (L _ op) right)) = do
+  (leftExp, leftTy) <- translateExp left
+  (rightExp, rightTy) <- translateExp right
+  typecheck op leftTy left rightTy right
+  pure . (, TInt) $ binOpExp op leftExp rightExp
+  where
+    isEqNEq T.Eq = True
+    isEqNEq T.NEq = True
+    isEqNEq _ = False
+    isComparable leftTy rightTy = leftTy <= rightTy || rightTy <= leftTy
+
+    typecheck op leftTy left rightTy right
+      | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
+      | isEqNEq op && not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
+      | otherwise = pure ()
+
+
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type
 -- typingExp (L _ T.Nil) = pure TNil
