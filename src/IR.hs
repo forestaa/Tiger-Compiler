@@ -10,7 +10,7 @@ data Exp = Const Int
          | Temp U.Temp
          | BinOp BinOp Exp Exp
          | Mem Exp
-         | Call Exp
+         | Call Exp [Exp]
          | ESeq Stm Exp
   deriving (Eq, Show)
 

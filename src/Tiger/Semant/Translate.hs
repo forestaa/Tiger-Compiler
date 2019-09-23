@@ -129,6 +129,17 @@ ifNoElseExp cond (Nx thenStm) = do
     , IR.Label z
     ]
 
+recordCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => [Exp] -> Eff xs Exp
+recordCreationExp es = do
+  r <- newTemp
+  s <- allocateRecordStm r (length es)
+  pure . Ex $ IR.ESeq (IR.Seq s (IR.seqStm . recordCreationExpInternal r $ zip [0..] es)) (IR.Temp r)
+  where
+    allocateRecordStm r n = do
+      mallocLabel <- namedLabel "malloc"
+      pure. IR.Move (IR.Temp r) $ IR.Call (IR.Name mallocLabel) [IR.Const $ n*F.wordSize @f]
+    recordCreationExpInternal r = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus (IR.Temp r) (IR.Const (i*F.wordSize @f))) e
+
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)
