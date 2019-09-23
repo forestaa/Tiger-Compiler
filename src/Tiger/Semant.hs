@@ -158,7 +158,7 @@ translateExp (L loc (T.Op left (L _ op) right)) = translateBinOp $ L loc (op, le
 translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (bool, then', else')
 translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
-
+translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
@@ -244,6 +244,20 @@ translateRecordCreation (L loc (typeid, fields)) = do
 
 translateFieldAssign :: HasTranslateEff xs f => T.LFieldAssign -> Eff xs (Id, (Exp, Type))
 translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
+
+translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateArrayCreation (L loc (typeid, size, init)) = do
+  ty <- lookupSkipName typeid
+  case ty of
+    TArray a -> do
+      (sizeExp, sizeTy) <- translateExp size
+      checkInt sizeTy size
+      (initExp, initty) <- translateExp init
+      if initty == a ^. #range
+        then (, ty) <$> arrayCreationExp @f sizeExp initExp
+        else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
+    _ -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
+
 
 
 

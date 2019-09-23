@@ -138,6 +138,12 @@ recordCreationExp es = do
     allocateRecordStm r n = IR.Move (IR.Temp r) <$> F.externalCall @f "malloc" [IR.Const $ n*F.wordSize @f]
     recordCreationExpInternal r = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus (IR.Temp r) (IR.Const (i*F.wordSize @f))) e
 
+arrayCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => Exp -> Exp -> Eff xs Exp
+arrayCreationExp (Ex size) (Ex init) = do
+  r <- newTemp
+  allocateArrayStm <- IR.Move (IR.Temp r) <$> F.externalCall @f "initArray" [size, init]
+  pure . Ex $ IR.ESeq allocateArrayStm (IR.Temp r)
+
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)
