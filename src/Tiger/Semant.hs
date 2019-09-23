@@ -79,7 +79,7 @@ instance Show TranslateError where
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff)
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff)
 runTranslateEff ::
      Eff (
          ("typeEnv" >: State TEnv)
@@ -148,14 +148,15 @@ lookupSkipName = skipName <=< lookupTypeIdEff
 checkInt :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
 checkInt ty e@(L loc _) =
   unless (ty == TInt) . throwEff #translateError . L loc $ ExpectedIntType e ty
--- checkUnit :: HasTypingEff xs f => T.LExp -> Eff xs ()
--- checkUnit e@(L loc _) = do
---   ty <- typingExp e
---   unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedIntType e ty
+checkUnit :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
+checkUnit ty e@(L loc _) =
+    unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
 
 translateExp :: HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Var v)) = translateValue v
-translateExp e@(L loc (T.Op left (L _ op) right)) = translateBinOp e
+translateExp (L loc (T.Op left (L _ op) right)) = translateBinOp $ L loc (op, left, right)
+translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (bool, then', else')
+translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
@@ -178,8 +179,8 @@ translateValue (L loc (T.ArrayIndex lv le)) =
       pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
     (_, ty) -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
 
-translateBinOp :: HasTranslateEff xs f => T.LOp -> Eff xs (Exp, Type)
-translateBinOp (L loc (T.Op left (L _ op) right)) = do
+translateBinOp :: HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateBinOp (L loc (op, left, right)) = do
   (leftExp, leftTy) <- translateExp left
   (rightExp, rightTy) <- translateExp right
   typecheck op leftTy left rightTy right
@@ -188,13 +189,29 @@ translateBinOp (L loc (T.Op left (L _ op) right)) = do
     isEqNEq T.Eq = True
     isEqNEq T.NEq = True
     isEqNEq _ = False
-    isComparable leftTy rightTy = leftTy <= rightTy || rightTy <= leftTy
 
     typecheck op leftTy left rightTy right
       | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
       | isEqNEq op && not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
       | otherwise = pure ()
 
+translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateIfElse (L loc (bool, then', else')) = do
+  (boolExp, boolTy) <- translateExp bool
+  checkInt boolTy bool
+  (thenExp, thenTy) <- translateExp then'
+  (elseExp, elseTy) <- translateExp else'
+  if isComparable thenTy elseTy
+    then (, thenTy) <$> ifElseExp boolExp thenExp elseExp
+    else throwEff #translateError . L loc $ ExpectedType else' thenTy elseTy
+
+translateIfNoElse :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
+translateIfNoElse bool then' = do
+  (boolExp, boolTy) <- translateExp bool
+  checkInt boolTy bool
+  (thenExp, thenTy) <- translateExp then'
+  checkUnit thenTy then'
+  (, TUnit) <$> ifNoElseExp boolExp thenExp
 
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type

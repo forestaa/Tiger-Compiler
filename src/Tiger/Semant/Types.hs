@@ -33,6 +33,8 @@ instance Eq Type where
 instance Ord Type where
   (TRecord _) <= TNil = True
   ty <= ty' = ty == ty'
+isComparable :: Type -> Type -> Bool
+isComparable leftTy rightTy = leftTy <= rightTy || rightTy <= leftTy
 
 
 newtype Level f = Level (Record '["unique" >: Unique, "frame" >: f]) deriving (Show)

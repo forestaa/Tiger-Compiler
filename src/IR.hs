@@ -16,7 +16,7 @@ data Exp = Const Int
 
 data Stm = Move Exp Exp
          | Exp Exp
-         | Jump [(Exp, U.Label)]
+         | Jump Exp [U.Label]
          | CJump RelOp Exp Exp U.Label U.Label
          | Seq Stm Stm
          | Label U.Label
@@ -34,15 +34,15 @@ data BinOp = Plus
            | XOr
   deriving (Eq, Show)
 
-data RelOp = Eq 
-           | Ne 
-           | Lt 
-           | Gt 
-           | Le 
-           | Ge 
-           | ULt 
-           | ULe 
-           | UGt 
+data RelOp = Eq
+           | Ne
+           | Lt
+           | Gt
+           | Le
+           | Ge
+           | ULt
+           | ULe
+           | UGt
            | UGe
   deriving (Eq, Show)
 
