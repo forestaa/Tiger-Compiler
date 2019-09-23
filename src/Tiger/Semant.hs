@@ -79,18 +79,19 @@ instance Show TranslateError where
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff)
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff)
 runTranslateEff ::
      Eff (
          ("typeEnv" >: State TEnv)
       ': ("varEnv" >: State (VEnv f))
       ': ("nestingLevel" >: NestingLevelEff f)
+      ': ("breakpoint" >: BreakPointEff)
       ': ("temp" >: UniqueEff)
       ': ("label" >: UniqueEff)
       ': ("translateError" >: EitherEff (RealLocated TranslateError))
       ': xs) a
   -> Eff xs (Either (RealLocated TranslateError) a)
-runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"label" . runUniqueEff @"temp" . runNestingLevelEff . evalEnvEff initTEnv initVEnv
+runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"label" . runUniqueEff @"temp" . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
 
 
 lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
@@ -159,6 +160,7 @@ translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (b
 translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
+translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
@@ -258,6 +260,14 @@ translateArrayCreation (L loc (typeid, size, init)) = do
         else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
     _ -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
 
+translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
+translateWhileLoop bool body = do
+  (boolExp, boolTy) <- translateExp bool
+  checkInt boolTy bool
+  withBreakPoint $ do
+    (bodyExp, bodyTy) <- translateExp body
+    checkUnit bodyTy body
+    (, TUnit) <$> whileLoopExp boolExp bodyExp
 
 
 

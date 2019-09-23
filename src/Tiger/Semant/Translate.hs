@@ -1,6 +1,7 @@
 module Tiger.Semant.Translate where
 
 import RIO
+import qualified RIO.List.Partial as List
 import Data.Extensible
 
 import qualified Frame as F
@@ -21,6 +22,29 @@ instance Show Exp where
   show (Ex e) = "Ex: " ++ show e
   show (Nx s) = "Nx: " ++ show s
   show (Cx _) = "Cx"
+newtype BreakPointStack = BreakPointStack [Label]
+type BreakPointEff = State BreakPointStack
+runBreakPointEff :: Eff (("breakpoint" >: BreakPointEff) ': xs) a -> Eff xs a
+runBreakPointEff = flip (evalStateEff @"breakpoint") (BreakPointStack [])
+
+withBreakPoint :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs a -> Eff xs a
+withBreakPoint body = do
+  pushNewBreakPoint
+  ret <- body
+  popBreakPoint
+  pure ret
+  where
+    pushNewBreakPoint :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs ()
+    pushNewBreakPoint = do
+      done <- newLabel
+      modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (done:breakpoints)
+    popBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs ()
+    popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (List.tail breakpoints)
+fetchCurrentBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs (Maybe Label)
+fetchCurrentBreakPoint = getEff #breakpoint >>= \case
+  BreakPointStack [] -> pure Nothing
+  BreakPointStack (breakpoint:_) -> pure $ Just breakpoint
+
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
@@ -143,6 +167,21 @@ arrayCreationExp (Ex size) (Ex init) = do
   r <- newTemp
   allocateArrayStm <- IR.Move (IR.Temp r) <$> F.externalCall @f "initArray" [size, init]
   pure . Ex $ IR.ESeq allocateArrayStm (IR.Temp r)
+
+whileLoopExp :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Exp -> Exp -> Eff xs Exp
+whileLoopExp cond (Nx bodyStm) = do
+  test <- newLabel
+  body <- newLabel
+  fetchCurrentBreakPoint >>= \case
+    -- Nothing -> pure Nothing
+    Just done -> pure . Nx $ IR.seqStm [
+        IR.Label test
+      , unCx cond body done
+      , IR.Label body
+      , bodyStm
+      , IR.Jump (IR.Name test) [test]
+      , IR.Label done
+      ]
 
 -- data VarEntry f = Var (Access f)
 
