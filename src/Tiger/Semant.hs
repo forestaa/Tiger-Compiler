@@ -26,16 +26,16 @@ initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
 initVEnv :: VEnv f
 initVEnv = E.fromList [
-  ("print", Fun $ #domains @= [TString] <: #codomain @= TUnit <: nil),
-  ("flush", Fun $ #domains @= [] <: #codomain @= TUnit <: nil),
-  ("getchar", Fun $ #domains @= [] <: #codomain @= TString <: nil),
-  ("ord", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
-  ("chr", Fun $ #domains @= [TInt] <: #codomain @= TString <: nil),
-  ("size", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
-  ("substring", Fun $ #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil),
-  ("concat", Fun $ #domains @= [TString, TString] <: #codomain @= TString <: nil),
-  ("not", Fun $ #domains @= [TInt] <: #codomain @= TInt <: nil),
-  ("exit", Fun $ #domains @= [TInt] <: #codomain @= TUnit <: nil)
+  -- ("print", Fun $ #domains @= [TString] <: #codomain @= TUnit <: nil),
+  -- ("flush", Fun $ #domains @= [] <: #codomain @= TUnit <: nil),
+  -- ("getchar", Fun $ #domains @= [] <: #codomain @= TString <: nil),
+  -- ("ord", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
+  -- ("chr", Fun $ #domains @= [TInt] <: #codomain @= TString <: nil),
+  -- ("size", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
+  -- ("substring", Fun $ #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil),
+  -- ("concat", Fun $ #domains @= [TString, TString] <: #codomain @= TString <: nil),
+  -- ("not", Fun $ #domains @= [TInt] <: #codomain @= TInt <: nil),
+  -- ("exit", Fun $ #domains @= [TInt] <: #codomain @= TUnit <: nil)
   ]
 
 data TranslateError =
@@ -162,6 +162,7 @@ translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
+translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
@@ -287,6 +288,20 @@ translateForLoop (L loc (lid, escape, from, to, body)) = translateExp (L loc (T.
             (sL1 body T.Plus)
             (sL1 body $ T.Int 1))
         ]))
+
+translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
+translateFunApply (L loc (func, args)) = do
+  v <- lookupVarIdEff func
+  case v of
+    Fun r -> do
+      (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
+      domains <- mapM skipName $ r ^. #domains
+      if argsty == domains
+        then funApplyExp (r ^. #label) (r ^. #level) exps >>= \case
+          Just exp -> (exp, ) <$> skipName (r ^. #codomain)
+        else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
+    Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
+
 
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type

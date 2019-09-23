@@ -103,7 +103,7 @@ allocateLocalOnCurrentLevel b = fetchCurrentLevelEff >>= \case
 
 newtype Access f = Access (Record '["level" >: Level f, "access" >: F.Access f])
 data Var f = Var (Record '["type" >: Type, "access" >: Access f])
-         | Fun (Record '["domains" :> [Type], "codomain" :> Type])
+         | Fun (Record '["label" :> Label, "level" :> Level f, "domains" :> [Type], "codomain" :> Type])
 
 type TEnv = E.Env Type
 type VEnv f = E.Env (Var f)

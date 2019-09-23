@@ -183,6 +183,12 @@ whileLoopExp cond (Nx bodyStm) = do
       , IR.Label done
       ]
 
+funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs (Maybe Exp)
+funApplyExp label level exps = pullInStaticLinksEff level >>= \case
+  Nothing -> pure Nothing
+  Just sl ->
+    Just . Ex . IR.Call (IR.Name label) . (:) sl <$> mapM unEx exps
+
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)
