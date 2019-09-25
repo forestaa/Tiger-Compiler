@@ -179,11 +179,55 @@ groupByDecType = foldr go []
     convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
     convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
 
+    go d@(L _ T.FunDec{}) [] = [FunDecs [convertFunDec d]]
+    go d@(L _ T.FunDec{}) (FunDecs ds : acc) = FunDecs (convertFunDec d : ds) : acc
+    go d@(L _ T.FunDec{}) acc = FunDecs [convertFunDec d] : acc
+
+    go d@(L _ T.VarDec{}) [] = [VarDecs [convertVarDec d]]
+    go d@(L _ T.VarDec{}) (VarDecs ds : acc) = VarDecs (convertVarDec d:ds) : acc
+    go d@(L _ T.VarDec{}) acc = VarDecs [convertVarDec d] : acc
+
+    go d@(L _ T.TypeDec{}) [] = [TypeDecs [convertTypeDec d]]
+    go d@(L _ T.TypeDec{}) (TypeDecs ds : acc) = TypeDecs (convertTypeDec d:ds) : acc
+    go d@(L _ T.TypeDec{}) acc = TypeDecs [convertTypeDec d] : acc
+
+translateDecsList :: forall f xs. HasTranslateEff xs f => [Decs] -> Eff xs [Exp]
+translateDecsList = fmap mconcat . traverse translateDecs
+  where
+    translateDecs (VarDecs ds) = traverse translateVarDec ds
+    translateDecs (FunDecs ds) = translateFunDecs ds >> pure []
+    translateDecs (TypeDecs ds) = translateTypeDecs ds >> pure []
+
+
+    translateVarDec :: RealLocated VarDec -> Eff xs Exp
+    translateVarDec (L loc (VarDec r)) = do
+      (initExp, initTy) <- translateExp $ r ^. #init
+      typecheck (r ^. #type) initTy
+      ty <- maybe (pure TNil) lookupSkipName $ r ^. #type
+      a <- allocateLocalOnCurrentLevel $ r ^. #escape
+      level <- fetchCurrentLevelEff
+      let access = Access $ #level @= level <: #access @= a <: nil
+      modifyEff #varEnv . E.insert (unLId $ r ^. #id) . Var $ #type @= ty <: #access @= access <: nil
+      varInitExp access initExp
+      where
+        typecheck (Just typeid) initTy = do
+          declaredTy <- lookupSkipName typeid
+          unless (declaredTy <= initTy) . throwEff #translateError . L loc $ VariableMismatchedWithDeclaredType (unLId $ r ^. #id) declaredTy initTy -- opposite to subtyping
+        typecheck Nothing initTy =
+          when (initTy == TNil) . throwEff #translateError . L loc $ AssignNilWithNoRecordAnnotation
+
+
+    translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
+    translateFunDecs = undefined
+    translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
+    translateTypeDecs = undefined
+
+
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
   var <- lookupVarIdEff lid
   case var of
-    Var r -> valueIdExp (r ^. #access) >>= maybe (throwEff #translateError . L loc $ VariableNotInScope (unLId lid)) (pure . (, r ^. #type))
+    Var r -> (, r ^. #type) <$> valueIdExp (r ^. #access)
     Fun _ -> throwEff #translateError . L loc $ NotImplemented "6"
 translateValue (L loc (T.RecField lv (L _ field))) = do
   (varExp, ty) <- translateValue lv
@@ -293,7 +337,7 @@ translateForLoop (L loc (lid, escape, from, to, body)) = translateExp (L loc (T.
       (sL1 to (T.Op
         (sL1 lid (T.Var $ sL1 lid (T.Id lid)))
         (sL1 to T.Le)
-        to))
+        to)) -- this is incorrect because the value of to might be changed in the loop
       (sL1 body $ T.Seq [
           body
         , sL1 body $ T.Assign
@@ -312,8 +356,9 @@ translateFunApply (L loc (func, args)) = do
       (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
       domains <- mapM skipName $ r ^. #domains
       if argsty == domains
-        then funApplyExp (r ^. #label) (r ^. #level) exps >>= \case
-          Just exp -> (exp, ) <$> skipName (r ^. #codomain)
+        then do
+          exp <- funApplyExp (r ^. #label) (r ^. #level) exps
+          (exp, ) <$> skipName (r ^. #codomain)
         else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
     Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
 

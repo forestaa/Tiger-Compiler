@@ -74,8 +74,8 @@ unCx (Cx genstm) = genstm
 valueIdExp :: (
     F.Frame f
   , Lookup xs "nestingLevel" (NestingLevelEff f)
-  ) => Access f -> Eff xs (Maybe Exp)
-valueIdExp (Access r) = fmap (Ex . F.exp (r ^. #access)) <$> pullInStaticLinksEff (r ^. #level)
+  ) => Access f -> Eff xs Exp
+valueIdExp (Access r) = Ex . F.exp (r ^. #access) <$> pullInStaticLinksEff (r ^. #level)
 valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
 valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Minus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
 valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
@@ -183,19 +183,16 @@ whileLoopExp cond (Nx bodyStm) = do
       , IR.Label done
       ]
 
-funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs (Maybe Exp)
-funApplyExp label level exps = pullInStaticLinksEff level >>= \case
-  Nothing -> pure Nothing
-  Just sl ->
-    Just . Ex . IR.Call (IR.Name label) . (:) sl <$> mapM unEx exps
+funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs Exp
+funApplyExp label level exps = do
+  staticLink <- pullInStaticLinksEff level
+  Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
 
 assignExp :: Exp -> Exp -> Exp
 assignExp (Ex var) (Ex e) = Nx $ IR.Move var e
 
 varInitExp :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
-varInitExp access e = do
-  var <- valueIdExp access >>= \case { Just var -> pure var }
-  pure $ assignExp var e
+varInitExp access e = flip assignExp e <$> valueIdExp access
 
 -- data VarEntry f = Var (Access f)
 
