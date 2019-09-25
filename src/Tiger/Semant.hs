@@ -163,6 +163,21 @@ translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
 translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
+translateExp (L _ (T.Let decs body)) =
+  withTEnvScope . withVEnvScope $ do
+    translateDecsList $ groupByDecType decs
+    translateExp body
+
+newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
+newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
+newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType])
+data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
+groupByDecType :: [T.LDec] -> [Decs]
+groupByDecType = foldr go []
+  where
+    convertFunDec (L loc (T.FunDec id args rettype body)) = L loc . FunDec $ #id @= id <: #args @= args <: #rettype @= rettype <: #body @= body <: nil
+    convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
+    convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do

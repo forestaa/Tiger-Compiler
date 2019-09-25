@@ -189,6 +189,14 @@ funApplyExp label level exps = pullInStaticLinksEff level >>= \case
   Just sl ->
     Just . Ex . IR.Call (IR.Name label) . (:) sl <$> mapM unEx exps
 
+assignExp :: Exp -> Exp -> Exp
+assignExp (Ex var) (Ex e) = Nx $ IR.Move var e
+
+varInitExp :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
+varInitExp access e = do
+  var <- valueIdExp access >>= \case { Just var -> pure var }
+  pure $ assignExp var e
+
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)
