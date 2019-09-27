@@ -11,6 +11,7 @@ import Control.Monad.Except
 import Control.Lens ((.~))
 import Data.Extensible
 import Data.Extensible.Effect.Default
+import Data.Graph
 
 import qualified Env as E
 import qualified Frame as F
@@ -50,8 +51,8 @@ data TranslateError =
   | ExpectedRecordType T.LValue Type
   | ExpectedArrayType T.LValue Type
   | MissingRecordField T.LValue Type Id
-  | InvalidRecTypeDeclaration [T.LDec]
-  | MultiDeclaredName [T.LDec]
+  | InvalidRecTypeDeclaration [RealLocated TypeDec]
+  | MultiDeclaredName [LId]
   | AssignNilWithNoRecordAnnotation
 
   -- translate
@@ -79,7 +80,7 @@ instance Show TranslateError where
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff)
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff)
 runTranslateEff ::
      Eff (
          ("typeEnv" >: State TEnv)
@@ -88,10 +89,11 @@ runTranslateEff ::
       ': ("breakpoint" >: BreakPointEff)
       ': ("temp" >: UniqueEff)
       ': ("label" >: UniqueEff)
+      ': ("id" >: UniqueEff)
       ': ("translateError" >: EitherEff (RealLocated TranslateError))
       ': xs) a
   -> Eff xs (Either (RealLocated TranslateError) a)
-runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"label" . runUniqueEff @"temp" . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
+runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
 
 
 lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
@@ -170,7 +172,7 @@ translateExp (L _ (T.Let decs body)) =
 
 newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
 newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
-newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType])
+newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving Show
 data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
 groupByDecType :: [T.LDec] -> [Decs]
 groupByDecType = foldr go []
@@ -220,7 +222,66 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
     translateFunDecs = undefined
     translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
-    translateTypeDecs = undefined
+    translateTypeDecs ds = do
+      checkSameNameDec $ fmap extractLId ds
+      checkInvalidRecType ds
+      mapM_ translateTypeDec ds
+      where
+        extractLId (L _ (TypeDec r)) = r ^. #id
+
+    translateTypeDec :: RealLocated TypeDec -> Eff xs ()
+    translateTypeDec (L _ (TypeDec r)) =
+      typingType (r ^. #type) >>= insertType (unLId $ r ^. #id)
+
+checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
+checkSameNameDec ids = case runCheckSameNameDec ids of
+  Right _ -> pure ()
+  Left loc -> throwEff #translateError . L loc $ MultiDeclaredName ids
+  where
+    runCheckSameNameDec = leaveEff . runEitherDef . flip runReaderDef Set.empty . checkSameNameDec'
+
+    checkSameNameDec' [] = pure ()
+    checkSameNameDec' (L loc id:ids) = flip (runContEff @"cont") pure $ do
+      asks (Set.member id) >>= bool (pure ()) (contEff #cont $ const (throwError loc))
+      local (Set.insert id) . castEff $ checkSameNameDec' ids
+
+checkInvalidRecType :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => [RealLocated TypeDec] -> Eff xs ()
+checkInvalidRecType decs =
+  if any isCycle $ stronglyConnComp graph
+    then throwEff #translateError . L undefined $ InvalidRecTypeDeclaration decs
+    else pure ()
+  where
+    typeDecToNode (L _ (TypeDec r)) = (r ^. #id, unLId $ r ^. #id, typeToEdge (r ^. #type))
+      where
+        typeToEdge (L _ (T.TypeId (L _ id'))) = [id']
+        typeToEdge _ = []
+    graph = typeDecToNode <$> decs
+    isCycle (CyclicSCC _) = True
+    isCycle _ = False
+
+
+typingType :: (
+    Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "id" UniqueEff
+  ) => T.LType -> Eff xs Type
+typingType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
+typingType (L _ (T.RecordType fields)) = do
+  fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
+  id <- getUniqueEff #id
+  pure . TRecord $ #map @= fieldmap <: #id @= id <: nil
+typingType (L _ (T.ArrayType typeid)) = do
+  ty <- lookupTypeIdEff typeid
+  id <- getUniqueEff #id
+  pure . TArray $ #range @= ty <: #id @= id <: nil
+
+typingField :: (
+    Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => T.LField -> Eff xs (Id, Type)
+typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
+
+
 
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
