@@ -18,6 +18,6 @@ class Frame f where
   externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
 
 
-data Frag f where
-  Proc :: Frame f => Record '["body" >: IR.Stm, "frame" >: f] -> Frag f
-  String :: U.Label -> String -> Frag f
+data ProgramFragment f where
+  Proc :: Frame f => Record '["body" >: IR.Stm, "frame" >: f] -> ProgramFragment f
+  String :: U.Label -> String -> ProgramFragment f
