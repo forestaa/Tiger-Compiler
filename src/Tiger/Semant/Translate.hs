@@ -83,6 +83,12 @@ unCx (Cx genstm) = genstm
 intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
 
+stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => String -> Eff xs Exp
+stringExp s = do
+  label <- newLabel
+  saveStringEntry label s
+  pure . Ex $ IR.Name label
+
 nilExp :: Exp
 nilExp = Ex $ IR.Const 0
 

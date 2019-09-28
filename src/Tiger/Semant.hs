@@ -79,7 +79,7 @@ instance Show TranslateError where
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff)
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
 runTranslateEff ::
      Eff (
          ("typeEnv" >: State TEnv)
@@ -156,6 +156,7 @@ checkUnit ty e@(L loc _) =
 
 translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Int i)) = pure $ translateInt i
+translateExp (L _ (T.String s)) = translateString s
 translateExp (L _ T.Nil) = pure translateNil
 translateExp (L _ (T.Var v)) = translateValue v
 translateExp (L loc (T.Op left (L _ op) right)) = translateBinOp $ L loc (op, left, right)
@@ -288,6 +289,8 @@ typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
 
 translateInt :: Int -> (Exp, Type)
 translateInt i = (intExp i, TInt)
+translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) =>  String -> Eff xs (Exp, Type)
+translateString s = (, TString) <$> stringExp s
 translateNil :: (Exp, Type)
 translateNil = (nilExp, TNil)
 
