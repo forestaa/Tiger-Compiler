@@ -78,6 +78,9 @@ unCx (Cx genstm) = genstm
 intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
 
+nilExp :: Exp
+nilExp = Ex $ IR.Const 0
+
 valueIdExp :: (
     F.Frame f
   , Lookup xs "nestingLevel" (NestingLevelEff f)
