@@ -1,6 +1,7 @@
 module Tiger.Semant.Translate where
 
 import RIO
+import qualified RIO.List as List
 import qualified RIO.List.Partial as List
 import Data.Extensible
 
@@ -202,6 +203,12 @@ assignExp (Ex var) (Ex e) = Nx $ IR.Move var e
 varInitExp :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
 varInitExp access e = flip assignExp e <$> valueIdExp access
 
+seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => [Exp] -> Eff xs Exp
+seqExp es = case List.uncons es of
+  Just (e, es) -> do
+    stms <- mapM unNx es
+    exp <- unEx e
+    pure . Ex $ IR.ESeq (IR.seqStm stms) exp
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)

@@ -163,6 +163,7 @@ translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 translateExp (L _ (T.Assign v e)) = translateAssign v e
+translateExp (L _ (T.Seq es)) = translateSeq es
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 translateExp (L loc T.Break) = translateBreak loc
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
@@ -436,6 +437,12 @@ translateAssign v e = do
   (varExp, _) <- translateValue v
   (exp, _) <- translateExp e
   pure (assignExp varExp exp, TUnit)
+
+translateSeq :: HasTranslateEff xs f => [T.LExp] -> Eff xs (Exp, Type)
+translateSeq es = do
+  (exps, types) <- List.unzip <$> mapM translateExp es
+  case List.lastMaybe types of
+    Just ty -> (, ty) <$> seqExp exps
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type
 -- typingExp (L _ T.Nil) = pure TNil
