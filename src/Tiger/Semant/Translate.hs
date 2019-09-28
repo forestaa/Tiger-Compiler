@@ -186,6 +186,11 @@ whileLoopExp cond (Nx bodyStm) = do
       , IR.Label done
       ]
 
+breakExp :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Exp)
+breakExp = fetchCurrentBreakPoint >>= \case
+  Just label -> pure . Just . Nx $ IR.Jump (IR.Name label) [label]
+  Nothing -> pure Nothing
+
 funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs Exp
 funApplyExp label level exps = do
   staticLink <- pullInStaticLinksEff level

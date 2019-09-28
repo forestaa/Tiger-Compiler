@@ -56,7 +56,7 @@ data TranslateError =
   | AssignNilWithNoRecordAnnotation
 
   -- translate
-  | VariableNotInScope Id
+  | BreakOutsideLoop
 
   | NotImplemented String
 instance Show TranslateError where
@@ -75,8 +75,7 @@ instance Show TranslateError where
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
   show AssignNilWithNoRecordAnnotation = "nil assigned with no type annotation"
 
-  show (VariableNotInScope id) = "variable not in scope: " ++ show id
-
+  show BreakOutsideLoop = "break should be inside while or for loop"
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 
@@ -165,6 +164,7 @@ translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 translateExp (L _ (T.Assign v e)) = translateAssign v e
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
+translateExp (L loc T.Break) = translateBreak loc
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
 translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
 translateExp (L _ (T.Let decs body)) =
@@ -411,6 +411,11 @@ translateForLoop (L loc (lid, escape, from, to, body)) = translateExp (L loc (T.
             (sL1 body T.Plus)
             (sL1 body $ T.Int 1))
         ]))
+
+translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
+translateBreak loc = breakExp >>= \case
+  Just exp -> pure (exp, TUnit)
+  Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
 translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
 translateFunApply (L loc (func, args)) = do
