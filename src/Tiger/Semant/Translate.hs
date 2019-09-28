@@ -71,6 +71,9 @@ unCx (Ex e) = undefined
 unCx (Nx _) = undefined
 unCx (Cx genstm) = genstm
 
+intExp :: Int -> Exp
+intExp i = Ex $ IR.Const i
+
 valueIdExp :: (
     F.Frame f
   , Lookup xs "nestingLevel" (NestingLevelEff f)

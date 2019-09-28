@@ -156,6 +156,7 @@ checkUnit ty e@(L loc _) =
     unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
 
 translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
+translateExp (L _ (T.Int i)) = pure $ translateInt i
 translateExp (L _ (T.Var v)) = translateValue v
 translateExp (L loc (T.Op left (L _ op) right)) = translateBinOp $ L loc (op, left, right)
 translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (bool, then', else')
@@ -282,7 +283,8 @@ typingField :: (
 typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
 
 
-
+translateInt :: Int -> (Exp, Type)
+translateInt i = (intExp i, TInt)
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L loc (T.Id lid)) = do
