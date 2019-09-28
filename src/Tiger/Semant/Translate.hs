@@ -65,7 +65,10 @@ unEx (Cx genstm) = do
 unNx :: Lookup xs "label" UniqueEff => Exp -> Eff xs IR.Stm
 unNx (Ex e) = pure $ IR.Exp e
 unNx (Nx s) = pure s
-unNx (Cx genstm) = genstm <$> newLabel <*> newLabel
+unNx (Cx genstm) = do
+  t <- newLabel
+  f <- newLabel
+  pure $ IR.seqStm [genstm t f, IR.Label t, IR.Label f]
 
 unCx :: Exp -> Label -> Label -> IR.Stm
 unCx (Ex e) = undefined
