@@ -163,6 +163,7 @@ translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (b
 translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
+translateExp (L _ (T.Assign v e)) = translateAssign v e
 translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
 translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
@@ -425,7 +426,11 @@ translateFunApply (L loc (func, args)) = do
         else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
     Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
 
-
+translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
+translateAssign v e = do
+  (varExp, _) <- translateValue v
+  (exp, _) <- translateExp e
+  pure (assignExp varExp exp, TUnit)
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type
 -- typingExp (L _ T.Nil) = pure TNil
