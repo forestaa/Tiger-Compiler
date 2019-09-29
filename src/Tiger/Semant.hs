@@ -96,6 +96,10 @@ runTranslateEff :: forall f xs a.
 runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
 
 
+runTranslateEffWithNewLevel a = runTranslateEff $ do
+  label <- newLabel
+  withNewLevelEff label [] a
+
 lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
 lookupTypeIdEff (L loc id) = lookupTypeId id >>= maybe (throwEff #translateError . L loc $ TypeUndefined id) pure
 lookupVarIdEff ::  (

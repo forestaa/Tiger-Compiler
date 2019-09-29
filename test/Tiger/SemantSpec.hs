@@ -23,6 +23,7 @@ spec = do
   translateIntSpec
   translateStringSpec
   translateNilSpec
+  translateVariableSpec
 
 -- translateSpec :: Spec
 -- translateSpec = describe "translate test" $
@@ -74,6 +75,83 @@ translateNilSpec = describe "translate nil test" $ do
       Left e -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
         ty `shouldBe` TNil
+
+translateVariableSpec :: Spec
+translateVariableSpec = describe "translate variable test" $ do
+  it "first local variable" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
+        ty `shouldBe` TInt
+
+  it "second local variable" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "y")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          _ <- allocateLocalVariable "y" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-2*F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
+        ty `shouldBe` TInt
+
+  it "second local variable, first is not escaped" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "y")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          _ <- allocateLocalVariable "y" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
+        ty `shouldBe` TInt
+
+  it "first local variable, second is not escaped" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          _ <- allocateLocalVariable "y" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
+        ty `shouldBe` TInt
+
+  it "local variable, not escaped" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` inRegister
+        ty `shouldBe` TInt
+        where
+          inRegister (Ex (IR.Temp _)) = True
+          inRegister _ = False
+
+  it "undefined variable" $ do
+    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+        where
+          isUndefinedVariable (VariableUndefined id) = id == "x"
+          isUndefinedVariable _ = False
+
+
+
 
 
 -- spec =
