@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 43b2c42acec96289a3d548ec37bdbe7d43c04dde57b5b49bf382ef56153277d4
+-- hash: 508fe6bd9fb6a81efa08c06cde85a6ae5d4833b9d7e0507ac8db09568f6054bb
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -121,6 +121,7 @@ test-suite compiler-test
       Linear.EvalSpec
       Linear.LexerSpec
       Linear.ParserSpec
+      Tiger.IntegrationSpec
       Tiger.LexerSpec
       Tiger.ParserSpec
       Tiger.Semant.MarkEscapeSpec

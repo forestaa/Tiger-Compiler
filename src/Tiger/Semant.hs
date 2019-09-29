@@ -27,16 +27,16 @@ initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
 initVEnv :: VEnv f
 initVEnv = E.fromList [
-  -- ("print", Fun $ #domains @= [TString] <: #codomain @= TUnit <: nil),
-  -- ("flush", Fun $ #domains @= [] <: #codomain @= TUnit <: nil),
-  -- ("getchar", Fun $ #domains @= [] <: #codomain @= TString <: nil),
-  -- ("ord", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
-  -- ("chr", Fun $ #domains @= [TInt] <: #codomain @= TString <: nil),
-  -- ("size", Fun $ #domains @= [TString] <: #codomain @= TInt <: nil),
-  -- ("substring", Fun $ #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil),
-  -- ("concat", Fun $ #domains @= [TString, TString] <: #codomain @= TString <: nil),
-  -- ("not", Fun $ #domains @= [TInt] <: #codomain @= TInt <: nil),
-  -- ("exit", Fun $ #domains @= [TInt] <: #codomain @= TUnit <: nil)
+    ("print", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TUnit <: nil)
+  , ("flush", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [] <: #codomain @= TUnit <: nil)
+  , ("getchar", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [] <: #codomain @= TString <: nil)
+  , ("ord", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TInt <: nil)
+  , ("chr", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TString <: nil)
+  , ("size", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TInt <: nil)
+  , ("substring", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil)
+  , ("concat", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString, TString] <: #codomain @= TString <: nil)
+  , ("not", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TInt <: nil)
+  , ("exit", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TUnit <: nil)
   ]
 
 data TranslateError =
