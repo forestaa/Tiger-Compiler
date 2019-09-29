@@ -8,8 +8,8 @@ import Control.Monad.State.Strict
 import Data.Extensible
 import RIO hiding (exp)
 
-newtype FrameMock =  FrameMock { unFrameMock :: Record '["name" :> U.Label, "formals" :> [AccessMock], "numberOfLocals" :> Int] }
-data AccessMock = InFrame Int | InReg U.Temp
+newtype FrameMock =  FrameMock { unFrameMock :: Record '["name" :> U.Label, "formals" :> [AccessMock], "numberOfLocals" :> Int] } deriving (Show, Eq)
+data AccessMock = InFrame Int | InReg U.Temp deriving (Show, Eq)
 wordSize :: Int
 wordSize = 4
 allocateFormal :: (Lookup xs "temp" U.UniqueEff) => Bool -> StateT Int (Eff xs) AccessMock
