@@ -8,7 +8,6 @@ import Tiger.Semant.Translate
 import Tiger.Semant.Types
 import qualified Tiger.LSyntax as T (expToLExp)
 import qualified Tiger.Syntax as T
-import qualified Env as E
 import qualified Frame as F
 import FrameMock
 import qualified IR
@@ -17,6 +16,7 @@ import Unique
 
 import Data.Extensible
 import qualified RIO.List.Partial as Partial
+import qualified RIO.Map as Map
 
 
 spec :: Spec
@@ -25,6 +25,7 @@ spec = do
   translateStringSpec
   translateNilSpec
   translateVariableSpec
+  translateRecordFieldSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -59,7 +60,7 @@ translateNilSpec = describe "translate nil test" $ do
     let ast = T.expToLExp $ T.Nil
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
       Left e -> expectationFailure $ show e
-      Right ((exp, ty), fragments) -> do
+      Right ((_, ty), _) -> do
         ty `shouldBe` TNil
 
 translateVariableSpec :: Spec
@@ -136,65 +137,56 @@ translateVariableSpec = describe "translate variable test" $ do
           isUndefinedVariable (VariableUndefined id) = id == "x"
           isUndefinedVariable _ = False
 
+translateRecordFieldSpec :: Spec
+translateRecordFieldSpec = describe "translate record field test" $ do
+  it "first record field" $ do
+    let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          _ <- allocateLocalVariable "object" True recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
+        ty `shouldBe` TInt
 
+  it "second record field" $ do
+    let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "y")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          _ <- allocateLocalVariable "object" True recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const (F.wordSize @FrameMock))))
+        ty `shouldBe` TString
 
+  it "not record type" $ do
+    let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "object" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
+        where
+          isExpectedRecordType ExpectedRecordType{} = True
+          isExpectedRecordType _ = False
 
-
--- spec =
---   describe "typing test" $ do
---     it "then and else type differ" . runErrorTypingTest $ testcase "test09.tig"
---     it "body of while is not unit" . runErrorTypingTest $ testcase "test10.tig"
---     it "hi in for is not int" . runErrorTypingTest $ testcase "test11.tig"
---     it "incompatible comparison: lt" . runErrorTypingTest $ testcase "test13.tig"
---     it "incompatible comparison: eq" . runErrorTypingTest $ testcase "test14.tig"
---     it "if-then returns non unit" . runErrorTypingTest $ testcase "test15.tig"
---     it "invalid recursion type " . runErrorTypingTest $ testcase "test16.tig"
---     it "undefined variable" . runErrorTypingTest $ testcase "test19.tig"
---     it "undefined variable" . runErrorTypingTest $ testcase "test20.tig"
---     it "procedure returns value" . runErrorTypingTest $ testcase "test21.tig"
---     it "missing field in record" . runErrorTypingTest $ testcase "test22.tig"
---     it "type mismatch" . runErrorTypingTest $ testcase "test23.tig"
---     it "not array variable" . runErrorTypingTest $ testcase "test24.tig"
---     it "not record variable" . runErrorTypingTest $ testcase "test25.tig"
---     it "integer required" . runErrorTypingTest $ testcase "test26.tig"
---     it "different record type" . runErrorTypingTest $ testcase "test28.tig"
---     it "different array type" . runErrorTypingTest $ testcase "test29.tig"
---     it "init type differs from declared" . runErrorTypingTest $ testcase "test31.tig"
---     it "init type of array differed from declared" . runErrorTypingTest $ testcase "test32.tig"
---     it "unknown type" . runErrorTypingTest $ testcase "test33.tig"
---     it "type mismatched in function call" . runErrorTypingTest $ testcase "test34.tig"
---     it "less argument" . runErrorTypingTest $ testcase "test35.tig"
---     it "more argument" . runErrorTypingTest $ testcase "test36.tig"
---     it "type already declared" . runErrorTypingTest $ testcase "test38.tig"
---     it "function already declared" . runErrorTypingTest $ testcase "test39.tig"
---     it "procedure returns value" . runErrorTypingTest $ testcase "test40.tig"
---     it "type mismatch in addition" . runErrorTypingTest $ testcase "test43.tig"
---     it "mismatch initialization by nil" . runErrorTypingTest $ testcase "test45.tig"
---     it "type already declared" . runErrorTypingTest $ testcase "test47.tig"
---     it "function already declared" . runErrorTypingTest $ testcase "test48.tig"
---     it "valid test" $ do
---       let testcases = (++) <$> (("test/Tiger/samples/test" ++) <$> valid) <*> [".tig"]
---       res <- runExceptT (traverse typingTest testcases)
---       res `shouldSatisfy` isRight
---     it "merge.tig" $ do
---       let merge = "test/Tiger/samples/merge.tig"
---       res <- runExceptT (typingTest merge)
---       res `shouldSatisfy` isRight
---     it "queens.tig" $ do
---       let merge = "test/Tiger/samples/queens.tig"
---       res <- runExceptT (typingTest merge)
---       res `shouldSatisfy` isRight
---   where
---     testcase s = "test/Tiger/samples/" ++ s
---     valid = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1..8], [12], [17..18], [27], [30], [37], [41..42], [44], [46]]
-
--- typingTest :: FilePath -> ExceptT String IO Type
--- typingTest file = do
---   bs <- liftIO $ B.readFile file
---   e <- liftEither $ runP parser file bs
---   liftEither . mapLeft show . runTyping $ typingExp e
-
--- runErrorTypingTest :: FilePath -> Expectation
--- runErrorTypingTest file = do
---   res <- runExceptT (typingTest file)
---   res `shouldSatisfy` isLeft
+  it "missing record field" $ do
+    let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          _ <- allocateLocalVariable "object" True recordTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return MissingRecordField: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isMissingRecordField
+        where
+          isMissingRecordField MissingRecordField{} = True
+          isMissingRecordField _ = False
