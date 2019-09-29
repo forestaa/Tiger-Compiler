@@ -170,159 +170,7 @@ translateExp (L _ (T.While bool body)) = translateWhileLoop bool body
 translateExp (L loc T.Break) = translateBreak loc
 translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc (lid, escape, from, to, body)
 translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
-translateExp (L _ (T.Let decs body)) =
-  withTEnvScope . withVEnvScope $ do
-    exps <- translateDecsList $ groupByDecType decs
-    (exp, ty) <- translateExp body
-    pure (letExp exps exp, ty)
-
-newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
-newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
-newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving Show
-data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
-groupByDecType :: [T.LDec] -> [Decs]
-groupByDecType = foldr go []
-  where
-    convertFunDec (L loc (T.FunDec id args rettype body)) = L loc . FunDec $ #id @= id <: #args @= args <: #rettype @= rettype <: #body @= body <: nil
-    convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
-    convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
-
-    go d@(L _ T.FunDec{}) [] = [FunDecs [convertFunDec d]]
-    go d@(L _ T.FunDec{}) (FunDecs ds : acc) = FunDecs (convertFunDec d : ds) : acc
-    go d@(L _ T.FunDec{}) acc = FunDecs [convertFunDec d] : acc
-
-    go d@(L _ T.VarDec{}) [] = [VarDecs [convertVarDec d]]
-    go d@(L _ T.VarDec{}) (VarDecs ds : acc) = VarDecs (convertVarDec d:ds) : acc
-    go d@(L _ T.VarDec{}) acc = VarDecs [convertVarDec d] : acc
-
-    go d@(L _ T.TypeDec{}) [] = [TypeDecs [convertTypeDec d]]
-    go d@(L _ T.TypeDec{}) (TypeDecs ds : acc) = TypeDecs (convertTypeDec d:ds) : acc
-    go d@(L _ T.TypeDec{}) acc = TypeDecs [convertTypeDec d] : acc
-
-translateDecsList :: forall f xs. HasTranslateEff xs f => [Decs] -> Eff xs [Exp]
-translateDecsList = fmap mconcat . traverse translateDecs
-  where
-    translateDecs (VarDecs ds) = traverse translateVarDec ds
-    translateDecs (FunDecs ds) = translateFunDecs ds >> pure []
-    translateDecs (TypeDecs ds) = translateTypeDecs ds >> pure []
-
-
-    translateVarDec :: RealLocated VarDec -> Eff xs Exp
-    translateVarDec (L loc (VarDec r)) = do
-      (initExp, initTy) <- translateExp $ r ^. #init
-      typecheck (r ^. #type) initTy
-      ty <- maybe (pure TNil) lookupSkipName $ r ^. #type
-      a <- allocateLocalOnCurrentLevel $ r ^. #escape
-      level <- fetchCurrentLevelEff
-      let access = Access $ #level @= level <: #access @= a <: nil
-      modifyEff #varEnv . E.insert (unLId $ r ^. #id) . Var $ #type @= ty <: #access @= access <: nil
-      varInitExp access initExp
-      where
-        typecheck (Just typeid) initTy = do
-          declaredTy <- lookupSkipName typeid
-          unless (declaredTy <= initTy) . throwEff #translateError . L loc $ VariableMismatchedWithDeclaredType (unLId $ r ^. #id) declaredTy initTy -- opposite to subtyping
-        typecheck Nothing initTy =
-          when (initTy == TNil) . throwEff #translateError . L loc $ AssignNilWithNoRecordAnnotation
-
-
-    translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
-    translateFunDecs ds = do
-      mapM_ insertFunEntry ds
-      mapM_ translateFunDec ds
-
-    insertFunEntry :: RealLocated FunDec -> Eff xs ()
-    insertFunEntry (L _ (FunDec r)) = do
-      label <- newLabel
-      withNewLevelEff label escapes $ do
-        level <- fetchCurrentLevelEff
-        codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
-        let fun = Fun $ #label @= label <: #level @= level <: #domains @= domains <: #codomain @= codomain <: nil
-        modifyEff #varEnv $ E.insert (unLId $ r ^. #id) fun
-      where
-        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> r ^. #args
-        domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
-
-    translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
-    translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
-      Fun f -> withLevelEff (f ^. #level) $ do
-        allocateParameters $ dec ^. #args
-        (bodyExp, bodyTy) <- translateExp $ dec ^. #body
-        declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
-        if declaredTy == bodyTy
-          then funDecExp bodyExp
-          else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
-      where
-        allocateParameters :: [T.LField] -> Eff xs ()
-        allocateParameters = mapM_ allocateParameter
-        allocateParameter :: T.LField -> Eff xs ()
-        allocateParameter (L _ (T.Field id escape (L loc typeid))) = do
-          access <- allocateLocalOnCurrentLevel escape
-          level <- fetchCurrentLevelEff
-          lookupTypeId typeid >>= \case
-            Just ty -> insertVar (unLId id) . Var $ #type @= ty <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil
-            Nothing -> throwEff #translateError . L loc $ TypeUndefined typeid
-
-
-    translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
-    translateTypeDecs ds = do
-      checkSameNameDec $ fmap extractLId ds
-      checkInvalidRecType ds
-      mapM_ translateTypeDec ds
-      where
-        extractLId (L _ (TypeDec r)) = r ^. #id
-
-    translateTypeDec :: RealLocated TypeDec -> Eff xs ()
-    translateTypeDec (L _ (TypeDec r)) =
-      typingType (r ^. #type) >>= insertType (unLId $ r ^. #id)
-
-checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
-checkSameNameDec ids = case runCheckSameNameDec ids of
-  Right _ -> pure ()
-  Left loc -> throwEff #translateError . L loc $ MultiDeclaredName ids
-  where
-    runCheckSameNameDec = leaveEff . runEitherDef . flip runReaderDef Set.empty . checkSameNameDec'
-
-    checkSameNameDec' [] = pure ()
-    checkSameNameDec' (L loc id:ids) = flip (runContEff @"cont") pure $ do
-      asks (Set.member id) >>= bool (pure ()) (contEff #cont $ const (throwError loc))
-      local (Set.insert id) . castEff $ checkSameNameDec' ids
-
-checkInvalidRecType :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => [RealLocated TypeDec] -> Eff xs ()
-checkInvalidRecType decs =
-  if any isCycle $ stronglyConnComp graph
-    then throwEff #translateError . L undefined $ InvalidRecTypeDeclaration decs
-    else pure ()
-  where
-    typeDecToNode (L _ (TypeDec r)) = (r ^. #id, unLId $ r ^. #id, typeToEdge (r ^. #type))
-      where
-        typeToEdge (L _ (T.TypeId (L _ id'))) = [id']
-        typeToEdge _ = []
-    graph = typeDecToNode <$> decs
-    isCycle (CyclicSCC _) = True
-    isCycle _ = False
-
-
-typingType :: (
-    Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  , Lookup xs "id" UniqueEff
-  ) => T.LType -> Eff xs Type
-typingType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
-typingType (L _ (T.RecordType fields)) = do
-  fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
-  id <- getUniqueEff #id
-  pure . TRecord $ #map @= fieldmap <: #id @= id <: nil
-typingType (L _ (T.ArrayType typeid)) = do
-  ty <- lookupTypeIdEff typeid
-  id <- getUniqueEff #id
-  pure . TArray $ #range @= ty <: #id @= id <: nil
-
-typingField :: (
-    Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => T.LField -> Eff xs (Id, Type)
-typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
-
+translateExp (L _ (T.Let decs body)) = translateLet decs body
 
 translateInt :: Int -> (Exp, Type)
 translateInt i = (intExp i, TInt)
@@ -486,6 +334,161 @@ translateSeq es = do
   (exps, types) <- List.unzip <$> mapM translateExp es
   case List.lastMaybe types of
     Just ty -> (, ty) <$> seqExp exps
+
+translateLet :: HasTranslateEff xs f => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
+translateLet decs body =
+  withTEnvScope . withVEnvScope $ do
+    exps <- translateDecsList $ groupByDecType decs
+    (exp, ty) <- translateExp body
+    pure (letExp exps exp, ty)
+
+newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
+newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
+newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving Show
+data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
+groupByDecType :: [T.LDec] -> [Decs]
+groupByDecType = foldr go []
+  where
+    convertFunDec (L loc (T.FunDec id args rettype body)) = L loc . FunDec $ #id @= id <: #args @= args <: #rettype @= rettype <: #body @= body <: nil
+    convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
+    convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
+
+    go d@(L _ T.FunDec{}) [] = [FunDecs [convertFunDec d]]
+    go d@(L _ T.FunDec{}) (FunDecs ds : acc) = FunDecs (convertFunDec d : ds) : acc
+    go d@(L _ T.FunDec{}) acc = FunDecs [convertFunDec d] : acc
+
+    go d@(L _ T.VarDec{}) [] = [VarDecs [convertVarDec d]]
+    go d@(L _ T.VarDec{}) (VarDecs ds : acc) = VarDecs (convertVarDec d:ds) : acc
+    go d@(L _ T.VarDec{}) acc = VarDecs [convertVarDec d] : acc
+
+    go d@(L _ T.TypeDec{}) [] = [TypeDecs [convertTypeDec d]]
+    go d@(L _ T.TypeDec{}) (TypeDecs ds : acc) = TypeDecs (convertTypeDec d:ds) : acc
+    go d@(L _ T.TypeDec{}) acc = TypeDecs [convertTypeDec d] : acc
+
+translateDecsList :: forall f xs. HasTranslateEff xs f => [Decs] -> Eff xs [Exp]
+translateDecsList = fmap mconcat . traverse translateDecs
+  where
+    translateDecs (VarDecs ds) = traverse translateVarDec ds
+    translateDecs (FunDecs ds) = translateFunDecs ds >> pure []
+    translateDecs (TypeDecs ds) = translateTypeDecs ds >> pure []
+
+
+    translateVarDec :: RealLocated VarDec -> Eff xs Exp
+    translateVarDec (L loc (VarDec r)) = do
+      (initExp, initTy) <- translateExp $ r ^. #init
+      typecheck (r ^. #type) initTy
+      ty <- maybe (pure TNil) lookupSkipName $ r ^. #type
+      a <- allocateLocalOnCurrentLevel $ r ^. #escape
+      level <- fetchCurrentLevelEff
+      let access = Access $ #level @= level <: #access @= a <: nil
+      modifyEff #varEnv . E.insert (unLId $ r ^. #id) . Var $ #type @= ty <: #access @= access <: nil
+      varInitExp access initExp
+      where
+        typecheck (Just typeid) initTy = do
+          declaredTy <- lookupSkipName typeid
+          unless (declaredTy <= initTy) . throwEff #translateError . L loc $ VariableMismatchedWithDeclaredType (unLId $ r ^. #id) declaredTy initTy -- opposite to subtyping
+        typecheck Nothing initTy =
+          when (initTy == TNil) . throwEff #translateError . L loc $ AssignNilWithNoRecordAnnotation
+
+
+    translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
+    translateFunDecs ds = do
+      mapM_ insertFunEntry ds
+      mapM_ translateFunDec ds
+
+    insertFunEntry :: RealLocated FunDec -> Eff xs ()
+    insertFunEntry (L _ (FunDec r)) = do
+      label <- newLabel
+      withNewLevelEff label escapes $ do
+        level <- fetchCurrentLevelEff
+        codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
+        let fun = Fun $ #label @= label <: #level @= level <: #domains @= domains <: #codomain @= codomain <: nil
+        modifyEff #varEnv $ E.insert (unLId $ r ^. #id) fun
+      where
+        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> r ^. #args
+        domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
+
+    translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
+    translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
+      Fun f -> withLevelEff (f ^. #level) $ do
+        allocateParameters $ dec ^. #args
+        (bodyExp, bodyTy) <- translateExp $ dec ^. #body
+        declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
+        if declaredTy == bodyTy
+          then funDecExp bodyExp
+          else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
+      where
+        allocateParameters :: [T.LField] -> Eff xs ()
+        allocateParameters = mapM_ allocateParameter
+        allocateParameter :: T.LField -> Eff xs ()
+        allocateParameter (L _ (T.Field id escape (L loc typeid))) = do
+          access <- allocateLocalOnCurrentLevel escape
+          level <- fetchCurrentLevelEff
+          lookupTypeId typeid >>= \case
+            Just ty -> insertVar (unLId id) . Var $ #type @= ty <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil
+            Nothing -> throwEff #translateError . L loc $ TypeUndefined typeid
+
+
+    translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
+    translateTypeDecs ds = do
+      checkSameNameDec $ fmap extractLId ds
+      checkInvalidRecType ds
+      mapM_ translateTypeDec ds
+      where
+        extractLId (L _ (TypeDec r)) = r ^. #id
+
+    translateTypeDec :: RealLocated TypeDec -> Eff xs ()
+    translateTypeDec (L _ (TypeDec r)) =
+      typingType (r ^. #type) >>= insertType (unLId $ r ^. #id)
+
+checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
+checkSameNameDec ids = case runCheckSameNameDec ids of
+  Right _ -> pure ()
+  Left loc -> throwEff #translateError . L loc $ MultiDeclaredName ids
+  where
+    runCheckSameNameDec = leaveEff . runEitherDef . flip runReaderDef Set.empty . checkSameNameDec'
+
+    checkSameNameDec' [] = pure ()
+    checkSameNameDec' (L loc id:ids) = flip (runContEff @"cont") pure $ do
+      asks (Set.member id) >>= bool (pure ()) (contEff #cont $ const (throwError loc))
+      local (Set.insert id) . castEff $ checkSameNameDec' ids
+
+checkInvalidRecType :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => [RealLocated TypeDec] -> Eff xs ()
+checkInvalidRecType decs =
+  if any isCycle $ stronglyConnComp graph
+    then throwEff #translateError . L undefined $ InvalidRecTypeDeclaration decs
+    else pure ()
+  where
+    typeDecToNode (L _ (TypeDec r)) = (r ^. #id, unLId $ r ^. #id, typeToEdge (r ^. #type))
+      where
+        typeToEdge (L _ (T.TypeId (L _ id'))) = [id']
+        typeToEdge _ = []
+    graph = typeDecToNode <$> decs
+    isCycle (CyclicSCC _) = True
+    isCycle _ = False
+
+
+typingType :: (
+    Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "id" UniqueEff
+  ) => T.LType -> Eff xs Type
+typingType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
+typingType (L _ (T.RecordType fields)) = do
+  fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
+  id <- getUniqueEff #id
+  pure . TRecord $ #map @= fieldmap <: #id @= id <: nil
+typingType (L _ (T.ArrayType typeid)) = do
+  ty <- lookupTypeIdEff typeid
+  id <- getUniqueEff #id
+  pure . TArray $ #range @= ty <: #id @= id <: nil
+
+typingField :: (
+    Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => T.LField -> Eff xs (Id, Type)
+typingField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
+
 
 -- typingExp :: HasTypingEff xs f => T.LExp -> Eff xs Type
 -- typingExp (L _ T.Nil) = pure TNil
