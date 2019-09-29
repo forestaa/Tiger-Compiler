@@ -26,21 +26,6 @@ spec = do
   translateNilSpec
   translateVariableSpec
 
--- translateSpec :: Spec
--- translateSpec = describe "translate test" $
---   it "translate simple variable: success" $ do
---     let typeEnv = E.empty
---         varEnv = E.empty
---         result = leaveEff . runTranslateEff @FrameMock $ do
---           label <- newLabel
---           level@(Level r) <- newLevel label [True]
---           let (access:_) = F.formals $ r ^. #frame
---           modifyEff #varEnv $ E.insert "x" (Var $ #type @= TInt <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil)
---           translateExp . dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
---     case result of
---       Left e -> expectationFailure $ show e
---       Right e -> e `shouldBe` (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp (F.fp @FrameMock)))), TInt)
-
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
   it "translate 0" $ do
