@@ -172,8 +172,9 @@ translateExp (L loc (T.For lid escape from to body)) = translateForLoop $ L loc 
 translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, args)
 translateExp (L _ (T.Let decs body)) =
   withTEnvScope . withVEnvScope $ do
-    translateDecsList $ groupByDecType decs
-    translateExp body
+    exps <- translateDecsList $ groupByDecType decs
+    (exp, ty) <- translateExp body
+    pure (letExp exps exp, ty)
 
 newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
 newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])

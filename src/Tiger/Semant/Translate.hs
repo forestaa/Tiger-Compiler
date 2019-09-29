@@ -236,6 +236,9 @@ funDecExp exp = fetchCurrentLevelEff >>= \case
     addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e
     addStoreRV (Nx s) = s
 
+letExp :: [Exp] -> Exp -> Exp
+letExp decs (Ex e) = Ex $ IR.ESeq (IR.seqStm $ fmap (\(Nx s) -> s) decs) e
+letExp decs (Nx s) = Nx $ IR.seqStm (((\(Nx s) -> s) <$> decs) ++ [s])
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)
