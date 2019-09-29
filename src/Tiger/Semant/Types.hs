@@ -96,6 +96,12 @@ withNewLevelEff label formals a = do
   ret <- a
   _ <- popLevelEff
   pure ret
+withLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Level f -> Eff xs a -> Eff xs a
+withLevelEff level a = do
+  pushLevelEff level
+  ret <- a
+  _ <- popLevelEff
+  pure ret
 allocateLocalOnCurrentLevel :: (Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Bool -> Eff xs (F.Access f)
 allocateLocalOnCurrentLevel b = fetchCurrentLevelEff >>= \case
   Level level -> do
