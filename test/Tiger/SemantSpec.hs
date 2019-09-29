@@ -6,7 +6,8 @@ import Test.Hspec
 import Tiger.Semant
 import Tiger.Semant.Translate
 import Tiger.Semant.Types
-import qualified Tiger.LSyntax as T
+import qualified Tiger.LSyntax as T (expToLExp)
+import qualified Tiger.Syntax as T
 import qualified Env as E
 import qualified Frame as F
 import FrameMock
@@ -43,7 +44,7 @@ spec = do
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
   it "translate 0" $ do
-    let ast = dummyRealLocated $ T.Int 0
+    let ast = T.expToLExp $ T.Int 0
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
       Left e -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -53,7 +54,7 @@ translateIntSpec = describe "translate int test" $ do
 translateStringSpec :: Spec
 translateStringSpec = describe "translate string test" $ do
   it "translate 'hoge'" $ do
-    let ast = dummyRealLocated $ T.String "hoge"
+    let ast = T.expToLExp $ T.String "hoge"
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
       Left e -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -70,7 +71,7 @@ translateStringSpec = describe "translate string test" $ do
 translateNilSpec :: Spec
 translateNilSpec = describe "translate nil test" $ do
   it "translate nil" $ do
-    let ast = dummyRealLocated $ T.Nil
+    let ast = T.expToLExp $ T.Nil
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
       Left e -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -79,7 +80,7 @@ translateNilSpec = describe "translate nil test" $ do
 translateVariableSpec :: Spec
 translateVariableSpec = describe "translate variable test" $ do
   it "first local variable" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+    let ast = T.expToLExp $ T.Var (T.Id "x")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           _ <- allocateLocalVariable "x" True TInt
           translateExp @FrameMock ast
@@ -90,7 +91,7 @@ translateVariableSpec = describe "translate variable test" $ do
         ty `shouldBe` TInt
 
   it "second local variable" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "y")))
+    let ast = T.expToLExp $ T.Var (T.Id "y")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           _ <- allocateLocalVariable "x" True TInt
           _ <- allocateLocalVariable "y" True TInt
@@ -102,7 +103,7 @@ translateVariableSpec = describe "translate variable test" $ do
         ty `shouldBe` TInt
 
   it "second local variable, first is not escaped" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "y")))
+    let ast = T.expToLExp $ T.Var (T.Id "y")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           _ <- allocateLocalVariable "x" False TInt
           _ <- allocateLocalVariable "y" True TInt
@@ -114,7 +115,7 @@ translateVariableSpec = describe "translate variable test" $ do
         ty `shouldBe` TInt
 
   it "first local variable, second is not escaped" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+    let ast = T.expToLExp $ T.Var (T.Id "x")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           _ <- allocateLocalVariable "x" True TInt
           _ <- allocateLocalVariable "y" False TInt
@@ -126,7 +127,7 @@ translateVariableSpec = describe "translate variable test" $ do
         ty `shouldBe` TInt
 
   it "local variable, not escaped" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+    let ast = T.expToLExp $ T.Var (T.Id "x")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           _ <- allocateLocalVariable "x" False TInt
           translateExp @FrameMock ast
@@ -140,7 +141,7 @@ translateVariableSpec = describe "translate variable test" $ do
           inRegister _ = False
 
   it "undefined variable" $ do
-    let ast = dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
+    let ast = T.expToLExp $ T.Var (T.Id "x")
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
