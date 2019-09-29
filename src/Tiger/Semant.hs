@@ -155,6 +155,15 @@ checkUnit :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError)
 checkUnit ty e@(L loc _) =
     unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
 
+allocateLocalVariable :: (F.Frame f, Lookup xs "varEnv" (State (VEnv f)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff) => Id -> Bool -> Type -> Eff xs (Access f)
+allocateLocalVariable id escape ty = do
+  a <- allocateLocalOnCurrentLevel escape
+  level <- fetchCurrentLevelEff
+  let access = Access $ #level @= level <: #access @= a <: nil
+  insertVar id . Var $ #type @= ty <: #access @= access <: nil
+  pure access
+
+
 translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Int i)) = pure $ translateInt i
 translateExp (L _ (T.String s)) = translateString s
@@ -377,10 +386,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
       (initExp, initTy) <- translateExp $ r ^. #init
       typecheck (r ^. #type) initTy
       ty <- maybe (pure TNil) lookupSkipName $ r ^. #type
-      a <- allocateLocalOnCurrentLevel $ r ^. #escape
-      level <- fetchCurrentLevelEff
-      let access = Access $ #level @= level <: #access @= a <: nil
-      modifyEff #varEnv . E.insert (unLId $ r ^. #id) . Var $ #type @= ty <: #access @= access <: nil
+      access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape) ty
       varInitExp access initExp
       where
         typecheck (Just typeid) initTy = do
@@ -402,7 +408,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
         level <- fetchCurrentLevelEff
         codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
         let fun = Fun $ #label @= label <: #level @= level <: #domains @= domains <: #codomain @= codomain <: nil
-        modifyEff #varEnv $ E.insert (unLId $ r ^. #id) fun
+        insertVar (unLId $ r ^. #id) fun
       where
         escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> r ^. #args
         domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
@@ -420,11 +426,9 @@ translateDecsList = fmap mconcat . traverse translateDecs
         allocateParameters :: [T.LField] -> Eff xs ()
         allocateParameters = mapM_ allocateParameter
         allocateParameter :: T.LField -> Eff xs ()
-        allocateParameter (L _ (T.Field id escape (L loc typeid))) = do
-          access <- allocateLocalOnCurrentLevel escape
-          level <- fetchCurrentLevelEff
+        allocateParameter (L _ (T.Field (L _ id) escape (L loc typeid))) =
           lookupTypeId typeid >>= \case
-            Just ty -> insertVar (unLId id) . Var $ #type @= ty <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil
+            Just ty -> allocateLocalVariable id escape ty >> pure ()
             Nothing -> throwEff #translateError . L loc $ TypeUndefined typeid
 
 
