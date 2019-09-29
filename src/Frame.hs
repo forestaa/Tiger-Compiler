@@ -1,6 +1,6 @@
 module Frame where
 
-import RIO (Int, Bool, String)
+import RIO
 
 import qualified Unique as U
 import qualified IR
@@ -23,3 +23,5 @@ class Frame f where
 data ProgramFragment f where
   Proc :: Frame f => Record '["body" >: IR.Stm, "frame" >: f] -> ProgramFragment f
   String :: U.Label -> String -> ProgramFragment f
+deriving instance Eq f => Eq (ProgramFragment f)
+deriving instance Show f => Show (ProgramFragment f)
