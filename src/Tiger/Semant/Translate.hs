@@ -2,7 +2,7 @@ module Tiger.Semant.Translate where
 
 import RIO
 import qualified RIO.List as List
-import qualified RIO.List.Partial as List
+import qualified RIO.List.Partial as Partial
 import Data.Extensible
 
 import qualified Frame as F
@@ -28,19 +28,19 @@ type BreakPointEff = State BreakPointStack
 runBreakPointEff :: Eff (("breakpoint" >: BreakPointEff) ': xs) a -> Eff xs a
 runBreakPointEff = flip (evalStateEff @"breakpoint") (BreakPointStack [])
 
-withBreakPoint :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs a -> Eff xs a
+withBreakPoint :: forall xs a. (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs a -> Eff xs a
 withBreakPoint body = do
   pushNewBreakPoint
   ret <- body
   popBreakPoint
   pure ret
   where
-    pushNewBreakPoint :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs ()
+    pushNewBreakPoint :: Eff xs ()
     pushNewBreakPoint = do
       done <- newLabel
       modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (done:breakpoints)
-    popBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs ()
-    popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (List.tail breakpoints)
+    popBreakPoint :: Eff xs ()
+    popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (Partial.tail breakpoints)
 fetchCurrentBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs (Maybe Label)
 fetchCurrentBreakPoint = getEff #breakpoint >>= \case
   BreakPointStack [] -> pure Nothing
@@ -208,7 +208,7 @@ whileLoopExp cond (Nx bodyStm) = do
 
 breakExp :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Exp)
 breakExp = fetchCurrentBreakPoint >>= \case
-  Just label -> pure . Just . Nx $ IR.Jump (IR.Name label) [label]
+  Just done -> pure . Just . Nx $ IR.Jump (IR.Name done) [done]
   Nothing -> pure Nothing
 
 funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs Exp

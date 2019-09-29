@@ -162,7 +162,7 @@ translateExp (L _ T.Nil) = pure translateNil
 translateExp (L _ (T.Var v)) = translateValue v
 translateExp (L loc (T.Op left (L _ op) right)) = translateBinOp $ L loc (op, left, right)
 translateExp (L loc (T.If bool then' (Just else'))) = translateIfElse $ L loc (bool, then', else')
-translateExp (L loc (T.If bool then' Nothing)) = translateIfNoElse bool then'
+translateExp (L _ (T.If bool then' Nothing)) = translateIfNoElse bool then'
 translateExp (L loc (T.RecordCreate typeid fields)) = translateRecordCreation @f $ L loc (typeid, fields)
 translateExp (L loc (T.ArrayCreate typeid size init)) = translateArrayCreation @f $ L loc (typeid, size, init)
 translateExp (L _ (T.Assign v e)) = translateAssign v e
@@ -190,7 +190,9 @@ translateValue (L loc (T.RecField lv (L _ field))) = do
   (varExp, ty) <- translateValue lv
   case ty of
     TRecord r -> case Map.lookup field (r ^. #map) of
-      Just ty -> pure . (, ty) $ valueRecFieldExp @f varExp (Partial.fromJust (Map.lookupIndex field (r ^. #map)))
+      Just ty -> do
+        let i = Partial.fromJust $ Map.lookupIndex field (r ^. #map)
+        pure . (, ty) $ valueRecFieldExp @f varExp i
       Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
     _ -> throwEff #translateError . L loc $ ExpectedRecordType lv ty
 translateValue (L loc (T.ArrayIndex lv le)) =
@@ -265,17 +267,15 @@ translateFieldAssign :: HasTranslateEff xs f => T.LFieldAssign -> Eff xs (Id, (E
 translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
 translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
-translateArrayCreation (L loc (typeid, size, init)) = do
-  ty <- lookupSkipName typeid
-  case ty of
-    TArray a -> do
-      (sizeExp, sizeTy) <- translateExp size
-      checkInt sizeTy size
-      (initExp, initty) <- translateExp init
-      if initty == a ^. #range
-        then (, ty) <$> arrayCreationExp @f sizeExp initExp
-        else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
-    _ -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
+translateArrayCreation (L loc (typeid, size, init)) = lookupSkipName typeid >>= \case
+  ty@(TArray a) -> do
+    (sizeExp, sizeTy) <- translateExp size
+    checkInt sizeTy size
+    (initExp, initty) <- translateExp init
+    if initty == a ^. #range
+      then (, ty) <$> arrayCreationExp @f sizeExp initExp
+      else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
+  ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
 
 translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateWhileLoop bool body = do
@@ -311,18 +311,16 @@ translateBreak loc = breakExp >>= \case
   Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
 translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
-translateFunApply (L loc (func, args)) = do
-  v <- lookupVarIdEff func
-  case v of
-    Fun r -> do
-      (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
-      domains <- mapM skipName $ r ^. #domains
-      if argsty == domains
-        then do
-          exp <- funApplyExp (r ^. #label) (r ^. #level) exps
-          (exp, ) <$> skipName (r ^. #codomain)
-        else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
-    Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
+translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
+  Fun r -> do
+    (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
+    domains <- mapM skipName $ r ^. #domains
+    if argsty == domains
+      then do
+        exp <- funApplyExp (r ^. #label) (r ^. #level) exps
+        (exp, ) <$> skipName (r ^. #codomain)
+      else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
+  Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e = do
