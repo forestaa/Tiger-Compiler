@@ -15,10 +15,15 @@ import SrcLoc
 import Unique
 
 import Data.Extensible
+import qualified RIO.List.Partial as Partial
 
 
 spec :: Spec
-spec = pure ()
+spec = do
+  translateIntSpec
+  translateStringSpec
+  translateNilSpec
+
 -- translateSpec :: Spec
 -- translateSpec = describe "translate test" $
 --   it "translate simple variable: success" $ do
@@ -34,20 +39,42 @@ spec = pure ()
 --       Left e -> expectationFailure $ show e
 --       Right e -> e `shouldBe` (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp (F.fp @FrameMock)))), TInt)
 
-translateSpec :: Spec
-translateSpec = describe "translate test" $
-  it "translate simple variable: success" $ do
-    let typeEnv = E.empty
-        varEnv = E.empty
-        result = leaveEff . runTranslateEff @FrameMock $ do
-          label <- newLabel
-          level@(Level r) <- newLevel label [True]
-          let (access:_) = F.formals $ r ^. #frame
-          modifyEff #varEnv $ E.insert "x" (Var $ #type @= TInt <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil)
-          translateExp . dummyRealLocated $ T.Var (dummyRealLocated (T.Id (dummyRealLocated "x")))
-    case result of
+translateIntSpec :: Spec
+translateIntSpec = describe "translate int test" $ do
+  it "translate 0" $ do
+    let ast = dummyRealLocated $ T.Int 0
+    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
       Left e -> expectationFailure $ show e
-      Right e -> e `shouldBe` (Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp (F.fp @FrameMock)))), TInt)
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Const 0)
+        ty `shouldBe` TInt
+
+translateStringSpec :: Spec
+translateStringSpec = describe "translate string test" $ do
+  it "translate 'hoge'" $ do
+    let ast = dummyRealLocated $ T.String "hoge"
+    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TString
+        length fragments `shouldBe` 1
+        Partial.head fragments `shouldSatisfy` fragmentP
+    where
+      expP (Ex (IR.Name _)) = True
+      expP _ = False
+      fragmentP (F.String (Label _ _) s) = s == "hoge"
+      fragmentP _ = False
+
+translateNilSpec :: Spec
+translateNilSpec = describe "translate nil test" $ do
+  it "translate nil" $ do
+    let ast = dummyRealLocated $ T.Nil
+    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        ty `shouldBe` TNil
+
 
 -- spec =
 --   describe "typing test" $ do
