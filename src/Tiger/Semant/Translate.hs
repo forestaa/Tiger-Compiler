@@ -226,6 +226,16 @@ seqExp es = case List.uncons es of
     stms <- mapM unNx es
     exp <- unEx e
     pure . Ex $ IR.ESeq (IR.seqStm stms) exp
+
+funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => Exp -> Eff xs ()
+funDecExp exp = fetchCurrentLevelEff >>= \case
+  level@(Level r) -> do
+    let stm = F.viewShift (r ^. #frame) $ addStoreRV exp
+    saveProcEntry level stm
+  where
+    addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e
+    addStoreRV (Nx s) = s
+
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)

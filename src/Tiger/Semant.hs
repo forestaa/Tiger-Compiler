@@ -225,7 +225,43 @@ translateDecsList = fmap mconcat . traverse translateDecs
 
 
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
-    translateFunDecs = undefined
+    translateFunDecs ds = do
+      mapM_ insertFunEntry ds
+      mapM_ translateFunDec ds
+
+    insertFunEntry :: RealLocated FunDec -> Eff xs ()
+    insertFunEntry (L _ (FunDec r)) = do
+      label <- newLabel
+      withNewLevelEff label escapes $ do
+        level <- fetchCurrentLevelEff
+        codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
+        let fun = Fun $ #label @= label <: #level @= level <: #domains @= domains <: #codomain @= codomain <: nil
+        modifyEff #varEnv $ E.insert (unLId $ r ^. #id) fun
+      where
+        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> r ^. #args
+        domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
+
+    translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
+    translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
+      Fun f -> withLevelEff (f ^. #level) $ do
+        allocateParameters $ dec ^. #args
+        (bodyExp, bodyTy) <- translateExp $ dec ^. #body
+        declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
+        if declaredTy == bodyTy
+          then funDecExp bodyExp
+          else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
+      where
+        allocateParameters :: [T.LField] -> Eff xs ()
+        allocateParameters = mapM_ allocateParameter
+        allocateParameter :: T.LField -> Eff xs ()
+        allocateParameter (L _ (T.Field id escape (L loc typeid))) = do
+          access <- allocateLocalOnCurrentLevel escape
+          level <- fetchCurrentLevelEff
+          lookupTypeId typeid >>= \case
+            Just ty -> insertVar (unLId id) . Var $ #type @= ty <: #access @= Access (#level @= level <: #access @= access <: nil) <: nil
+            Nothing -> throwEff #translateError . L loc $ TypeUndefined typeid
+
+
     translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
     translateTypeDecs ds = do
       checkSameNameDec $ fmap extractLId ds
