@@ -13,9 +13,11 @@ class Frame f where
   formals :: f -> [Access f]
   allocLocal ::(Lookup xs "temp" U.UniqueEff) => f -> Bool -> Eff xs (f, Access f)
   fp :: U.Temp
+  rv :: U.Temp
   exp :: Access f -> IR.Exp -> IR.Exp
   wordSize :: Int
   externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
+  viewShift :: f -> IR.Stm -> IR.Stm
 
 
 data ProgramFragment f where
