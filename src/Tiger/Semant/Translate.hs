@@ -47,6 +47,8 @@ fetchCurrentBreakPoint = getEff #breakpoint >>= \case
   BreakPointStack (breakpoint:_) -> pure $ Just breakpoint
 
 type FragmentEff f = State [F.ProgramFragment f]
+runFragmentEff :: Eff (("fragment" >: FragmentEff f) ': xs) a -> Eff xs (a, [F.ProgramFragment f])
+runFragmentEff = flip (runStateEff @"fragment") []
 saveProcEntry :: (F.Frame f, Lookup xs "fragment" (FragmentEff f), Lookup xs "label" UniqueEff) => Level f -> IR.Stm -> Eff xs ()
 saveProcEntry (Level r) stm = modifyEff #fragment . (:) . F.Proc $ #body @= stm <: #frame @= r ^. #frame <: nil
 saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()

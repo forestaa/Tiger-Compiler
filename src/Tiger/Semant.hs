@@ -80,19 +80,20 @@ instance Show TranslateError where
 
 
 type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
-runTranslateEff ::
+runTranslateEff :: forall f xs a.
      Eff (
          ("typeEnv" >: State TEnv)
       ': ("varEnv" >: State (VEnv f))
       ': ("nestingLevel" >: NestingLevelEff f)
       ': ("breakpoint" >: BreakPointEff)
+      ': ("fragment" >: FragmentEff f)
       ': ("temp" >: UniqueEff)
       ': ("label" >: UniqueEff)
       ': ("id" >: UniqueEff)
       ': ("translateError" >: EitherEff (RealLocated TranslateError))
       ': xs) a
-  -> Eff xs (Either (RealLocated TranslateError) a)
-runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
+  -> Eff xs (Either (RealLocated TranslateError) (a, [F.ProgramFragment f]))
+runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
 
 
 lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
