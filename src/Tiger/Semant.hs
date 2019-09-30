@@ -50,6 +50,7 @@ data TranslateError =
   | ExpectedIntType T.LExp Type
   | ExpectedRecordType T.LValue Type
   | ExpectedArrayType T.LValue Type
+  | ExpectedVariable Id
   | MissingRecordField T.LValue Type Id
   | InvalidRecTypeDeclaration [RealLocated TypeDec]
   | MultiDeclaredName [LId]
@@ -70,6 +71,7 @@ instance Show TranslateError where
   show (ExpectedIntType (L _ e) ty) = concat ["Couldn't match type: int type expected: exp = ", show e, ", actual type: ", show ty]
   show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
+  show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
   show (MissingRecordField (L _ v) ty id) = concat ["Record field missing: value = ", show v, ", type = ", show ty, ", field = ", show id]
   show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
@@ -198,7 +200,7 @@ translateValue (L loc (T.Id lid)) = do
   var <- lookupVarIdEff lid
   case var of
     Var r -> (, r ^. #type) <$> valueIdExp (r ^. #access)
-    Fun _ -> throwEff #translateError . L loc $ NotImplemented "6"
+    Fun _ -> throwEff #translateError . L loc $ ExpectedVariable (unLId lid)
 translateValue (L loc (T.RecField lv (L _ field))) = do
   (varExp, ty) <- translateValue lv
   case ty of
