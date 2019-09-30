@@ -97,7 +97,6 @@ runTranslateEff :: forall f xs a.
   -> Eff xs (Either (RealLocated TranslateError) (a, [F.ProgramFragment f]))
 runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
 
-
 runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel
   withNewLevelEff label [] a
@@ -202,7 +201,7 @@ translateValue (L loc (T.Id lid)) = do
     Var r -> (, r ^. #type) <$> valueIdExp (r ^. #access)
     Fun _ -> throwEff #translateError . L loc $ ExpectedVariable (unLId lid)
 translateValue (L loc (T.RecField lv (L _ field))) = do
-  (varExp, ty) <- translateValue lv
+  (varExp, ty) <- traverse skipName =<< translateValue lv
   case ty of
     TRecord r -> case Map.lookup field (r ^. #map) of
       Just ty -> do
@@ -210,13 +209,14 @@ translateValue (L loc (T.RecField lv (L _ field))) = do
         pure . (, ty) $ valueRecFieldExp @f varExp i
       Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
     _ -> throwEff #translateError . L loc $ ExpectedRecordType lv ty
-translateValue (L loc (T.ArrayIndex lv le)) =
-  translateValue lv >>= traverse skipName >>= \case
-    (varExp, TArray a) -> do
+translateValue (L loc (T.ArrayIndex lv le)) = do
+  (varExp, ty) <- traverse skipName =<< translateValue lv
+  case ty of
+    TArray a -> do
       (indexExp, indexTy) <- translateExp le
       checkInt indexTy le
       pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
-    (_, ty) -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
+    _ -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
 
 translateBinOp :: HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
