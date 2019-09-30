@@ -102,7 +102,7 @@ valueIdExp (Access r) = Ex . F.exp (r ^. #access) <$> pullInStaticLinksEff (r ^.
 valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
 valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Plus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
 valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
-valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Minus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
+valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 
 -- TODO: string comparison
 binOpExp :: T.LOp' -> Exp -> Exp -> Exp
