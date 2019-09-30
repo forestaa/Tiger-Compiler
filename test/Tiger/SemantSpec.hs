@@ -179,6 +179,21 @@ translateRecordFieldSpec = describe "translate record field test" $ do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const (F.wordSize @FrameMock))))
         ty `shouldBe` TString
 
+  it "type synonym for record type" $ do
+    let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+              nameTy = TName (dummyRealLocated "record")
+          insertType "record" recordTy
+          _ <- allocateLocalVariable "object" True nameTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
+        ty `shouldBe` TInt
+
   it "not record type" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -248,6 +263,21 @@ translateArrayIndexSpec = describe "translate array index test" $ do
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TString
+
+  it "type synonym for array type" $ do
+    let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+              nameTy = TName (dummyRealLocated "array")
+          insertType "array" arrayTy
+          _ <- allocateLocalVariable "x" True nameTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
+        ty `shouldBe` TInt
 
   it "array index x['hoge']" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.String "hoge"))
