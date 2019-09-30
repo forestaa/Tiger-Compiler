@@ -137,6 +137,19 @@ translateVariableSpec = describe "translate variable test" $ do
           isUndefinedVariable (VariableUndefined id) = id == "x"
           isUndefinedVariable _ = False
 
+  it "variable referes function" $ do
+    let ast = T.expToLExp $ T.Var (T.Id "x")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          insertVar "x" $ Fun undefined
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedVariable
+        where
+          isExpectedVariable (ExpectedVariable id) = id == "x"
+          isExpectedVariable _ = False
+
+
 translateRecordFieldSpec :: Spec
 translateRecordFieldSpec = describe "translate record field test" $ do
   it "first record field" $ do
