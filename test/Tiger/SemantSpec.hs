@@ -6,6 +6,7 @@ import Test.Hspec
 import Tiger.Semant
 import Tiger.Semant.Translate
 import Tiger.Semant.Types
+import Tiger.TestUtils
 import qualified Tiger.LSyntax as T (expToLExp)
 import qualified Tiger.Syntax as T
 import qualified Frame as F
@@ -27,6 +28,7 @@ spec = do
   translateVariableSpec
   translateRecordFieldSpec
   translateArrayIndexSpec
+  translateBinOpSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -304,3 +306,140 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         where
           isExpectedIntType (L _ ExpectedArrayType{}) = True
           isExpectedIntType _ = False
+
+translateBinOpSpec :: Spec
+translateBinOpSpec = describe "translate binop test" $ do
+  it "0 + 0" $ do
+    let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.Const 0))
+        ty `shouldBe` TInt
+
+  it "'hoge' + 1" $ do
+    let ast = T.expToLExp $ T.Op (T.String "hoge") T.Plus (T.Int 0)
+        result = leaveEff. runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedIntType
+        where
+          isExpectedIntType (L _ ExpectedIntType{}) = True
+          isExpectedIntType _ = False
+
+  it "x + x (array)" $ do
+    let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          _ <- allocateLocalVariable "x" True arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedIntType
+        where
+          isExpectedIntType (L _ ExpectedIntType{}) = True
+          isExpectedIntType _ = False
+
+  it "x == x (array)" $ do
+    let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          _ <- allocateLocalVariable "x" True arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldBe` IR.CJump IR.Eq (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
+        ty `shouldBe` TInt
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
+  it "nil ≠ nil" $ do
+    let ast = T.expToLExp $ T.Op T.Nil T.NEq T.Nil
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldBe` IR.CJump IR.Ne (IR.Const 0) (IR.Const 0) true false
+        ty `shouldBe` TInt
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
+  it "nil == x (record)" $ do
+    let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          _ <- allocateLocalVariable "x" True recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldBe` IR.CJump IR.Eq (IR.Const 0) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
+        ty `shouldBe` TInt
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
+  it "x == y (array == record)" $ do
+    let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "y"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id1 <- getUniqueEff #id
+          id2 <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id1 <: nil
+              arrayTy = TArray  $ #range @= TInt <: #id @= id2 <: nil
+          _ <- allocateLocalVariable "x" True recordTy
+          _ <- allocateLocalVariable "y" True arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedType
+        where
+          isExpectedType (L _ ExpectedType{}) = True
+          isExpectedType _ = False
+
+  it "0 + (0 == 0)" $ do
+    let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Op (T.Int 0) T.Eq (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label _))))) (IR.Temp _)))) = True
+          expP _ = False
+
+  it "0 == (0 == 0)" $ do
+    let ast = T.expToLExp $ T.Op (T.Int 0) T.Eq (T.Op (T.Int 0) T.Eq (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (IR.CJump IR.Eq (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label _))))) (IR.Temp _)) _ _) = True
+          expP _ = False
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
+  it "(x := 0) == (x := 0)" $ do
+    let ast = T.expToLExp $ T.Op (T.Assign (T.Id "x") (T.Int 0)) T.Eq (T.Assign (T.Id "x") (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedExpression: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedExpression
+        where
+          isExpectedExpression (L _ ExpectedExpression{}) = True
+          isExpectedExpression _ = False
+
