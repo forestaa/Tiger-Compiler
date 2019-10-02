@@ -51,6 +51,7 @@ data TranslateError =
   | ExpectedRecordType T.LValue Type
   | ExpectedArrayType T.LValue Type
   | ExpectedVariable Id
+  | ExpectedExpression T.LExp
   | MissingRecordField T.LValue Type Id
   | InvalidRecTypeDeclaration [RealLocated TypeDec]
   | MultiDeclaredName [LId]
@@ -72,6 +73,7 @@ instance Show TranslateError where
   show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
+  show (ExpectedExpression (L _ e)) = concat ["Expected Expression: ", show e]
   show (MissingRecordField (L _ v) ty id) = concat ["Record field missing: value = ", show v, ", type = ", show ty, ", field = ", show id]
   show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
@@ -223,14 +225,19 @@ translateBinOp (L loc (op, left, right)) = do
   (leftExp, leftTy) <- translateExp left
   (rightExp, rightTy) <- translateExp right
   typecheck op leftTy left rightTy right
-  pure . (, TInt) $ binOpExp op leftExp rightExp
+  (, TInt) <$> binOpExp op leftExp rightExp
   where
     isEqNEq T.Eq = True
     isEqNEq T.NEq = True
     isEqNEq _ = False
 
+    isUnit TUnit = True
+    isUnit _ = False
+
     typecheck op leftTy left rightTy right
       | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
+      | isEqNEq op && isUnit leftTy = throwEff #translateError . L loc $ ExpectedExpression left
+      | isEqNEq op && isUnit rightTy = throwEff #translateError . L loc $ ExpectedExpression right
       | isEqNEq op && not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
       | otherwise = pure ()
 

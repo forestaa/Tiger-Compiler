@@ -56,7 +56,6 @@ saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
-unEx (Nx s) = pure $ IR.ESeq s (IR.Const 0)
 unEx (Cx genstm) = do
   r <- newTemp
   t <- newLabel
@@ -105,7 +104,7 @@ valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 
 -- TODO: string comparison
-binOpExp :: T.LOp' -> Exp -> Exp -> Exp
+binOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
 binOpExp op left right
   | isArithmetic op = arithmeticOpExp (arithmeticOpConvert op) left right
   | otherwise = condOpExp (relOpConvert op) left right
@@ -128,10 +127,16 @@ binOpExp op left right
     relOpConvert T.Gt    = IR.Gt
     relOpConvert T.Ge    = IR.Ge
 
-arithmeticOpExp :: IR.BinOp -> Exp -> Exp -> Exp
-arithmeticOpExp op (Ex left) (Ex right) = Ex $ IR.BinOp op left right
-condOpExp :: IR.RelOp -> Exp -> Exp -> Exp
-condOpExp op (Ex left) (Ex right) = Cx $ \t f -> IR.CJump op left right t f
+arithmeticOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => IR.BinOp -> Exp -> Exp -> Eff xs Exp
+arithmeticOpExp op left right = do
+  lefte <- unEx left
+  righte <- unEx right
+  pure . Ex $ IR.BinOp op lefte righte
+condOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => IR.RelOp -> Exp -> Exp -> Eff xs Exp
+condOpExp op left right = do
+  lefte <- unEx left
+  righte <- unEx right
+  pure . Cx $ \t f -> IR.CJump op lefte righte t f
 
 ifElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Exp -> Eff xs Exp
 ifElseExp cond (Ex thenExp) (Ex elseExp) = do
