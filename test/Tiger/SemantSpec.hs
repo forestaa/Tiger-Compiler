@@ -30,6 +30,7 @@ spec = do
   translateArrayIndexSpec
   translateBinOpSpec
   translateIfElseSpec
+  translateIfNoElseSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -539,3 +540,59 @@ translateIfElseSpec = describe "translate if-else test" $ do
         where
           isExpectedIntType (L _ ExpectedIntType{}) = True
           isExpectedIntType _ = False
+
+translateIfNoElseSpec :: Spec
+translateIfNoElseSpec = describe "translate if-no-else test" $ do
+  it "if 0 == 0 then x := 0" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) Nothing
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t z) (IR.Seq (IR.Label t') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label z'))))) = t == t' && z == z'
+          expP _ = False
+
+  it "if 0 then x := 0" $ do
+    let ast = T.expToLExp $ T.If (T.Int 0) (T.Assign (T.Id "x") (T.Int 0)) Nothing
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label z'))))) = z == z'
+          expP _ = False
+
+  it "if x(array) then 0" $ do
+    let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) Nothing
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          _ <- allocateLocalVariable "x" True arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedIntType
+        where
+          isExpectedIntType (L _ ExpectedIntType{}) = True
+          isExpectedIntType _ = False
+
+  it "if 0 then 0" $ do
+    let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) Nothing
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedUnitType
+        where
+          isExpectedUnitType (L _ ExpectedUnitType{}) = True
+          isExpectedUnitType _ = False
