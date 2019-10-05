@@ -77,7 +77,9 @@ unNx (Cx genstm) = do
   pure $ IR.seqStm [genstm t f, IR.Label t, IR.Label f]
 
 unCx :: Exp -> Label -> Label -> IR.Stm
-unCx (Ex e) = undefined
+unCx (Ex (IR.Const 0)) = \_ f -> IR.Jump (IR.Name f) [f]
+unCx (Ex (IR.Const _)) = \t _ -> IR.Jump (IR.Name t) [t]
+unCx (Ex e) = IR.CJump IR.Ne e (IR.Const 0)
 unCx (Nx _) = undefined
 unCx (Cx genstm) = genstm
 
