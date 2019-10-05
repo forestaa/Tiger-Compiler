@@ -414,7 +414,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label _))))) (IR.Temp _)))) = True
+          expP (Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label f') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label t'))))) (IR.Temp _)))) = t == t' && f == f'
           expP _ = False
 
   it "0 == (0 == 0)" $ do
@@ -428,7 +428,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         genstm true false `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (IR.CJump IR.Eq (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label _))))) (IR.Temp _)) _ _) = True
+          expP (IR.CJump IR.Eq (IR.Const 0) (IR.ESeq (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label f') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label t'))))) (IR.Temp _)) _ _) = t == t' && f == f'
           expP _ = False
       Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
 
@@ -456,7 +456,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))) (IR.Temp _))) = t == t' && f == f' && z == z'' && z' == z''
           expP _ = False
 
   it "if 0 == 0 then x := 0 else x := 1" $ do
@@ -470,7 +470,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
         where
-          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _)(IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _))))))))) = True
+          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f')(IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z''))))))))) = t == t' && f == f' && z == z'' && z' == z''
           expP _ = False
 
   it "if 0 == 0 then 0 == 0 else 0 == 1" $ do
@@ -483,7 +483,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))))))) (IR.Temp _))) = True
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) ret0 ret1) (IR.Seq (IR.Label f') (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) ret0' ret1') (IR.Seq (IR.Label ret0'') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label ret1'') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))))))) (IR.Temp _))) = t == t' && f == f' && ret0 == ret0' && ret0 == ret0'' && ret1 == ret1' && ret1 == ret1'' && z == z' && z == z''
           expP _ = False
 
   it "if 0 == 0 then 0 else 0 == 1" $ do
@@ -496,7 +496,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label _))))) (IR.Temp _))) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move (IR.Temp _) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) t'' f'') (IR.Seq (IR.Label f''') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label t'''))))) (IR.Temp _))) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))) (IR.Temp _))) = t == t' && f == f' && t'' == t''' && f'' == f''' && z == z' && z == z''
           expP _ = False
 
 
@@ -510,7 +510,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.ESeq (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP (Ex (IR.ESeq (IR.Seq (IR.Jump (IR.Name f) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))) (IR.Temp _))) = f == f' && z == z' && z == z''
           expP _ = False
 
   it "if 1 + 1 then 0 else 1" $ do
@@ -523,7 +523,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
         where
-          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Ne (IR.BinOp IR.Plus (IR.Const 1) (IR.Const 1)) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Ne (IR.BinOp IR.Plus (IR.Const 1) (IR.Const 1)) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))) (IR.Temp _))) = t == t' && f == f' && z == z' && z == z''
           expP _ = False
 
   it "if x(array) then 0 else 1" $ do
