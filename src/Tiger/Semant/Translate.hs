@@ -141,26 +141,11 @@ condOpExp op left right = do
   pure . Cx $ \t f -> IR.CJump op lefte righte t f
 
 ifElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Exp -> Eff xs Exp
-ifElseExp cond (Ex thenExp) (Ex elseExp) = do
-  r <- newTemp
-  t <- newLabel
-  f <- newLabel
-  z <- newLabel
-  pure . Ex $ IR.ESeq (IR.seqStm [
-      unCx cond t f
-    , IR.Label t
-    , IR.Move (IR.Temp r) thenExp
-    , IR.Jump (IR.Name z) [z]
-    , IR.Label f
-    , IR.Move (IR.Temp r) elseExp
-    , IR.Jump (IR.Name z) [z]
-    , IR.Label z
-    ]) (IR.Temp r)
 ifElseExp cond (Nx thenStm) (Nx elseStm) = do
   t <- newLabel
   f <- newLabel
   z <- newLabel
-  pure . Nx $IR.seqStm [
+  pure . Nx $ IR.seqStm [
       unCx cond t f
     , IR.Label t
     , thenStm
@@ -170,6 +155,45 @@ ifElseExp cond (Nx thenStm) (Nx elseStm) = do
     , IR.Jump (IR.Name z) [z]
     , IR.Label z
     ]
+ifElseExp cond (Cx thenExp) (Cx elseExp) = do
+  r <- newTemp
+  t <- newLabel
+  f <- newLabel
+  ret0 <- newLabel
+  ret1 <- newLabel
+  z <- newLabel
+  pure . Ex $ IR.ESeq (IR.seqStm [
+      unCx cond t f
+    , IR.Label t
+    , thenExp ret0 ret1
+    , IR.Label f
+    , elseExp ret0 ret1
+    , IR.Label ret0
+    , IR.Move (IR.Temp r) (IR.Const 0)
+    , IR.Jump (IR.Name z) [z]
+    , IR.Label ret1
+    , IR.Move (IR.Temp r) (IR.Const 1)
+    , IR.Jump (IR.Name z) [z]
+    , IR.Label z
+    ]) (IR.Temp r)
+ifElseExp cond thenExp elseExp = do
+  r <- newTemp
+  t <- newLabel
+  f <- newLabel
+  z <- newLabel
+  thenExp' <- unEx thenExp
+  elseExp' <- unEx elseExp
+  pure . Ex $ IR.ESeq (IR.seqStm [
+      unCx cond t f
+    , IR.Label t
+    , IR.Move (IR.Temp r) thenExp'
+    , IR.Jump (IR.Name z) [z]
+    , IR.Label f
+    , IR.Move (IR.Temp r) elseExp'
+    , IR.Jump (IR.Name z) [z]
+    , IR.Label z
+    ]) (IR.Temp r)
+
 
 ifNoElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Eff xs Exp
 ifNoElseExp cond (Nx thenStm) = do
