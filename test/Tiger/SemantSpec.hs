@@ -29,6 +29,7 @@ spec = do
   translateRecordFieldSpec
   translateArrayIndexSpec
   translateBinOpSpec
+  translateIfElseSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -302,10 +303,10 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType" ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
+      Left e -> e `shouldSatisfy` isExpectedArrayType
         where
-          isExpectedIntType (L _ ExpectedArrayType{}) = True
-          isExpectedIntType _ = False
+          isExpectedArrayType (L _ ExpectedArrayType{}) = True
+          isExpectedArrayType _ = False
 
 translateBinOpSpec :: Spec
 translateBinOpSpec = describe "translate binop test" $ do
@@ -443,3 +444,98 @@ translateBinOpSpec = describe "translate binop test" $ do
           isExpectedExpression (L _ ExpectedExpression{}) = True
           isExpectedExpression _ = False
 
+translateIfElseSpec :: Spec
+translateIfElseSpec = describe "translate if-else test" $ do
+  it "if 0 == 0 then 1 else 0" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 1) (Just (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP _ = False
+
+  it "if 0 == 0 then x := 0 else x := 1" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _)(IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _))))))))) = True
+          expP _ = False
+
+  it "if 0 == 0 then 0 == 0 else 0 == 1" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Op (T.Int 0) T.Eq (T.Int 0)) (Just (T.Op (T.Int 0) T.Eq (T.Int 1)))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))))))) (IR.Temp _))) = True
+          expP _ = False
+
+  it "if 0 == 0 then 0 else 0 == 1" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 0) (Just (T.Op (T.Int 0) T.Eq (T.Int 1)))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label _))))) (IR.Temp _))) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP _ = False
+
+
+  it "if 0 then 0 else 1" $ do
+    let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) (Just (T.Int 1))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP _ = False
+
+  it "if 1 + 1 then 0 else 1" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 1) T.Plus (T.Int 1)) (T.Int 0) (Just (T.Int 1))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Ne (IR.BinOp IR.Plus (IR.Const 1) (IR.Const 1)) (IR.Const 0) _ _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name _) _) (IR.Label _)))))))) (IR.Temp _))) = True
+          expP _ = False
+
+  it "if x(array) then 0 else 1" $ do
+    let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          _ <- allocateLocalVariable "x" True arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedIntType
+        where
+          isExpectedIntType (L _ ExpectedIntType{}) = True
+          isExpectedIntType _ = False
