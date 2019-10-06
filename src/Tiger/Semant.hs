@@ -52,7 +52,10 @@ data TranslateError =
   | ExpectedArrayType T.LValue Type
   | ExpectedVariable Id
   | ExpectedExpression T.LExp
+  | ExpectedTypeForRecordField T.LExp Id Type Type
   | MissingRecordField T.LValue Type Id
+  | MissingRecordFieldInConstruction T.LExp Type Id
+  | ExtraRecordFieldInConstruction T.LExp Type Id
   | InvalidRecTypeDeclaration [RealLocated TypeDec]
   | MultiDeclaredName [LId]
   | AssignNilWithNoRecordAnnotation
@@ -74,7 +77,10 @@ instance Show TranslateError where
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
   show (ExpectedExpression (L _ e)) = concat ["Expected Expression: ", show e]
-  show (MissingRecordField (L _ v) ty id) = concat ["Record field missing: value = ", show v, ", type = ", show ty, ", field = ", show id]
+  show (ExpectedTypeForRecordField (L _ e) id ty ty') = concat ["Couldn't match type: ", show ty, " type expected at field ", show id, ": exp = ", show e, ", actual type: ", show ty']
+  show (MissingRecordField (L _ v) ty id) = concat ["Missing record field: value = ", show v, ", type = ", show ty, ", field = ", show id]
+  show (MissingRecordFieldInConstruction (L _ v) ty id) = concat ["Missing record field in construction: value = ", show v, ", type = ", show ty, ", field = ", show id]
+  show (ExtraRecordFieldInConstruction (L _ v) ty id) = concat ["Record does not have field ", show id, ": value = ", show v, ", type = ", show ty]
   show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
   show AssignNilWithNoRecordAnnotation = "nil assigned with no type annotation"
@@ -266,21 +272,19 @@ translateRecordCreation (L loc (typeid, fields)) = do
     TRecord r -> do
       let m = Map.toList $ r ^. #map
       (fieldsty, fieldExps) <- unzip3' <$> mapM translateFieldAssign fields
-      unlessM (comp m fieldsty) $ throwEff #translateError . L loc $ NotImplemented "1"
+      typecheck ty m fieldsty
       (, ty) <$> recordCreationExp @f fieldExps
     _ -> throwEff #translateError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
-    -- TODO: test! test! test!
-    comp :: [(Id, Type)] -> [(Id, Type)] -> Eff xs Bool
-    comp [] [] = pure True
-    comp ((id, TName tyid):as) bs = do
-      ty <- skipName (TName tyid)
-      comp ((id, ty):as) bs
-    comp as ((id, TName tyid):bs) = do
-      ty <- skipName (TName tyid)
-      comp as ((id, ty):bs)
-    comp ((id1, ty1):as) ((id2, ty2):bs) = (&&) (id1 == id2 && ty1 == ty2) <$> comp as bs
-    comp _ _ = pure False
+    typecheck :: Type -> [(Id, Type)] -> [(Id, Type)] -> Eff xs ()
+    typecheck _ [] [] = pure ()
+    typecheck ty ((id1, _):_) [] = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+    typecheck ty [] ((id2, _):_) = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+    typecheck ty ((id1, ty1):as) ((id2, ty2):bs)
+      | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+      | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+      |  ty1 /= ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
+      | otherwise = typecheck ty as bs
 
     unzip3' :: [(a, (b, c))] -> ([(a, c)], [b])
     unzip3' = foldr (\(a, (b, c)) (acs, bs) -> ((a,c):acs, b:bs)) ([], [])
