@@ -31,6 +31,7 @@ spec = do
   translateBinOpSpec
   translateIfElseSpec
   translateIfNoElseSpec
+  translateRecordCreationSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -596,3 +597,128 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
         where
           isExpectedUnitType (L _ ExpectedUnitType{}) = True
           isExpectedUnitType _ = False
+
+translateRecordCreationSpec :: Spec
+translateRecordCreationSpec = describe "translate record creation test" $ do
+  it "type record = {}; record {}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp _))) = True
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP _ = False
+
+  it "type record = {x: int}; record {x = 1}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1))) (IR.Temp _))) = n == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == Map.fromList [("x", TInt)]
+          tyP _ = False
+
+  it "type record = {x: int, y: string}; record {x = 1, y = 'hoge'}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1), T.FieldAssign "y" (T.String "hoge")]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const i))) (IR.Name _)))) (IR.Temp _))) = n == 2 * F.wordSize @FrameMock && i == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == Map.fromList [("x", TInt), ("y", TString)]
+          tyP _ = False
+
+  it "type record = {x: int}; record {}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
+      Left e -> e `shouldSatisfy` isMissingRecordFieldInConstruction
+        where
+          isMissingRecordFieldInConstruction (L _ MissingRecordFieldInConstruction{}) = True
+          isMissingRecordFieldInConstruction _ = False
+
+  it "type record = {}; record {x = 1}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExtraRecordFieldInConstruction: " ++ show ret
+      Left e -> e `shouldSatisfy` isExtraRecordFieldInConstruction
+        where
+          isExtraRecordFieldInConstruction (L _ ExtraRecordFieldInConstruction{}) = True
+          isExtraRecordFieldInConstruction _ = False
+
+  it "type record = {x: int}; record {y = 'hoge'}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
+      Left e -> e `shouldSatisfy` isMissingRecordFieldInConstruction
+        where
+          isMissingRecordFieldInConstruction (L _ MissingRecordFieldInConstruction{}) = True
+          isMissingRecordFieldInConstruction _ = False
+
+  it "type record = {x: int}; record {x = 'hoge'}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypeForRecordField: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedTypeForRecordField
+        where
+          isExpectedTypeForRecordField (L _ ExpectedTypeForRecordField{}) = True
+          isExpectedTypeForRecordField _ = False
+
+  it "type myint = int; myint {}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "myint" []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          insertType "myint" TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedRecordType
+        where
+          isExpectedRecordType (L _ ExpectedRecordType{}) = True
+          isExpectedRecordType _ = False
+
