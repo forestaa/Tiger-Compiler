@@ -210,11 +210,15 @@ ifNoElseExp cond (Nx thenStm) = do
 recordCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => [Exp] -> Eff xs Exp
 recordCreationExp es = do
   r <- newTemp
-  s <- allocateRecordStm r (length es)
-  pure . Ex $ IR.ESeq (IR.Seq s (IR.seqStm . recordCreationExpInternal r $ zip [0..] es)) (IR.Temp r)
+  s <- recordCreationStm r es
+  pure . Ex $ IR.ESeq s (IR.Temp r)
   where
     allocateRecordStm r n = IR.Move (IR.Temp r) <$> F.externalCall @f "malloc" [IR.Const $ n*F.wordSize @f]
-    recordCreationExpInternal r = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus (IR.Temp r) (IR.Const (i*F.wordSize @f))) e
+    initializeRecordFieldsStm r = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus (IR.Temp r) (IR.Const (i*F.wordSize @f))) e
+    recordCreationStm r [] = allocateRecordStm r 0
+    recordCreationStm r es = do
+      s <- allocateRecordStm r (length es)
+      pure . IR.Seq s . IR.seqStm . initializeRecordFieldsStm r $ zip [0..] es
 
 arrayCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => Exp -> Exp -> Eff xs Exp
 arrayCreationExp (Ex size) (Ex init) = do
