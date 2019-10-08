@@ -39,7 +39,7 @@ translateIntSpec = describe "translate int test" $ do
   it "translate 0" $ do
     let ast = T.expToLExp $ T.Int 0
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Const 0)
         ty `shouldBe` TInt
@@ -49,7 +49,7 @@ translateStringSpec = describe "translate string test" $ do
   it "translate 'hoge'" $ do
     let ast = T.expToLExp $ T.String "hoge"
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TString
@@ -66,7 +66,7 @@ translateNilSpec = describe "translate nil test" $ do
   it "translate nil" $ do
     let ast = T.expToLExp $ T.Nil
     case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((_, ty), _) -> do
         ty `shouldBe` TNil
 
@@ -78,7 +78,7 @@ translateVariableSpec = describe "translate variable test" $ do
           _ <- allocateLocalVariable "x" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -90,7 +90,7 @@ translateVariableSpec = describe "translate variable test" $ do
           _ <- allocateLocalVariable "y" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-2*F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -102,7 +102,7 @@ translateVariableSpec = describe "translate variable test" $ do
           _ <- allocateLocalVariable "y" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -114,7 +114,7 @@ translateVariableSpec = describe "translate variable test" $ do
           _ <- allocateLocalVariable "y" False TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -125,7 +125,7 @@ translateVariableSpec = describe "translate variable test" $ do
           _ <- allocateLocalVariable "x" False TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` inRegister
         ty `shouldBe` TInt
@@ -140,9 +140,6 @@ translateVariableSpec = describe "translate variable test" $ do
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
-        where
-          isUndefinedVariable (VariableUndefined id) = id == "x"
-          isUndefinedVariable _ = False
 
   it "variable referes function" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
@@ -152,9 +149,6 @@ translateVariableSpec = describe "translate variable test" $ do
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedVariable
-        where
-          isExpectedVariable (ExpectedVariable id) = id == "x"
-          isExpectedVariable _ = False
 
 
 translateRecordFieldSpec :: Spec
@@ -167,7 +161,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           _ <- allocateLocalVariable "object" True recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
         ty `shouldBe` TInt
@@ -180,7 +174,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           _ <- allocateLocalVariable "object" True recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const (F.wordSize @FrameMock))))
         ty `shouldBe` TString
@@ -195,7 +189,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           _ <- allocateLocalVariable "object" True nameTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
         ty `shouldBe` TInt
@@ -208,9 +202,6 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
-        where
-          isExpectedRecordType ExpectedRecordType{} = True
-          isExpectedRecordType _ = False
 
   it "missing record field" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
@@ -222,9 +213,6 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordField: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMissingRecordField
-        where
-          isMissingRecordField MissingRecordField{} = True
-          isMissingRecordField _ = False
 
 
 translateArrayIndexSpec :: Spec
@@ -237,7 +225,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           _ <- allocateLocalVariable "x" True arrayTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -250,7 +238,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           _ <- allocateLocalVariable "x" True arrayTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.BinOp IR.Plus (IR.Const 1) (IR.Const 1)) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -265,7 +253,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           _ <- allocateLocalVariable "x" True recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TString
@@ -280,7 +268,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           _ <- allocateLocalVariable "x" True nameTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -294,10 +282,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType" ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
-          isExpectedIntType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "array type expected" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
@@ -306,10 +291,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType" ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedArrayType
-        where
-          isExpectedArrayType (L _ ExpectedArrayType{}) = True
-          isExpectedArrayType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
 
 translateBinOpSpec :: Spec
 translateBinOpSpec = describe "translate binop test" $ do
@@ -318,7 +300,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.Const 0))
         ty `shouldBe` TInt
@@ -329,10 +311,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
-          isExpectedIntType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "x + x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
@@ -343,10 +322,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
-          isExpectedIntType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "x == x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
@@ -356,7 +332,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           _ <- allocateLocalVariable "x" True arrayTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldBe` IR.CJump IR.Eq (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
@@ -368,7 +344,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldBe` IR.CJump IR.Ne (IR.Const 0) (IR.Const 0) true false
@@ -383,7 +359,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           _ <- allocateLocalVariable "x" True recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldBe` IR.CJump IR.Eq (IR.Const 0) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
@@ -402,17 +378,14 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedType
-        where
-          isExpectedType (L _ ExpectedType{}) = True
-          isExpectedType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
   it "0 + (0 == 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Op (T.Int 0) T.Eq (T.Int 0))
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -425,7 +398,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldSatisfy` expP
@@ -442,10 +415,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedExpression: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedExpression
-        where
-          isExpectedExpression (L _ ExpectedExpression{}) = True
-          isExpectedExpression _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedExpression
 
 translateIfElseSpec :: Spec
 translateIfElseSpec = describe "translate if-else test" $ do
@@ -454,7 +424,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -468,7 +438,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
           _ <- allocateLocalVariable "x" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -481,7 +451,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -494,7 +464,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -508,7 +478,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -521,7 +491,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -538,10 +508,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
-          isExpectedIntType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
 translateIfNoElseSpec :: Spec
 translateIfNoElseSpec = describe "translate if-no-else test" $ do
@@ -551,7 +518,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           _ <- allocateLocalVariable "x" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -565,7 +532,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           _ <- allocateLocalVariable "x" True TInt
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -582,10 +549,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
-          isExpectedIntType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "if 0 then 0" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) Nothing
@@ -594,10 +558,8 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedUnitType
-        where
-          isExpectedUnitType (L _ ExpectedUnitType{}) = True
-          isExpectedUnitType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+
 
 translateRecordCreationSpec :: Spec
 translateRecordCreationSpec = describe "translate record creation test" $ do
@@ -609,7 +571,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -627,7 +589,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -645,7 +607,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -664,10 +626,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
-      Left e -> e `shouldSatisfy` isMissingRecordFieldInConstruction
-        where
-          isMissingRecordFieldInConstruction (L _ MissingRecordFieldInConstruction{}) = True
-          isMissingRecordFieldInConstruction _ = False
+      Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
 
   it "type record = {}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
@@ -678,10 +637,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExtraRecordFieldInConstruction: " ++ show ret
-      Left e -> e `shouldSatisfy` isExtraRecordFieldInConstruction
-        where
-          isExtraRecordFieldInConstruction (L _ ExtraRecordFieldInConstruction{}) = True
-          isExtraRecordFieldInConstruction _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExtraRecordFieldInConstruction
 
   it "type record = {x: int}; record {y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
@@ -692,10 +648,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
-      Left e -> e `shouldSatisfy` isMissingRecordFieldInConstruction
-        where
-          isMissingRecordFieldInConstruction (L _ MissingRecordFieldInConstruction{}) = True
-          isMissingRecordFieldInConstruction _ = False
+      Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
 
   it "type record = {x: int}; record {x = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
@@ -706,10 +659,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeForRecordField: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedTypeForRecordField
-        where
-          isExpectedTypeForRecordField (L _ ExpectedTypeForRecordField{}) = True
-          isExpectedTypeForRecordField _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedTypeForRecordField
 
   it "type myint = int; myint {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "myint" []
@@ -718,10 +668,8 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedRecordType
-        where
-          isExpectedRecordType (L _ ExpectedRecordType{}) = True
-          isExpectedRecordType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
+
 
 translateArrayCreationSpec :: Spec
 translateArrayCreationSpec = describe "translate array creation test" $ do
@@ -733,7 +681,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           insertType "array" arrayTy
           translateExp @FrameMock ast
     case result of
-      Left e -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy`isIntArray
@@ -750,10 +698,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedArrayType
-        where
-          isExpectedArrayType (L _ ExpectedArrayType{}) = True
-          isExpectedArrayType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
 
   it "type array = array of int; array [0] of 'hoge'" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.String "hoge")
@@ -764,10 +709,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedType
-        where
-          isExpectedType (L _ ExpectedType{}) = True
-          isExpectedType _ = False
+      Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
   it "type array = array of int; array ['hoge'] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.String "hoge") (T.Int 0)
@@ -778,7 +720,42 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left e -> e `shouldSatisfy` isExpectedIntType
-        where
-          isExpectedIntType (L _ ExpectedIntType{}) = True
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
+
+isExpectedVariable :: TranslateError -> Bool
+isExpectedVariable ExpectedVariable{} = True
+isExpectedVariable _ = False
+isUndefinedVariable :: TranslateError -> Bool
+isUndefinedVariable VariableUndefined{} = True
+isUndefinedVariable _ = False
+isExpectedExpression :: TranslateError -> Bool
+isExpectedExpression ExpectedExpression{} = True
+isExpectedExpression _ = False
+isExpectedIntType :: TranslateError -> Bool
+isExpectedIntType ExpectedIntType{} = True
           isExpectedIntType _ = False
+isExpectedUnitType :: TranslateError -> Bool
+isExpectedUnitType ExpectedUnitType{} = True
+isExpectedUnitType _ = False
+isExpectedArrayType :: TranslateError -> Bool
+isExpectedArrayType ExpectedArrayType{} = True
+isExpectedArrayType _ = False
+isExpectedRecordType :: TranslateError -> Bool
+isExpectedRecordType ExpectedRecordType{} = True
+isExpectedRecordType _ = False
+isExpectedType :: TranslateError -> Bool
+isExpectedType ExpectedType{} = True
+isExpectedType _ = False
+isExpectedTypeForRecordField :: TranslateError -> Bool
+isExpectedTypeForRecordField ExpectedTypeForRecordField{} = True
+isExpectedTypeForRecordField _ = False
+isExtraRecordFieldInConstruction :: TranslateError -> Bool
+isExtraRecordFieldInConstruction ExtraRecordFieldInConstruction{} = True
+isExtraRecordFieldInConstruction _ = False
+isMissingRecordFieldInConstruction :: TranslateError -> Bool
+isMissingRecordFieldInConstruction MissingRecordFieldInConstruction{} = True
+isMissingRecordFieldInConstruction _ = False
+isMissingRecordField :: TranslateError -> Bool
+isMissingRecordField MissingRecordField{} = True
+isMissingRecordField _ = False
