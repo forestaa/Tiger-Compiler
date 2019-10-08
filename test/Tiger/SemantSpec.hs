@@ -33,6 +33,7 @@ spec = do
   translateIfNoElseSpec
   translateRecordCreationSpec
   translateArrayCreationSpec
+  translateWhileLoopSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -723,6 +724,39 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
 
+translateWhileLoopSpec :: Spec
+translateWhileLoopSpec = describe "translate while loop test" $ do
+  it "while 0 == 0 do x := 0" $ do
+    let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Label test) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Move (IR.Mem _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name test') _) (IR.Label done'))))))) = test == test' && body == body' && done == done'
+          expP _ = False
+
+  it "while 'hoge' do x := 0" $ do
+    let ast = T.expToLExp $ T.While (T.String "hoge") (T.Assign (T.Id "x") (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
+  it "while 0 == 0 do 0" $ do
+    let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+
 isExpectedVariable :: TranslateError -> Bool
 isExpectedVariable ExpectedVariable{} = True
 isExpectedVariable _ = False
@@ -734,7 +768,7 @@ isExpectedExpression ExpectedExpression{} = True
 isExpectedExpression _ = False
 isExpectedIntType :: TranslateError -> Bool
 isExpectedIntType ExpectedIntType{} = True
-          isExpectedIntType _ = False
+isExpectedIntType _ = False
 isExpectedUnitType :: TranslateError -> Bool
 isExpectedUnitType ExpectedUnitType{} = True
 isExpectedUnitType _ = False
