@@ -32,6 +32,7 @@ spec = do
   translateIfElseSpec
   translateIfNoElseSpec
   translateRecordCreationSpec
+  translateArrayCreationSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -722,3 +723,62 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           isExpectedRecordType (L _ ExpectedRecordType{}) = True
           isExpectedRecordType _ = False
 
+translateArrayCreationSpec :: Spec
+translateArrayCreationSpec = describe "translate array creation test" $ do
+  it "type array = array of int; array [0] of 0" $ do
+    let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.Int 1)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          insertType "array" arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Left e -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy`isIntArray
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 1])) (IR.Temp _))) = True
+          expP _ = False
+          isIntArray (TArray r) = r ^. #range == TInt
+          isIntArray _ = False
+
+  it "type myint = int; myint [0] of 0" $ do
+    let ast = T.expToLExp $ T.ArrayCreate "myint" (T.Int 0) (T.Int 1)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          insertType "myint" TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedArrayType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedArrayType
+        where
+          isExpectedArrayType (L _ ExpectedArrayType{}) = True
+          isExpectedArrayType _ = False
+
+  it "type array = array of int; array [0] of 'hoge'" $ do
+    let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.String "hoge")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          insertType "array" arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedType
+        where
+          isExpectedType (L _ ExpectedType{}) = True
+          isExpectedType _ = False
+
+  it "type array = array of int; array ['hoge'] of 0" $ do
+    let ast = T.expToLExp $ T.ArrayCreate "array" (T.String "hoge") (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          insertType "array" arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
+      Left e -> e `shouldSatisfy` isExpectedIntType
+        where
+          isExpectedIntType (L _ ExpectedIntType{}) = True
+          isExpectedIntType _ = False
