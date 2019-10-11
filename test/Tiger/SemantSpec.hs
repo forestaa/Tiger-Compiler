@@ -34,6 +34,7 @@ spec = do
   translateRecordCreationSpec
   translateArrayCreationSpec
   translateWhileLoopSpec
+  translateForLoopSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -756,6 +757,50 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+
+
+translateForLoopSpec :: Spec
+translateForLoopSpec = describe "translate for loop test" $ do
+  it "for i := 1 to 2 do x := 3" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" True TInt
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Seq (IR.Move (IR.Temp ul) (IR.Const 2)) (IR.Seq (IR.Label loop) (IR.Seq (IR.CJump IR.Le (IR.Temp r') (IR.Temp ul') body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Move (IR.Mem _) (IR.Const 3)) (IR.Seq (IR.Move (IR.Temp r'') (IR.BinOp IR.Plus (IR.Temp r''') (IR.Const 1))) (IR.Seq (IR.Jump (IR.Name loop') _) (IR.Label done')))))))))) = r == r' && r == r'' && r == r''' && ul == ul' && body == body' && done == done' && loop == loop'
+          expP _ = False
+
+  it "for i := 1 to 2 do 3" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.Int 3)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+
+  it "for i := 'hoge' to 2 do y := 3" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.String "hoge") (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType"
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
+  it "for i := 1 to 'hoge' do x := 3" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.String "hoge") (T.Assign (T.Id "x") (T.Int 3))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType"
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
 
 isExpectedVariable :: TranslateError -> Bool
 isExpectedVariable ExpectedVariable{} = True
