@@ -313,23 +313,15 @@ translateWhileLoop bool body = do
     (, TUnit) <$> whileLoopExp boolExp bodyExp
 
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
-translateForLoop (L loc (lid, escape, from, to, body)) = translateExp (L loc (T.Let dec whileBody))
-  where
-    dec = [sL2 lid from (T.VarDec lid escape Nothing from)]
-    whileBody = L loc (T.While
-      (sL1 to (T.Op
-        (sL1 lid (T.Var $ sL1 lid (T.Id lid)))
-        (sL1 to T.Le)
-        to)) -- this is incorrect because the value of to might be changed in the loop
-      (sL1 body $ T.Seq [
-          body
-        , sL1 body $ T.Assign
-          (sL1 lid (T.Id lid))
-          (sL1 body $ T.Op (sL1 lid
-            (T.Var $ sL1 lid (T.Id lid)))
-            (sL1 body T.Plus)
-            (sL1 body $ T.Int 1))
-        ]))
+translateForLoop (L _ (L _ id, escape, from, to, body)) = do
+  access <- allocateLocalVariable id escape TInt
+  (fromExp, fromTy) <- translateExp from
+  checkInt fromTy from
+  (toExp, toTy) <- translateExp to
+  checkInt toTy to
+  (bodyStm, bodyTy) <- translateExp body
+  checkUnit bodyTy body
+  (, TUnit) <$> forLoopExp access fromExp toExp bodyStm
 
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
 translateBreak loc = breakExp >>= \case
