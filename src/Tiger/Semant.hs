@@ -59,7 +59,7 @@ data TranslateError =
   | ExtraRecordFieldInConstruction T.LExp Type Id
   | InvalidRecTypeDeclaration [RealLocated TypeDec]
   | MultiDeclaredName [LId]
-  | AssignNilWithNoRecordAnnotation
+  | NotDeterminedNilType
 
   -- translate
   | BreakOutsideLoop
@@ -85,7 +85,7 @@ instance Show TranslateError where
   show (ExtraRecordFieldInConstruction (L _ v) ty id) = concat ["Record does not have field ", show id, ": value = ", show v, ", type = ", show ty]
   show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
-  show AssignNilWithNoRecordAnnotation = "nil assigned with no type annotation"
+  show NotDeterminedNilType = concat ["Couldn't determine the type of nil"]
 
   show BreakOutsideLoop = "break should be inside while or for loop"
   show (NotImplemented msg) = "not implemented: " ++ msg
@@ -246,9 +246,9 @@ translateBinOp (L loc (op, left, right)) = do
 
     typecheck op leftTy left rightTy right
       | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
-      | isEqNEq op && isUnit leftTy = throwEff #translateError . L loc $ ExpectedExpression left
-      | isEqNEq op && isUnit rightTy = throwEff #translateError . L loc $ ExpectedExpression right
-      | isEqNEq op && not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
+      | isUnit leftTy = throwEff #translateError . L loc $ ExpectedExpression left
+      | isUnit rightTy = throwEff #translateError . L loc $ ExpectedExpression right
+      | not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
       | otherwise = pure ()
 
 translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
@@ -287,7 +287,7 @@ translateRecordCreation (L loc (typeid, fields)) = do
     typecheck ty ((id1, ty1):as) ((id2, ty2):bs)
       | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
       | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
-      |  ty1 /= ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
+      |  ty1 > ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
       | otherwise = typecheck ty as bs
 
     unzip3' :: [(a, (b, c))] -> ([(a, c)], [b])
@@ -302,7 +302,7 @@ translateArrayCreation (L loc (typeid, size, init)) = lookupSkipName typeid >>= 
     (sizeExp, sizeTy) <- translateExp size
     checkInt sizeTy size
     (initExp, initty) <- translateExp init
-    if initty == a ^. #range
+    if a ^. #range <= initty
       then (, ty) <$> arrayCreationExp @f sizeExp initExp
       else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
   ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
@@ -338,7 +338,7 @@ translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
   Fun r -> do
     (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
     domains <- mapM skipName $ r ^. #domains
-    if argsty == domains
+    if domains <= argsty
       then do
         exp <- funApplyExp (r ^. #label) (r ^. #level) exps
         (exp, ) <$> skipName (r ^. #codomain)
@@ -409,7 +409,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
           declaredTy <- lookupSkipName typeid
           unless (declaredTy <= initTy) . throwEff #translateError . L loc $ VariableMismatchedWithDeclaredType (unLId $ r ^. #id) declaredTy initTy -- opposite to subtyping
         typecheck Nothing initTy =
-          when (initTy == TNil) . throwEff #translateError . L loc $ AssignNilWithNoRecordAnnotation
+          when (initTy == TNil) . throwEff #translateError . L loc $ NotDeterminedNilType
 
 
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
