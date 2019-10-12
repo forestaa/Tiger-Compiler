@@ -346,10 +346,12 @@ translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
   Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
-translateAssign v e = do
-  (varExp, _) <- translateValue v
-  (exp, _) <- translateExp e
-  pure (assignExp varExp exp, TUnit)
+translateAssign v e@(L loc _) = do
+  (varExp, varTy) <- translateValue v
+  (exp, expTy) <- translateExp e
+  if varTy <= expTy
+    then pure (assignExp varExp exp, TUnit)
+    else throwEff #translateError . L loc $ ExpectedType e varTy expTy
 
 translateSeq :: HasTranslateEff xs f => [T.LExp] -> Eff xs (Exp, Type)
 translateSeq es = do
