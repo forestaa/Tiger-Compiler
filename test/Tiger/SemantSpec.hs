@@ -349,12 +349,8 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = leaveEff . runTranslateEffWithNewLevel $ do
           translateExp @FrameMock ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
-      Right ((Cx genstm, ty), _) -> do
-        let (true, false) = fetchTwoLabel
-        genstm true false `shouldBe` IR.CJump IR.Ne (IR.Const 0) (IR.Const 0) true false
-        ty `shouldBe` TInt
-      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+      Right ret -> expectationFailure $ "should return NotdeterminedNilType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isNotDeterminedNilType
 
   it "nil == x (record)" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
@@ -516,7 +512,6 @@ translateIfElseSpec = describe "translate if-else test" $ do
           expP (Ex (IR.ESeq (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move (IR.Temp _) (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 1) t'' f'') (IR.Seq (IR.Label f''') (IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.Label t'''))))) (IR.Temp _))) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z'')))))))) (IR.Temp _))) = t == t' && f == f' && t'' == t''' && f'' == f''' && z == z' && z == z''
           expP _ = False
 
-
   it "if 0 then 0 else 1" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) (Just (T.Int 1))
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -553,6 +548,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
 
 translateIfNoElseSpec :: Spec
 translateIfNoElseSpec = describe "translate if-no-else test" $ do
@@ -661,6 +657,29 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           tyP (TRecord r) = r ^. #map == Map.fromList [("x", TInt), ("y", TString)]
           tyP _ = False
 
+  it "type record1 = {}; type record2 = {x: record1};  record2 {x: nil}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record2" [T.FieldAssign "x" T.Nil]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id1 <- getUniqueEff #id
+          id2 <- getUniqueEff #id
+          let record1Ty = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
+              record2Ty = TRecord $ #map @= Map.fromList [("x", record1Ty)] <: #id @= id2 <: nil
+          insertType "record1" record1Ty
+          insertType "record2" record2Ty
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 0))) (IR.Temp _))) = n == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = case  (r ^. #map) Map.!? "x" of
+            Just (TRecord _) -> True
+            _ -> False
+          tyP _ = False
+
   it "type record = {x: int}; record {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -734,6 +753,29 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           expP _ = False
           isIntArray (TArray r) = r ^. #range == TInt
           isIntArray _ = False
+
+  it "type record = {}; type array = array of record; array [0] of nil" $ do
+    let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) T.Nil
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id1 <- getUniqueEff #id
+          id2 <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
+              arrayTy = TArray $ #range @= recordTy <: #id @= id2 <: nil
+          insertType "record" recordTy
+          insertType "array" arrayTy
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy`isRecordArray
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 0])) (IR.Temp _))) = True
+          expP _ = False
+          isRecordArray (TArray r) = case r ^. #range of
+            TRecord _ -> True
+            _ -> False
+          isRecordArray _ = False
 
   it "type myint = int; myint [0] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "myint" (T.Int 0) (T.Int 1)
@@ -939,6 +981,26 @@ translateFunApplySpec = describe "translate fun application test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _)), IR.Const 0])) = True
           expP _ = False
 
+  it "type record = {}; f: record -> (); f(nil)" $ do
+    let ast = T.expToLExp $ T.FunApply "f" [T.Nil]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          insertType "record" recordTy
+          label <- newLabel
+          withNewLevelEff label [] $ do
+            level <- fetchCurrentLevelEff
+            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [recordTy] <: #codomain @= TNil <: nil
+            translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TNil
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _)), IR.Const 0])) = True
+          expP _ = False
+
   it "f: int -> (); f('hoge')" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.String "hoge"]
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -1032,3 +1094,6 @@ isMissingRecordField _ = False
 isBreakOutsideLoop :: TranslateError -> Bool
 isBreakOutsideLoop BreakOutsideLoop = True
 isBreakOutsideLoop _ = False
+isNotDeterminedNilType :: TranslateError -> Bool
+isNotDeterminedNilType NotDeterminedNilType = True
+isNotDeterminedNilType _ = False
