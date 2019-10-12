@@ -255,6 +255,7 @@ whileLoopExp cond (Nx bodyStm) = do
 forLoopExp :: (
     F.Frame f
   , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "breakpoint" BreakPointEff
   , Lookup xs "label" UniqueEff
   , Lookup xs "temp" UniqueEff
   ) => Access f -> Exp -> Exp -> Exp -> Eff xs Exp
@@ -265,18 +266,18 @@ forLoopExp access from@(Ex _) (Ex to) (Nx bodyStm) = do
   ul <- IR.Temp <$> newTemp
   loop <- newLabel
   body <- newLabel
-  done <- newLabel
-  pure . Nx $ IR.seqStm [
-      indexInit
-    , IR.Move ul to
-    , IR.Label loop
-    , IR.CJump IR.Le index ul body done
-    , IR.Label body
-    , bodyStm
-    , increment
-    , IR.Jump (IR.Name loop) [loop]
-    , IR.Label done
-    ]
+  fetchCurrentBreakPoint >>= \case
+    Just done -> pure . Nx $ IR.seqStm [
+        indexInit
+      , IR.Move ul to
+      , IR.Label loop
+      , IR.CJump IR.Le index ul body done
+      , IR.Label body
+      , bodyStm
+      , increment
+      , IR.Jump (IR.Name loop) [loop]
+      , IR.Label done
+      ]
 
 
 breakExp :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Exp)

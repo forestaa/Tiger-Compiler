@@ -321,9 +321,10 @@ translateForLoop (L _ (L _ id, escape, from, to, body)) = do
   checkInt fromTy from
   (toExp, toTy) <- translateExp to
   checkInt toTy to
-  (bodyStm, bodyTy) <- translateExp body
-  checkUnit bodyTy body
-  (, TUnit) <$> forLoopExp access fromExp toExp bodyStm
+  withBreakPoint $ do
+    (bodyStm, bodyTy) <- translateExp body
+    checkUnit bodyTy body
+    (, TUnit) <$> forLoopExp access fromExp toExp bodyStm
 
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
 translateBreak loc = breakExp >>= \case
