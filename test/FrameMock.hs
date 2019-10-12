@@ -44,7 +44,7 @@ instance F.Frame FrameMock where
   name = name
   formals = formals
   allocLocal = allocLocal
-  fp = U.Temp $ U.Unique 100000
+  fp = U.Temp . U.Unique $ -1
   exp = exp
   wordSize = wordSize
   externalCall = externalCall
