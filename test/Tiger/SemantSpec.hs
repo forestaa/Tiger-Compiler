@@ -36,6 +36,7 @@ spec = do
   translateWhileLoopSpec
   translateForLoopSpec
   translateBreakSpec
+  translateFunApplySpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -901,6 +902,64 @@ translateBreakSpec = describe "translate break test" $ do
       Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
 
 
+translateFunApplySpec :: Spec
+translateFunApplySpec = describe "translate fun application test" $ do
+  it "f()" $ do
+    let ast = T.expToLExp $ T.FunApply "f" []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          label <- newLabel
+          withNewLevelEff label [] $ do
+            level <- fetchCurrentLevelEff
+            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [] <: #codomain @= TNil <: nil
+            translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TNil
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _))])) = True
+          expP _ = False
+
+  it "f(1)" $ do
+    let ast = T.expToLExp $ T.FunApply "f" [T.Int 0]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          label <- newLabel
+          withNewLevelEff label [] $ do
+            level <- fetchCurrentLevelEff
+            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [TInt] <: #codomain @= TNil <: nil
+            translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TNil
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _)), IR.Const 0])) = True
+          expP _ = False
+
+  it "f: int -> (); f('hoge')" $ do
+    let ast = T.expToLExp $ T.FunApply "f" [T.String "hoge"]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          label <- newLabel
+          withNewLevelEff label [] $ do
+            level <- fetchCurrentLevelEff
+            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [TInt] <: #codomain @= TNil <: nil
+            translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+
+  it "var f := (); f()" $ do
+    let ast = T.expToLExp $ T.FunApply "f" []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "f" False TNil
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedFunction: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedFunction
+
+
 isExpectedVariable :: TranslateError -> Bool
 isExpectedVariable ExpectedVariable{} = True
 isExpectedVariable _ = False
@@ -925,6 +984,12 @@ isExpectedRecordType _ = False
 isExpectedType :: TranslateError -> Bool
 isExpectedType ExpectedType{} = True
 isExpectedType _ = False
+isExpectedTypes :: TranslateError -> Bool
+isExpectedTypes ExpectedTypes{} = True
+isExpectedTypes _ = False
+isExpectedFunction :: TranslateError -> Bool
+isExpectedFunction ExpectedFunction{} = True
+isExpectedFunction _ = False
 isExpectedTypeForRecordField :: TranslateError -> Bool
 isExpectedTypeForRecordField ExpectedTypeForRecordField{} = True
 isExpectedTypeForRecordField _ = False
