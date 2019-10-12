@@ -368,6 +368,36 @@ translateBinOpSpec = describe "translate binop test" $ do
         ty `shouldBe` TInt
       Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
 
+  it "'hoge' == 'hoge'" $ do
+    let ast = T.expToLExp $ T.Op (T.String "hoge") T.Eq (T.String "hoge")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldSatisfy` expP true false
+        ty `shouldBe` TInt
+        where
+          expP true false (IR.CJump IR.Ne (IR.Call (IR.Name _) [IR.Name _, IR.Name _]) (IR.Const 0) true' false') = true == true' && false == false'
+          expP _ _ _ = False
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
+  it "'hoge' <> 'hoge'" $ do
+    let ast = T.expToLExp $ T.Op (T.String "hoge") T.NEq (T.String "hoge")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((Cx genstm, ty), _) -> do
+        let (true, false) = fetchTwoLabel
+        genstm true false `shouldSatisfy` expP true false
+        ty `shouldBe` TInt
+        where
+          expP true false (IR.CJump IR.Eq (IR.Call (IR.Name _) [IR.Name _, IR.Name _]) (IR.Const 0) true' false') = true == true' && false == false'
+          expP _ _ _ = False
+      Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
+
   it "x == y (array == record)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "y"))
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -418,6 +448,15 @@ translateBinOpSpec = describe "translate binop test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedExpression: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedExpression
+
+  it "'hoge' < 'hoge'" $ do
+    let ast = T.expToLExp $ T.Op (T.String "hoge") T.Lt (T.String "hoge")
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+
 
 translateIfElseSpec :: Spec
 translateIfElseSpec = describe "translate if-else test" $ do
