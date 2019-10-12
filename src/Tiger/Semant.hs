@@ -226,12 +226,14 @@ translateValue (L loc (T.ArrayIndex lv le)) = do
       pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
     _ -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
 
-translateBinOp :: HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateBinOp :: forall f xs. HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
   (leftExp, leftTy) <- translateExp left
   (rightExp, rightTy) <- translateExp right
   typecheck op leftTy left rightTy right
-  (, TInt) <$> binOpExp op leftExp rightExp
+  if leftTy /= TString
+    then (, TInt) <$> binOpExp op leftExp rightExp
+    else (, TInt) <$> stringOpExp @f op leftExp rightExp
   where
     isEqNEq T.Eq = True
     isEqNEq T.NEq = True

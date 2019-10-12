@@ -140,6 +140,17 @@ condOpExp op left right = do
   righte <- unEx right
   pure . Cx $ \t f -> IR.CJump op lefte righte t f
 
+stringOpExp :: forall f xs. (
+    F.Frame f
+  , Lookup xs "label" UniqueEff
+  ) => T.LOp' -> Exp -> Exp -> Eff xs Exp
+stringOpExp T.Eq (Ex left) (Ex right) = do
+  it <- F.externalCall @f "stringEqual" [left, right]
+  pure . Cx $ \t f -> IR.CJump IR.Ne it (IR.Const 0) t f
+stringOpExp T.NEq (Ex left) (Ex right) = do
+  it <- F.externalCall @f "stringEqual" [left, right]
+  pure . Cx $ \t f -> IR.CJump IR.Eq it (IR.Const 0) t f
+
 ifElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Exp -> Eff xs Exp
 ifElseExp cond (Nx thenStm) (Nx elseStm) = do
   t <- newLabel
