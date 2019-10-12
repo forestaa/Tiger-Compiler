@@ -297,11 +297,14 @@ varInitExp :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Acces
 varInitExp access e = flip assignExp e <$> valueIdExp access
 
 seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => [Exp] -> Eff xs Exp
-seqExp es = case List.uncons es of
-  Just (e, es) -> do
+seqExp es = case List.splitAt (length es - 1) es of
+  ([], [e]) -> pure e
+  (es, [e]) -> do
     stms <- mapM unNx es
-    exp <- unEx e
-    pure . Ex $ IR.ESeq (IR.seqStm stms) exp
+    case e of
+      Nx stm -> pure . Nx . IR.seqStm $ stms ++ [stm]
+      _ -> Ex . IR.ESeq (IR.seqStm stms) <$> unEx e
+  _ -> undefined
 
 funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => Exp -> Eff xs ()
 funDecExp exp = fetchCurrentLevelEff >>= \case
