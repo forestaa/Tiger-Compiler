@@ -35,6 +35,7 @@ spec = do
   translateArrayCreationSpec
   translateWhileLoopSpec
   translateForLoopSpec
+  translateBreakSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -841,6 +842,65 @@ translateForLoopSpec = describe "translate for loop test" $ do
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
 
+translateBreakSpec :: Spec
+translateBreakSpec = describe "translate break test" $ do
+  it "while 0 == 0 do break" $ do
+    let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) T.Break
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Label test) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Jump (IR.Name done') _) (IR.Seq (IR.Jump (IR.Name test') _) (IR.Label done''))))))) = test == test' && body == body' && done == done' && done == done''
+          expP _ = False
+
+  it "while 0 == 0 do (while 0 == 0 do break)" $ do
+    let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) T.Break)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Label test1) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body1 done1) (IR.Seq (IR.Label body1') (IR.Seq (IR.Seq (IR.Label test2) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body2 done2) (IR.Seq (IR.Label body2') (IR.Seq (IR.Jump (IR.Name done2') _) (IR.Seq (IR.Jump (IR.Name test2') _) (IR.Label done2'')))))) (IR.Seq (IR.Jump (IR.Name test1') _) (IR.Label done1'))))))) = test1 == test1' && body1 == body1' && done1 == done1' && test2 == test2' && body2 == body2' && done2 == done2' && done2 == done2''
+          expP _ = False
+
+  it "for i := 1 to 3 do break" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) T.Break
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Seq (IR.Move (IR.Temp ul) (IR.Const 2)) (IR.Seq (IR.Label loop) (IR.Seq (IR.CJump IR.Le (IR.Temp r') (IR.Temp ul') body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Jump (IR.Name done'') _) (IR.Seq (IR.Move (IR.Temp r'') (IR.BinOp IR.Plus (IR.Temp r''') (IR.Const 1))) (IR.Seq (IR.Jump (IR.Name loop') _) (IR.Label done')))))))))) = r == r' && r == r'' && r == r''' && ul == ul' && body == body' && done == done' && done == done'' && loop == loop'
+          expP _ = False
+
+  it "break" $ do
+    let ast = T.expToLExp T.Break
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
+
+  it "(for i := 1 to 3 do x := 2, break)" $ do
+    let ast = T.expToLExp $ T.Seq [T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3)), T.Break]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
+
+
 isExpectedVariable :: TranslateError -> Bool
 isExpectedVariable ExpectedVariable{} = True
 isExpectedVariable _ = False
@@ -877,3 +937,6 @@ isMissingRecordFieldInConstruction _ = False
 isMissingRecordField :: TranslateError -> Bool
 isMissingRecordField MissingRecordField{} = True
 isMissingRecordField _ = False
+isBreakOutsideLoop :: TranslateError -> Bool
+isBreakOutsideLoop BreakOutsideLoop = True
+isBreakOutsideLoop _ = False
