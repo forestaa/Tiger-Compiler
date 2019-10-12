@@ -38,6 +38,7 @@ spec = do
   translateBreakSpec
   translateFunApplySpec
   translateAssignSpec
+  translateSeqSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -1047,6 +1048,63 @@ translateAssignSpec = describe "translate assgin test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedType
+
+
+translateSeqSpec :: Spec
+translateSeqSpec = describe "translate seq test" $ do
+  it "(1)" $ do
+    let ast = T.expToLExp $ T.Seq [T.Int 1]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.Const 1)) = True
+          expP _ = False
+
+  it "(x := 0)" $ do
+    let ast = T.expToLExp $ T.Seq [T.Assign (T.Id "x") (T.Int 0)]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Move (IR.Temp _) (IR.Const 0))) = True
+          expP _ = False
+
+  it "(1, 2)" $ do
+    let ast = T.expToLExp $ T.Seq [T.Int 1, T.Int 2]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        where
+          expP (Ex (IR.ESeq (IR.Exp (IR.Const 1)) (IR.Const 2))) = True
+          expP _ = False
+
+  it "(1, x := 2)" $ do
+    let ast = T.expToLExp $ T.Seq [T.Int 1, T.Assign (T.Id "x") (T.Int 2)]
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Exp (IR.Const 1)) (IR.Move (IR.Temp _) (IR.Const 2)))) = True
+          expP _ = False
 
 
 isExpectedVariable :: TranslateError -> Bool
