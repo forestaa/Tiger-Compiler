@@ -37,6 +37,7 @@ spec = do
   translateForLoopSpec
   translateBreakSpec
   translateFunApplySpec
+  translateAssignSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -958,6 +959,32 @@ translateFunApplySpec = describe "translate fun application test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedFunction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedFunction
+
+
+translateAssignSpec :: Spec
+translateAssignSpec = describe "translate assgin test" $ do
+  it "var x int; x := 0" $ do
+    let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Move _ (IR.Const 0))) = True
+          expP _ = False
+
+  it "var x string; x := 0" $ do
+    let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TString
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
 
 isExpectedVariable :: TranslateError -> Bool
