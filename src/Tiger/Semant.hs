@@ -52,6 +52,7 @@ data TranslateError =
   | ExpectedArrayType T.LValue Type
   | ExpectedVariable Id
   | ExpectedExpression T.LExp
+  | ExpectedFunction Id
   | ExpectedTypeForRecordField T.LExp Id Type Type
   | MissingRecordField T.LValue Type Id
   | MissingRecordFieldInConstruction T.LExp Type Id
@@ -77,6 +78,7 @@ instance Show TranslateError where
   show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
   show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
   show (ExpectedExpression (L _ e)) = concat ["Expected Expression: ", show e]
+  show (ExpectedFunction id) = concat ["Expected Function: id = ", show id]
   show (ExpectedTypeForRecordField (L _ e) id ty ty') = concat ["Couldn't match type: ", show ty, " type expected at field ", show id, ": exp = ", show e, ", actual type: ", show ty']
   show (MissingRecordField (L _ v) ty id) = concat ["Missing record field: value = ", show v, ", type = ", show ty, ", field = ", show id]
   show (MissingRecordFieldInConstruction (L _ v) ty id) = concat ["Missing record field in construction: value = ", show v, ", type = ", show ty, ", field = ", show id]
@@ -341,7 +343,7 @@ translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
         exp <- funApplyExp (r ^. #label) (r ^. #level) exps
         (exp, ) <$> skipName (r ^. #codomain)
       else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
-  Var _ -> throwEff #translateError . L loc $ NotImplemented "2"
+  Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e = do
