@@ -15,8 +15,9 @@ wordSize = 4
 allocateFormal :: (Lookup xs "temp" U.UniqueEff) => Bool -> StateT Int (Eff xs) AccessMock
 allocateFormal False = InReg <$> lift U.newTemp
 allocateFormal True = do
+  access <- gets $ InFrame . (* wordSize)
   modify (+1)
-  gets $ InFrame . (* wordSize)
+  pure access
 newFrame :: Lookup xs "temp" U.UniqueEff => U.Label -> [Bool] -> Eff xs FrameMock
 newFrame name bs = do
   formals <- flip evalStateT 0 $ traverse allocateFormal bs
