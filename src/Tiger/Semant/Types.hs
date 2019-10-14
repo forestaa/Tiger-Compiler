@@ -59,7 +59,9 @@ pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level
             modify $ F.exp (List.head $ F.formals (current ^. #frame))
             pullInStaticLinksInternal levels
       _ -> throwError ()
-
+takeParametersAccess :: F.Frame f => Level f -> Maybe [F.Access f]
+takeParametersAccess TopLevel = Nothing
+takeParametersAccess (Level r) = Just . List.tail . F.formals $ r ^. #frame
 
 type NestingLevelEff f = State (Record '["unique" >: Unique, "level" >: NestingLevel f])
 runNestingLevelEff :: Eff (("nestingLevel" >: NestingLevelEff f) ': xs) a -> Eff xs a
@@ -84,6 +86,8 @@ modifyCurrentLevelEff f = popLevelEff >>= \case
   Just level -> pushLevelEff $ f level
 pullInStaticLinksEff :: (Lookup xs "nestingLevel" (NestingLevelEff f), F.Frame f) => Level f -> Eff xs IR.Exp
 pullInStaticLinksEff level = Partial.fromJust . pullInStaticLinks level <$> getNestingLevelEff
+fetchCurrentLevelParametersAccessEff :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Eff xs [F.Access f]
+fetchCurrentLevelParametersAccessEff = Partial.fromJust . takeParametersAccess <$> fetchCurrentLevelEff
 
 
 

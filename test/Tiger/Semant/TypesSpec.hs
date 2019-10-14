@@ -12,7 +12,9 @@ import Data.Extensible
 
 
 spec :: Spec
-spec = pullInStaticLinksEffSpec
+spec = do
+  pullInStaticLinksEffSpec
+  fetchCurrentLevelParametersAccessEffSpec
 
 pullInStaticLinksEffSpec :: Spec
 pullInStaticLinksEffSpec = describe "pullInStaticLinksEff test" $ do
@@ -47,6 +49,27 @@ pullInStaticLinksEffSpec = describe "pullInStaticLinksEff test" $ do
                 pullInStaticLinksEff level
     exp `shouldSatisfy` \case
       (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> fp == F.fp @FrameMock
+      _ -> False
+
+
+fetchCurrentLevelParametersAccessEffSpec :: Spec
+fetchCurrentLevelParametersAccessEffSpec = describe "fetch current level parameters access test" $ do
+  it "non escape parameter" $ do
+    let access = runEff $ do
+          label <- newLabel
+          withNewLevelEff label [False] $ do
+            fetchCurrentLevelParametersAccessEff
+    access `shouldSatisfy` \case
+      [InReg _] -> True
+      _ -> False
+
+  it "escaped parameter" $ do
+    let access = runEff $ do
+          label <- newLabel
+          withNewLevelEff label [True] $ do
+            fetchCurrentLevelParametersAccessEff
+    access `shouldSatisfy` \case
+      [InFrame 4] -> True
       _ -> False
 
 
