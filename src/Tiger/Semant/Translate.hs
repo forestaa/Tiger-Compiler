@@ -286,8 +286,8 @@ breakExp = fetchCurrentBreakPoint >>= \case
   Nothing -> pure Nothing
 
 funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs Exp
-funApplyExp label level exps = do
-  staticLink <- pullInStaticLinksEff level
+funApplyExp label parent exps = do
+  staticLink <- pullInStaticLinksEff parent
   Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
 
 assignExp :: Exp -> Exp -> Exp

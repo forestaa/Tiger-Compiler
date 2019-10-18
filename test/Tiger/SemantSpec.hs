@@ -952,9 +952,8 @@ translateFunApplySpec = describe "translate fun application test" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
         result = leaveEff . runTranslateEffWithNewLevel $ do
           label <- newLabel
-          withNewLevelEff label [] $ do
-            level <- fetchCurrentLevelEff
-            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [] <: #codomain @= TNil <: nil
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
             translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -969,9 +968,8 @@ translateFunApplySpec = describe "translate fun application test" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Int 0]
         result = leaveEff . runTranslateEffWithNewLevel $ do
           label <- newLabel
-          withNewLevelEff label [] $ do
-            level <- fetchCurrentLevelEff
-            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
             translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -989,9 +987,8 @@ translateFunApplySpec = describe "translate fun application test" $ do
           let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
           insertType "record" recordTy
           label <- newLabel
-          withNewLevelEff label [] $ do
-            level <- fetchCurrentLevelEff
-            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [recordTy] <: #codomain @= TNil <: nil
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [recordTy] <: #codomain @= TNil <: nil
             translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1006,9 +1003,8 @@ translateFunApplySpec = describe "translate fun application test" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.String "hoge"]
         result = leaveEff . runTranslateEffWithNewLevel $ do
           label <- newLabel
-          withNewLevelEff label [] $ do
-            level <- fetchCurrentLevelEff
-            insertVar "f" . Fun $ #label @= label <: #level @= level <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
             translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret

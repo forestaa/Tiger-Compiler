@@ -26,18 +26,19 @@ import Tiger.Semant.Translate
 initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
 initVEnv :: VEnv f
-initVEnv = E.fromList [
-    ("print", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TUnit <: nil)
-  , ("flush", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [] <: #codomain @= TUnit <: nil)
-  , ("getchar", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [] <: #codomain @= TString <: nil)
-  , ("ord", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TInt <: nil)
-  , ("chr", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TString <: nil)
-  , ("size", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString] <: #codomain @= TInt <: nil)
-  , ("substring", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil)
-  , ("concat", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TString, TString] <: #codomain @= TString <: nil)
-  , ("not", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TInt <: nil)
-  , ("exit", Fun $ #label @= undefined <: #level @= TopLevel <: #domains @= [TInt] <: #codomain @= TUnit <: nil)
-  ]
+initVEnv = E.fromList []
+-- initVEnv = E.fromList [
+--     ("print", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TUnit <: nil)
+--   , ("flush", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [] <: #codomain @= TUnit <: nil)
+--   , ("getchar", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [] <: #codomain @= TString <: nil)
+--   , ("ord", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TInt <: nil)
+--   , ("chr", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TString <: nil)
+--   , ("size", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TInt <: nil)
+--   , ("substring", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil)
+--   , ("concat", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString, TString] <: #codomain @= TString <: nil)
+--   , ("not", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TInt <: nil)
+--   , ("exit", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TUnit <: nil)
+--   ]
 
 data TranslateError =
   -- typing
@@ -340,7 +341,7 @@ translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
     domains <- mapM skipName $ r ^. #domains
     if domains <= argsty
       then do
-        exp <- funApplyExp (r ^. #label) (r ^. #level) exps
+        exp <- funApplyExp (r ^. #label) (r ^. #parent) exps
         (exp, ) <$> skipName (r ^. #codomain)
       else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
   Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
@@ -419,33 +420,47 @@ translateDecsList = fmap mconcat . traverse translateDecs
 
     insertFunEntry :: RealLocated FunDec -> Eff xs ()
     insertFunEntry (L _ (FunDec r)) = do
-      label <- newLabel
-      withNewLevelEff label escapes $ do
-        level <- fetchCurrentLevelEff
+      label <- namedLabel . unLId $ r ^. #id
+      parent <- fetchCurrentLevelEff
         codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
-        let fun = Fun $ #label @= label <: #level @= level <: #domains @= domains <: #codomain @= codomain <: nil
+      let fun = Fun $ #label @= label <: #parent @= parent <: #domains @= domains <: #codomain @= codomain <: nil
         insertVar (unLId $ r ^. #id) fun
       where
-        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> r ^. #args
         domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
 
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
     translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
-      Fun f -> withLevelEff (f ^. #level) $ do
-        allocateParameters $ dec ^. #args
+      Fun f -> withNewLevelEff (f ^. #label) escapes $ do
+        -- allocateParameters $ dec ^. #args
+        -- formals <- F.formals . (^. #frame) <$> fetchCurrentLevelEff
+        insertFormals $ dec ^. #args
         (bodyExp, bodyTy) <- translateExp $ dec ^. #body
         declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
         if declaredTy == bodyTy
           then funDecExp bodyExp
           else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
       where
+        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> dec ^. #args
         allocateParameters :: [T.LField] -> Eff xs ()
         allocateParameters = mapM_ allocateParameter
         allocateParameter :: T.LField -> Eff xs ()
         allocateParameter (L _ (T.Field (L _ id) escape (L loc typeid))) =
           lookupTypeId typeid >>= \case
             Just ty -> allocateLocalVariable id escape ty >> pure ()
-            Nothing -> throwEff #translateError . L loc $ TypeUndefined typeid
+            Nothing -> throwEff #translateError . L loc $ UnknownType typeid
+        insertFormals :: [T.LField] -> Eff xs ()
+        insertFormals args = do
+          formals <- fetchCurrentLevelParametersAccessEff
+          zipWithM_ insertFormal args formals
+        insertFormal :: T.LField -> F.Access f -> Eff xs ()
+        insertFormal (L _ (T.Field (L _ id) _ (L loc typeid))) a = do
+          level <- fetchCurrentLevelEff
+          let access = Access $ #level @= level <: #access @= a <: nil
+          lookupTypeId typeid >>= \case
+            Just ty -> insertVar id . Var $ #type @= ty <: #access @= access <: nil
+            Nothing -> throwEff #translateError . L loc $ UnknownType typeid
+
+
 
 
     translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
