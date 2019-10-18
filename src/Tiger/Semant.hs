@@ -402,15 +402,15 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateVarDec :: RealLocated VarDec -> Eff xs Exp
     translateVarDec (L loc (VarDec r)) = do
       (initExp, initTy) <- translateExp $ r ^. #init
-      typecheck (r ^. #type) initTy
+      typecheck (r ^. #type) initTy (r ^. #init)
       ty <- maybe (pure initTy) lookupSkipName $ r ^. #type
       access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape) ty
       varInitExp access initExp
       where
-        typecheck (Just typeid) initTy = do
+        typecheck (Just typeid) initTy init = do
           declaredTy <- lookupSkipName typeid
-          unless (declaredTy <= initTy) . throwEff #translateError . L loc $ VariableMismatchedWithDeclaredType (unLId $ r ^. #id) declaredTy initTy -- opposite to subtyping
-        typecheck Nothing initTy =
+          unless (declaredTy <= initTy) . throwEff #translateError . L loc $ ExpectedType init declaredTy initTy -- opposite to subtyping
+        typecheck Nothing initTy _ =
           when (initTy == TNil) . throwEff #translateError . L loc $ NotDeterminedNilType
 
 
