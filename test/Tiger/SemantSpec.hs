@@ -45,7 +45,7 @@ translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
   it "translate 0" $ do
     let ast = T.expToLExp $ T.Int 0
-    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
+    case runEff (translateExp ast) of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldBe` Ex (IR.Const 0)
@@ -55,7 +55,7 @@ translateStringSpec :: Spec
 translateStringSpec = describe "translate string test" $ do
   it "translate 'hoge'" $ do
     let ast = T.expToLExp $ T.String "hoge"
-    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
+    case runEff (translateExp ast) of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
         exp `shouldSatisfy` expP
@@ -72,7 +72,7 @@ translateNilSpec :: Spec
 translateNilSpec = describe "translate nil test" $ do
   it "translate nil" $ do
     let ast = T.expToLExp $ T.Nil
-    case leaveEff $ runTranslateEff (translateExp @FrameMock ast) of
+    case runEff (translateExp ast) of
       Left (L _ e) -> expectationFailure $ show e
       Right ((_, ty), _) -> do
         ty `shouldBe` TNil
@@ -81,9 +81,9 @@ translateVariableSpec :: Spec
 translateVariableSpec = describe "translate variable test" $ do
   it "first local variable" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -92,10 +92,10 @@ translateVariableSpec = describe "translate variable test" $ do
 
   it "second local variable" $ do
     let ast = T.expToLExp $ T.Var (T.Id "y")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
           _ <- allocateLocalVariable "y" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -104,10 +104,10 @@ translateVariableSpec = describe "translate variable test" $ do
 
   it "second local variable, first is not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "y")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
           _ <- allocateLocalVariable "y" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -116,10 +116,10 @@ translateVariableSpec = describe "translate variable test" $ do
 
   it "first local variable, second is not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
           _ <- allocateLocalVariable "y" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -128,9 +128,9 @@ translateVariableSpec = describe "translate variable test" $ do
 
   it "local variable, not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -142,17 +142,17 @@ translateVariableSpec = describe "translate variable test" $ do
 
   it "undefined variable" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
 
   it "variable referes function" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           insertVar "x" $ Fun undefined
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedVariable
@@ -162,11 +162,11 @@ translateRecordFieldSpec :: Spec
 translateRecordFieldSpec = describe "translate record field test" $ do
   it "first record field" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -175,11 +175,11 @@ translateRecordFieldSpec = describe "translate record field test" $ do
 
   it "second record field" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "y")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -188,13 +188,13 @@ translateRecordFieldSpec = describe "translate record field test" $ do
 
   it "type synonym for record type" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "record")
           insertType "record" recordTy
           _ <- allocateLocalVariable "object" True nameTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -203,20 +203,20 @@ translateRecordFieldSpec = describe "translate record field test" $ do
 
   it "not record type" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "object" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
 
   it "missing record field" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordField: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMissingRecordField
@@ -226,11 +226,11 @@ translateArrayIndexSpec :: Spec
 translateArrayIndexSpec = describe "translate array index test" $ do
   it "array index x[0]" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -239,11 +239,11 @@ translateArrayIndexSpec = describe "translate array index test" $ do
 
   it "array index x[1 + 1]" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Op (T.Int 1) T.Plus (T.Int 1)))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -252,13 +252,13 @@ translateArrayIndexSpec = describe "translate array index test" $ do
 
   it "array index x.y[0]" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.RecField (T.Id "x") "y") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TString <: #id @= id1 <: nil
               recordTy = TRecord $ #map @= Map.fromList [("y", arrayTy)] <: #id @= id2 <: nil
           _ <- allocateLocalVariable "x" True recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -267,13 +267,13 @@ translateArrayIndexSpec = describe "translate array index test" $ do
 
   it "type synonym for array type" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "array")
           insertType "array" arrayTy
           _ <- allocateLocalVariable "x" True nameTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -282,20 +282,20 @@ translateArrayIndexSpec = describe "translate array index test" $ do
 
   it "array index x['hoge']" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.String "hoge"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "array type expected" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
@@ -304,8 +304,8 @@ translateBinOpSpec :: Spec
 translateBinOpSpec = describe "translate binop test" $ do
   it "0 + 0" $ do
     let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -314,30 +314,30 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "'hoge' + 1" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.Plus (T.Int 0)
-        result = leaveEff. runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff  $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "x + x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "x == x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
@@ -348,19 +348,19 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "nil ≠ nil" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.NEq T.Nil
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return NotdeterminedNilType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isNotDeterminedNilType
 
   it "nil == x (record)" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
@@ -371,8 +371,8 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "'hoge' == 'hoge'" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.Eq (T.String "hoge")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
@@ -386,8 +386,8 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "'hoge' <> 'hoge'" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.NEq (T.String "hoge")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
@@ -401,22 +401,22 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "x == y (array == record)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "y"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id1 <: nil
               arrayTy = TArray  $ #range @= TInt <: #id @= id2 <: nil
           _ <- allocateLocalVariable "x" True recordTy
           _ <- allocateLocalVariable "y" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
   it "0 + (0 == 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Op (T.Int 0) T.Eq (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -428,8 +428,8 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "0 == (0 == 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Int 0) T.Eq (T.Op (T.Int 0) T.Eq (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((Cx genstm, ty), _) -> do
@@ -443,17 +443,17 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "(x := 0) == (x := 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Assign (T.Id "x") (T.Int 0)) T.Eq (T.Assign (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedExpression: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedExpression
 
   it "'hoge' < 'hoge'" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.Lt (T.String "hoge")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
@@ -463,8 +463,8 @@ translateIfElseSpec :: Spec
 translateIfElseSpec = describe "translate if-else test" $ do
   it "if 0 == 0 then 1 else 0" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 1) (Just (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -476,9 +476,9 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if 0 == 0 then x := 0 else x := 1" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -490,8 +490,8 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if 0 == 0 then 0 == 0 else 0 == 1" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Op (T.Int 0) T.Eq (T.Int 0)) (Just (T.Op (T.Int 0) T.Eq (T.Int 1)))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -503,8 +503,8 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if 0 == 0 then 0 else 0 == 1" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 0) (Just (T.Op (T.Int 0) T.Eq (T.Int 1)))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -516,8 +516,8 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if 0 then 0 else 1" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) (Just (T.Int 1))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -529,8 +529,8 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if 1 + 1 then 0 else 1" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 1) T.Plus (T.Int 1)) (T.Int 0) (Just (T.Int 1))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -542,11 +542,11 @@ translateIfElseSpec = describe "translate if-else test" $ do
 
   it "if x(array) then 0 else 1" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
@@ -556,9 +556,9 @@ translateIfNoElseSpec :: Spec
 translateIfNoElseSpec = describe "translate if-no-else test" $ do
   it "if 0 == 0 then x := 0" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) Nothing
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -570,9 +570,9 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
 
   it "if 0 then x := 0" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Assign (T.Id "x") (T.Int 0)) Nothing
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -584,20 +584,20 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
 
   it "if x(array) then 0" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) Nothing
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "if 0 then 0" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) Nothing
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
@@ -607,11 +607,11 @@ translateRecordCreationSpec :: Spec
 translateRecordCreationSpec = describe "translate record creation test" $ do
   it "type record = {}; record {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -625,11 +625,11 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
 
   it "type record = {x: int}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -643,11 +643,11 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
 
   it "type record = {x: int, y: string}; record {x = 1, y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1), T.FieldAssign "y" (T.String "hoge")]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -661,14 +661,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
 
   it "type record1 = {}; type record2 = {x: record1};  record2 {x: nil}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record2" [T.FieldAssign "x" T.Nil]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let record1Ty = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
               record2Ty = TRecord $ #map @= Map.fromList [("x", record1Ty)] <: #id @= id2 <: nil
           insertType "record1" record1Ty
           insertType "record2" record2Ty
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -684,53 +684,53 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
 
   it "type record = {x: int}; record {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
 
   it "type record = {}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExtraRecordFieldInConstruction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExtraRecordFieldInConstruction
 
   it "type record = {x: int}; record {y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
 
   it "type record = {x: int}; record {x = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeForRecordField: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedTypeForRecordField
 
   it "type myint = int; myint {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "myint" []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           insertType "myint" TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
@@ -740,11 +740,11 @@ translateArrayCreationSpec :: Spec
 translateArrayCreationSpec = describe "translate array creation test" $ do
   it "type array = array of int; array [0] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.Int 1)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           insertType "array" arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -758,14 +758,14 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
 
   it "type record = {}; type array = array of record; array [0] of nil" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) T.Nil
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
               arrayTy = TArray $ #range @= recordTy <: #id @= id2 <: nil
           insertType "record" recordTy
           insertType "array" arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -781,31 +781,31 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
 
   it "type myint = int; myint [0] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "myint" (T.Int 0) (T.Int 1)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           insertType "myint" TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
 
   it "type array = array of int; array [0] of 'hoge'" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.String "hoge")
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           insertType "array" arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
   it "type array = array of int; array ['hoge'] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.String "hoge") (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           insertType "array" arrayTy
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
@@ -815,9 +815,9 @@ translateWhileLoopSpec :: Spec
 translateWhileLoopSpec = describe "translate while loop test" $ do
   it "while 0 == 0 do x := 0" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -829,17 +829,17 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
 
   it "while 'hoge' do x := 0" $ do
     let ast = T.expToLExp $ T.While (T.String "hoge") (T.Assign (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "while 0 == 0 do 0" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
@@ -849,9 +849,9 @@ translateForLoopSpec :: Spec
 translateForLoopSpec = describe "translate for loop test" $ do
   it "for i := 1 to 2 do x := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" True TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -863,26 +863,26 @@ translateForLoopSpec = describe "translate for loop test" $ do
 
   it "for i := 1 to 2 do 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.Int 3)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
 
   it "for i := 'hoge' to 2 do y := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.String "hoge") (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType"
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "for i := 1 to 'hoge' do x := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.String "hoge") (T.Assign (T.Id "x") (T.Int 3))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType"
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
@@ -892,8 +892,8 @@ translateBreakSpec :: Spec
 translateBreakSpec = describe "translate break test" $ do
   it "while 0 == 0 do break" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) T.Break
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -905,8 +905,8 @@ translateBreakSpec = describe "translate break test" $ do
 
   it "while 0 == 0 do (while 0 == 0 do break)" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) T.Break)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -918,8 +918,8 @@ translateBreakSpec = describe "translate break test" $ do
 
   it "for i := 1 to 3 do break" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) T.Break
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -931,17 +931,17 @@ translateBreakSpec = describe "translate break test" $ do
 
   it "break" $ do
     let ast = T.expToLExp T.Break
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
 
   it "(for i := 1 to 3 do x := 2, break)" $ do
     let ast = T.expToLExp $ T.Seq [T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3)), T.Break]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
@@ -951,11 +951,11 @@ translateFunApplySpec :: Spec
 translateFunApplySpec = describe "translate fun application test" $ do
   it "f()" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -967,11 +967,11 @@ translateFunApplySpec = describe "translate fun application test" $ do
 
   it "f(1)" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Int 0]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -983,14 +983,14 @@ translateFunApplySpec = describe "translate fun application test" $ do
 
   it "type record = {}; f: record -> (); f(nil)" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Nil]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
           insertType "record" recordTy
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [recordTy] <: #codomain @= TNil <: nil
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1002,20 +1002,20 @@ translateFunApplySpec = describe "translate fun application test" $ do
 
   it "f: int -> (); f('hoge')" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.String "hoge"]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
 
   it "var f := (); f()" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "f" False TNil
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedFunction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedFunction
@@ -1025,9 +1025,9 @@ translateAssignSpec :: Spec
 translateAssignSpec = describe "translate assgin test" $ do
   it "var x int; x := 0" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1039,10 +1039,10 @@ translateAssignSpec = describe "translate assgin test" $ do
 
   it "var x int; var y: unit; y := (x := 0)" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "y") (T.Assign (T.Id "x") (T.Int 0))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
           _ <- allocateLocalVariable "y" False TUnit
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1054,9 +1054,9 @@ translateAssignSpec = describe "translate assgin test" $ do
 
   it "var x string; x := 0" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TString
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedType
@@ -1066,8 +1066,8 @@ translateSeqSpec :: Spec
 translateSeqSpec = describe "translate seq test" $ do
   it "()" $ do
     let ast = T.expToLExp $ T.Seq []
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1075,8 +1075,8 @@ translateSeqSpec = describe "translate seq test" $ do
 
   it "(1)" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1088,9 +1088,9 @@ translateSeqSpec = describe "translate seq test" $ do
 
   it "(x := 0)" $ do
     let ast = T.expToLExp $ T.Seq [T.Assign (T.Id "x") (T.Int 0)]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1102,8 +1102,8 @@ translateSeqSpec = describe "translate seq test" $ do
 
   it "(1, 2)" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1, T.Int 2]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1115,9 +1115,9 @@ translateSeqSpec = describe "translate seq test" $ do
 
   it "(1, x := 2)" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1, T.Assign (T.Id "x") (T.Int 2)]
-        result = leaveEff . runTranslateEffWithNewLevel $ do
+        result = runEff $ do
           _ <- allocateLocalVariable "x" False TInt
-          translateExp @FrameMock ast
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1132,8 +1132,8 @@ translateLetSpec :: Spec
 translateLetSpec = describe "translate let test" $ do
   it "let in 0" $ do
     let ast = T.expToLExp $ T.Let [] (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1143,8 +1143,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let in ()" $ do
     let ast = T.expToLExp $ T.Let [] (T.Seq [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1154,8 +1154,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x: int := 0 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 0)] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1168,8 +1168,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x := 0 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Int 0)] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1182,8 +1182,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x := () in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Seq [])] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1196,8 +1196,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x: int := 0 in x := 1" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 0)] (T.Assign (T.Id "x") (T.Int 1))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1210,8 +1210,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x: int := let var y: int := 0 in y in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Let [T.VarDec "y" False (Just "int") (T.Int 0)] (T.Var (T.Id "y")))] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1224,8 +1224,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x: int = 1; var x: int = 2 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 1), T.VarDec "x" False (Just "int") (T.Int 2)] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1238,8 +1238,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var: int x = 1; var y: int = let var x: int := 2 in x in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 1), T.VarDec "y" False (Just "int") (T.Let [T.VarDec "x" False (Just "int") (T.Int 2)] (T.Var (T.Id "x")))] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1252,8 +1252,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let type record = {} in record {}" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "record" (T.RecordType [])] (T.RecordCreate "record" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1268,8 +1268,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let function f(x: int): int = x in f(1)" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Var (T.Id "x"))] (T.FunApply "f" [T.Int 1])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1292,8 +1292,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let function f(x: int): int = let var y: int = 1 in x + y in f(1)" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Let [T.VarDec "y" True (Just "int") (T.Int 1)] (T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "y"))))] (T.FunApply "f" [T.Int 1])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1316,8 +1316,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let function f(x: int): int = let function g(y: int): int = x + y in g(0) in f(1)" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" True "int"] (Just "int") (T.Let [T.FunDec "g" [T.Field "y" False "int"] (Just "int") (T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "y")))] (T.FunApply "g" [T.Int 0]))] (T.FunApply "f" [T.Int 1])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1340,8 +1340,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let type a = record{}; function f(): a = nil in f()" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType []), T.FunDec "f" [] (Just "a") T.Nil] (T.FunApply "f" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1366,8 +1366,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let type myint = int; var a: myint = 1; function f(): myint = a; in f()" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "myint" (T.TypeId "int"), T.VarDec "x" True (Just "myint") (T.Int 1), T.FunDec "f" [] (Just "myint") (T.Var (T.Id "x"))] (T.FunApply "f" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1390,8 +1390,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var f: int = 1; function f(): int = 1 in f()" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "f" False (Just "int") (T.Int 1), T.FunDec "f" [] (Just "int") (T.Int 1)] (T.FunApply "f" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1414,8 +1414,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let function f(): int = 1; var f: int = 1 in f" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] (Just "int") (T.Int 1), T.VarDec "f" False (Just "int") (T.Int 1)] (T.Var (T.Id "f"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1438,8 +1438,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let function f() = g(); function g() = f() in f()" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] Nothing (T.FunApply "g" []), T.FunDec "g" [] Nothing (T.FunApply "f" [])] (T.FunApply "g" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
@@ -1462,8 +1462,8 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let type a = {a: b}; type b = {b: a}; var x: a = nil in x" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType [T.Field "a" False "b"]), T.TypeDec "b" (T.RecordType [T.Field "b" False "a"]), T.VarDec "x" False (Just "a") T.Nil] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1479,72 +1479,72 @@ translateLetSpec = describe "translate let test" $ do
 
   it "let var x: myint := 0 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "myint") (T.Int 0)] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUnknownType
 
   it "let x := let y := 0 in y in y" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Let [T.VarDec "y" False Nothing (T.Int 0)] (T.Var (T.Id "y")))] (T.Var (T.Id "y"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
 
   it "let type a = b; type b = c; type c = a in 0" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "b"), T.TypeDec "b" (T.TypeId "c"), T.TypeDec "c" (T.TypeId "a")] (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return InvalidRecTypeDeclaration: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isInvalidRecTypeDeclaration
 
   it "type a = {a: b}; var x = 0; type b = {b: a} in x" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType [T.Field "a" False "b"]), T.VarDec "x" False Nothing (T.Int 0), T.TypeDec "b" (T.RecordType [T.Field "b" False "a"])] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUnknownType
 
   it "let function f() = g(); var x := 0; function g() = f() in f()" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] Nothing (T.FunApply "g" []), T.VarDec "x" False Nothing (T.Int 0), T.FunDec "g" [] Nothing (T.FunApply "f" [])] (T.FunApply "g" [])
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UndefinedVariale: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
 
   it "let var x: int = 'hoge' in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.String "hoge")] (T.Var (T.Id "x"))
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedType
 
   it "let function f(x: hoge): int = 0 in 0" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "hoge"] (Just "int") (T.Int 0)] (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isUnknownType
 
   it "let function f(): int = 0; function f(): int = 0 in 0" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] (Just "int") (T.Int 0), T.FunDec "f" [] (Just "int") (T.Int 0)] (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
 
   it "let type a = int; type a = string in 0" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "int"), T.TypeDec "a" (T.TypeId "int")] (T.Int 0)
-        result = leaveEff . runTranslateEffWithNewLevel $ do
-          translateExp @FrameMock ast
+        result = runEff $ do
+          translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
@@ -1607,3 +1607,17 @@ isInvalidRecTypeDeclaration _ = False
 isMultiDeclaredName :: TranslateError -> Bool
 isMultiDeclaredName MultiDeclaredName{} = True
 isMultiDeclaredName _ = False
+
+runEff :: Eff '[
+        ("typeEnv" >: State TEnv)
+      , ("varEnv" >: State (VEnv FrameMock))
+      , ("nestingLevel" >: NestingLevelEff FrameMock)
+      , ("breakpoint" >: BreakPointEff)
+      , ("fragment" >: FragmentEff FrameMock)
+      , ("temp" >: UniqueEff)
+      , ("label" >: UniqueEff)
+      , ("id" >: UniqueEff)
+      , ("translateError" >: EitherEff (RealLocated TranslateError))
+      ] a
+  -> Either (RealLocated TranslateError) (a, [F.ProgramFragment FrameMock])
+runEff = leaveEff . runTranslateEffWithNewLevel
