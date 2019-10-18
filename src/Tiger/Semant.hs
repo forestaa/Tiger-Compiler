@@ -416,8 +416,11 @@ translateDecsList = fmap mconcat . traverse translateDecs
 
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
     translateFunDecs ds = do
+      checkSameNameDec $ fmap extractLId ds
       mapM_ insertFunEntry ds
       mapM_ translateFunDec ds
+      where
+        extractLId (L _ (FunDec r)) = r ^. #id
 
     insertFunEntry :: RealLocated FunDec -> Eff xs ()
     insertFunEntry (L _ (FunDec r)) = do
