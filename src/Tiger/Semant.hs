@@ -437,7 +437,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
         insertFormals $ dec ^. #args
         (bodyExp, bodyTy) <- translateExp $ dec ^. #body
         declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
-        if declaredTy == bodyTy
+        if declaredTy <= bodyTy
           then funDecExp bodyExp
           else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
       where
