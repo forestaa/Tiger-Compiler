@@ -403,7 +403,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateVarDec (L loc (VarDec r)) = do
       (initExp, initTy) <- translateExp $ r ^. #init
       typecheck (r ^. #type) initTy
-      ty <- maybe (pure TNil) lookupSkipName $ r ^. #type
+      ty <- maybe (pure initTy) lookupSkipName $ r ^. #type
       access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape) ty
       varInitExp access initExp
       where
@@ -423,9 +423,9 @@ translateDecsList = fmap mconcat . traverse translateDecs
     insertFunEntry (L _ (FunDec r)) = do
       label <- namedLabel . unLId $ r ^. #id
       parent <- fetchCurrentLevelEff
-        codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
+      codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
       let fun = Fun $ #label @= label <: #parent @= parent <: #domains @= domains <: #codomain @= codomain <: nil
-        insertVar (unLId $ r ^. #id) fun
+      insertVar (unLId $ r ^. #id) fun
       where
         domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
 
