@@ -249,6 +249,7 @@ translateBinOp (L loc (op, left, right)) = do
       | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
       | isUnit leftTy = throwEff #translateError . L loc $ ExpectedExpression left
       | isUnit rightTy = throwEff #translateError . L loc $ ExpectedExpression right
+      | leftTy == TNil && rightTy == TNil = throwEff #translateError . L loc $ NotDeterminedNilType
       | not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
       | otherwise = pure ()
 
