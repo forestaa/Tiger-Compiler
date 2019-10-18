@@ -44,7 +44,7 @@ data TranslateError =
   -- typing
     VariableUndefined Id
   | VariableMismatchedWithDeclaredType Id Type Type
-  | TypeUndefined Id
+  | UnknownType Id
   | ExpectedType T.LExp Type Type
   | ExpectedTypes [T.LExp] [Type] [Type]
   | ExpectedUnitType T.LExp Type
@@ -69,7 +69,7 @@ data TranslateError =
 instance Show TranslateError where
   show (VariableUndefined id) = "undefined variable: " ++ show id
   show (VariableMismatchedWithDeclaredType id ty ty') = concat ["Couldn't match type: expression doesn't match with declared type: id = ", show id, ", declared type: ", show ty, ", actual type: ", show ty']
-  show (TypeUndefined id) = "undefined type: " ++ show id
+  show (UnknownType id) = "undefined type: " ++ show id
   show (ExpectedType (L _ e) ty ty') = concat ["Couldn't mach type: ", show ty, " type expected: exp = ", show e, ", actual type = ", show ty']
   show (ExpectedTypes es types types') = concat [
     "Couldn't match types: ", show types, " exptected: exps = ", show es, ", actual types = ", show types']
@@ -113,7 +113,7 @@ runTranslateEffWithNewLevel a = runTranslateEff $ do
   withNewLevelEff label [] a
 
 lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
-lookupTypeIdEff (L loc id) = lookupTypeId id >>= maybe (throwEff #translateError . L loc $ TypeUndefined id) pure
+lookupTypeIdEff (L loc id) = lookupTypeId id >>= maybe (throwEff #translateError . L loc $ UnknownType id) pure
 lookupVarIdEff ::  (
     Lookup xs "varEnv" (State (VEnv f))
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
@@ -139,7 +139,7 @@ skipName ty = pure ty
 -- lookupTypeId (L loc id) = do
 --   m <- getsEff #typeEnv $ E.lookup id
 --   case m of
---     Nothing -> throwEff #translateError . L loc $ TypeUndefined id
+--     Nothing -> throwEff #translateError . L loc $ UnknownType id
 --     Just ty -> pure ty
 -- lookupVarId :: (
 --     Lookup xs "varEnv" (State VEnv)

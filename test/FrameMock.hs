@@ -38,6 +38,12 @@ externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR
 externalCall s args = do
   label <- U.namedLabel s
   pure $ IR.Call (IR.Name label) args
+fp :: U.Temp
+fp = U.Temp . U.Unique $ -1
+rv :: U.Temp
+rv = U.Temp . U.Unique $ -2
+viewShift :: FrameMock -> IR.Stm -> IR.Stm
+viewShift _  = id
 
 instance F.Frame FrameMock where
   type Access FrameMock = AccessMock
@@ -45,8 +51,10 @@ instance F.Frame FrameMock where
   name = name
   formals = formals
   allocLocal = allocLocal
-  fp = U.Temp . U.Unique $ -1
   exp = exp
   wordSize = wordSize
   externalCall = externalCall
+  fp = fp
+  rv = rv
+  viewShift = viewShift
 

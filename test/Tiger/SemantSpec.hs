@@ -39,6 +39,7 @@ spec = do
   translateFunApplySpec
   translateAssignSpec
   translateSeqSpec
+  translateLetSpec
 
 translateIntSpec :: Spec
 translateIntSpec = describe "translate int test" $ do
@@ -954,7 +955,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
-            translateExp @FrameMock ast
+          translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -970,7 +971,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
-            translateExp @FrameMock ast
+          translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -989,7 +990,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [recordTy] <: #codomain @= TNil <: nil
-            translateExp @FrameMock ast
+          translateExp @FrameMock ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
@@ -1005,7 +1006,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
           insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
-            translateExp @FrameMock ast
+          translateExp @FrameMock ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
@@ -1126,12 +1127,437 @@ translateSeqSpec = describe "translate seq test" $ do
           expP _ = False
 
 
+translateLetSpec :: Spec
+translateLetSpec = describe "translate let test" $ do
+  it "let in 0" $ do
+    let ast = T.expToLExp $ T.Let [] (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldBe` Ex (IR.Const 0)
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+
+  it "let in ()" $ do
+    let ast = T.expToLExp $ T.Let [] (T.Seq [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldBe` Ex (IR.Const 0)
+        ty `shouldBe` TUnit
+        fragments `shouldBe` []
+
+  it "let var x: int := 0 in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 0)] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
+          expP _ = False
+
+  it "let var x := 0 in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Int 0)] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
+          expP _ = False
+
+  it "let var x := () in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Seq [])] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
+          expP _ = False
+
+  it "let var x: int := 0 in x := 1" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 0)] (T.Assign (T.Id "x") (T.Int 1))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        fragments `shouldBe` []
+        where
+          expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Move (IR.Temp r') (IR.Const 1)))) = r == r'
+          expP _ = False
+
+  it "let var x: int := let var y: int := 0 in y in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Let [T.VarDec "y" False (Just "int") (T.Int 0)] (T.Var (T.Id "y")))] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.ESeq (IR.Move (IR.Temp r') (IR.Const 0)) (IR.Temp r''))) (IR.Temp r'''))) = r' == r'' && r == r'''
+          expP _ = False
+
+  it "let var x: int = 1; var x: int = 2 in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 1), T.VarDec "x" False (Just "int") (T.Int 2)] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Move (IR.Temp r) (IR.Const 2))) (IR.Temp r'))) = r == r'
+          expP _ = False
+
+  it "let var: int x = 1; var y: int = let var x: int := 2 in x in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 1), T.VarDec "y" False (Just "int") (T.Let [T.VarDec "x" False (Just "int") (T.Int 2)] (T.Var (T.Id "x")))] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Move (IR.Temp _) (IR.ESeq (IR.Move (IR.Temp r') (IR.Const 2)) (IR.Temp r'')))) (IR.Temp r'''))) = r == r''' && r' == r''
+          expP _ = False
+
+  it "let type record = {} in record {}" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "record" (T.RecordType [])] (T.RecordCreate "record" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        fragments `shouldBe` []
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp r'))) = r == r'
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP _ = False
+
+  it "let function f(x: int): int = x in f(1)" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Var (T.Id "x"))] (T.FunApply "f" [T.Int 1])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
+          expP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.Temp (Temp _ )) -> rv == F.rv @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0, InReg _] -> r ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = False
+
+  it "let function f(x: int): int = let var y: int = 1 in x + y in f(1)" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Let [T.VarDec "y" True (Just "int") (T.Int 1)] (T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "y"))))] (T.FunApply "f" [T.Int 1])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
+          expP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0, InReg _] -> r ^. #numberOfLocals == 1
+              _ -> False
+          frameP _ = False
+
+  it "let function f(x: int): int = let function g(y: int): int = x + y in g(0) in f(1)" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" True "int"] (Just "int") (T.Let [T.FunDec "g" [T.Field "y" False "int"] (Just "int") (T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "y")))] (T.FunApply "g" [T.Int 0]))] (T.FunApply "f" [T.Int 1])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
+          expP _ = False
+          bodyP [F.Proc r1, F.Proc r2] = case (r1 ^. #body, r2 ^. #body) of
+            (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0]), IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _)))) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r1, F.Proc r2] = case (r1 ^. #frame, r2 ^. #frame) of
+            (FrameMock r1, FrameMock r2) -> case (r1 ^. #formals, r2 ^. #formals) of
+                  ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
+                  _ -> False
+          frameP _ = False
+
+  it "let type a = record{}; function f(): a = nil in f()" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType []), T.FunDec "f" [] (Just "a") T.Nil] (T.FunApply "f" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.Const 0) -> rv == F.rv @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0] -> r ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = True
+
+  it "let type myint = int; var a: myint = 1; function f(): myint = a; in f()" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "myint" (T.TypeId "int"), T.VarDec "x" True (Just "myint") (T.Int 1), T.FunDec "f" [] (Just "myint") (T.Var (T.Id "x"))] (T.FunApply "f" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp']))) = fp == F.fp @FrameMock && fp' == F.fp @FrameMock
+          expP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0] -> r ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = False
+
+  it "let var f: int = 1; function f(): int = 1 in f()" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "f" False (Just "int") (T.Int 1), T.FunDec "f" [] (Just "int") (T.Int 1)] (T.FunApply "f" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp]))) = fp == F.fp @FrameMock
+          expP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0] -> r ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = False
+
+  it "let function f(): int = 1; var f: int = 1 in f" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [] (Just "int") (T.Int 1), T.VarDec "f" False (Just "int") (T.Int 1)] (T.Var (T.Id "f"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Temp r'))) = r == r'
+          expP _ = False
+          bodyP [F.Proc r] = case r ^. #body of
+            IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r] = case r ^. #frame of
+            FrameMock r -> case r ^. #formals of
+              [InFrame 0] -> r ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = False
+
+  it "let function f() = g(); function g() = f() in f()" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [] Nothing (T.FunApply "g" []), T.FunDec "g" [] Nothing (T.FunApply "f" [])] (T.FunApply "g" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        fragments `shouldSatisfy` bodyP
+        fragments `shouldSatisfy` frameP
+        where
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
+          expP _ = False
+          bodyP [F.Proc r1, F.Proc r2] = case (r1 ^. #body, r2 ^. #body) of
+            (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp1))]), (IR.Move (IR.Temp rv2) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))]))) -> rv1 == F.rv @FrameMock && fp1 == F.fp @FrameMock && rv2 == F.rv @FrameMock && fp2 == F.fp @FrameMock
+            _ -> False
+          bodyP _ = False
+          frameP [F.Proc r1, F.Proc r2] = case (r1 ^. #frame, r2 ^. #frame) of
+            (FrameMock r1, FrameMock r2) -> case (r1 ^. #formals, r2 ^. #formals) of
+              ([InFrame 0], [InFrame 0]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
+              _ -> False
+          frameP _ = False
+
+  it "let type a = {a: b}; type b = {b: a}; var x: a = nil in x" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType [T.Field "a" False "b"]), T.TypeDec "b" (T.RecordType [T.Field "b" False "a"]), T.VarDec "x" False (Just "a") T.Nil] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
+          expP _ = False
+          tyP (TRecord r) = case Map.toList $ r ^. #map of
+            [("a", TName b)] -> b == dummyRealLocated "b"
+            _ -> False
+          tyP _ = False
+
+  it "let var x: myint := 0 in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "myint") (T.Int 0)] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+
+  it "let x := let y := 0 in y in y" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Let [T.VarDec "y" False Nothing (T.Int 0)] (T.Var (T.Id "y")))] (T.Var (T.Id "y"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+
+  it "let type a = b; type b = c; type c = a in 0" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "b"), T.TypeDec "b" (T.TypeId "c"), T.TypeDec "c" (T.TypeId "a")] (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return InvalidRecTypeDeclaration: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isInvalidRecTypeDeclaration
+
+  it "type a = {a: b}; var x = 0; type b = {b: a} in x" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType [T.Field "a" False "b"]), T.VarDec "x" False Nothing (T.Int 0), T.TypeDec "b" (T.RecordType [T.Field "b" False "a"])] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+
+  it "let function f() = g(); var x := 0; function g() = f() in f()" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [] Nothing (T.FunApply "g" []), T.VarDec "x" False Nothing (T.Int 0), T.FunDec "g" [] Nothing (T.FunApply "f" [])] (T.FunApply "g" [])
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return UndefinedVariale: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+
+  it "let var x: int = 'hoge' in x" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.String "hoge")] (T.Var (T.Id "x"))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedType
+
+  it "let function f(x: hoge): int = 0 in 0" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "hoge"] (Just "int") (T.Int 0)] (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+
+  it "let function f(): int = 0; function f(): int = 0 in 0" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [] (Just "int") (T.Int 0), T.FunDec "f" [] (Just "int") (T.Int 0)] (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
+
+  it "let type a = int; type a = string in 0" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "int"), T.TypeDec "a" (T.TypeId "int")] (T.Int 0)
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
+
+
 isExpectedVariable :: TranslateError -> Bool
 isExpectedVariable ExpectedVariable{} = True
 isExpectedVariable _ = False
 isUndefinedVariable :: TranslateError -> Bool
 isUndefinedVariable VariableUndefined{} = True
 isUndefinedVariable _ = False
+isUnknownType :: TranslateError -> Bool
+isUnknownType UnknownType{} = True
+isUnknownType _ = False
 isExpectedExpression :: TranslateError -> Bool
 isExpectedExpression ExpectedExpression{} = True
 isExpectedExpression _ = False
@@ -1174,3 +1600,9 @@ isBreakOutsideLoop _ = False
 isNotDeterminedNilType :: TranslateError -> Bool
 isNotDeterminedNilType NotDeterminedNilType = True
 isNotDeterminedNilType _ = False
+isInvalidRecTypeDeclaration :: TranslateError -> Bool
+isInvalidRecTypeDeclaration InvalidRecTypeDeclaration{} = True
+isInvalidRecTypeDeclaration _ = False
+isMultiDeclaredName :: TranslateError -> Bool
+isMultiDeclaredName MultiDeclaredName{} = True
+isMultiDeclaredName _ = False
