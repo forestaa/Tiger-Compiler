@@ -457,15 +457,16 @@ translateDecsList = fmap mconcat . traverse translateDecs
 
     translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
     translateTypeDecs ds = do
-      checkSameNameDec $ fmap extractLId ds
+      let typeLIds = fmap extractLId ds
+      checkSameNameDec typeLIds
       checkInvalidRecType ds
-      mapM_ translateTypeDec ds
+      types <- withTEnvScope $ do
+        mapM_ (\lid -> insertType (unLId lid) (TName lid)) typeLIds
+        mapM (\(L _ (TypeDec r)) -> (unLId (r ^. #id), ) <$> typingType (r ^. #type)) ds
+      mapM_ (uncurry insertType) types
       where
         extractLId (L _ (TypeDec r)) = r ^. #id
 
-    translateTypeDec :: RealLocated TypeDec -> Eff xs ()
-    translateTypeDec (L _ (TypeDec r)) =
-      typingType (r ^. #type) >>= insertType (unLId $ r ^. #id)
 
 checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
 checkSameNameDec ids = case runCheckSameNameDec ids of
