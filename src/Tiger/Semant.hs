@@ -359,6 +359,7 @@ translateSeq es = do
   (exps, types) <- List.unzip <$> mapM translateExp es
   case List.lastMaybe types of
     Just ty -> (, ty) <$> seqExp exps
+    Nothing -> pure (unitExp, TUnit)
 
 translateLet :: HasTranslateEff xs f => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
 translateLet decs body =

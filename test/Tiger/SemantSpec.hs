@@ -1036,6 +1036,20 @@ translateAssignSpec = describe "translate assgin test" $ do
           expP (Nx (IR.Move _ (IR.Const 0))) = True
           expP _ = False
 
+  it "var x int; var y: unit; y := (x := 0)" $ do
+    let ast = T.expToLExp $ T.Assign (T.Id "y") (T.Assign (T.Id "x") (T.Int 0))
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          _ <- allocateLocalVariable "x" False TInt
+          _ <- allocateLocalVariable "y" False TUnit
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP _ = False
+
   it "var x string; x := 0" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
         result = leaveEff . runTranslateEffWithNewLevel $ do
@@ -1048,6 +1062,15 @@ translateAssignSpec = describe "translate assgin test" $ do
 
 translateSeqSpec :: Spec
 translateSeqSpec = describe "translate seq test" $ do
+  it "()" $ do
+    let ast = T.expToLExp $ T.Seq []
+        result = leaveEff . runTranslateEffWithNewLevel $ do
+          translateExp @FrameMock ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        ty `shouldBe` TUnit
+
   it "(1)" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1]
         result = leaveEff . runTranslateEffWithNewLevel $ do

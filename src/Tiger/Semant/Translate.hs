@@ -95,6 +95,9 @@ stringExp s = do
 nilExp :: Exp
 nilExp = Ex $ IR.Const 0
 
+unitExp :: Exp
+unitExp = Ex $ IR.Const 0
+
 valueIdExp :: (
     F.Frame f
   , Lookup xs "nestingLevel" (NestingLevelEff f)
