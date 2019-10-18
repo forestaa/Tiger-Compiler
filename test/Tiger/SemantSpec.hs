@@ -1,23 +1,28 @@
 module Tiger.SemantSpec (spec) where
 
-import RIO
-import Test.Hspec
-
-import Tiger.Semant
-import Tiger.Semant.Translate
-import Tiger.Semant.Types
-import Tiger.TestUtils
-import qualified Tiger.LSyntax as T (expToLExp)
-import qualified Tiger.Syntax as T
-import qualified Frame as F
-import FrameMock
-import qualified IR
-import SrcLoc
-import Unique
-
-import Data.Extensible
+import           Data.Extensible
+import           RIO
 import qualified RIO.List.Partial as Partial
 import qualified RIO.Map as Map
+import           Test.Hspec
+
+import qualified Frame as F
+import           FrameMock
+import qualified IR
+import           SrcLoc
+import           TestUtils
+import           Unique
+
+import           Tiger.Semant
+import           Tiger.Semant.BreakPoint
+import           Tiger.Semant.Env
+import           Tiger.Semant.Exp
+import           Tiger.Semant.Level
+import           Tiger.Semant.Translate
+import           Tiger.Semant.Types
+import qualified Tiger.LSyntax as T (expToLExp)
+import qualified Tiger.Syntax as T
+
 
 
 spec :: Spec

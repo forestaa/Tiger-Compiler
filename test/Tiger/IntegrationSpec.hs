@@ -1,20 +1,22 @@
 module Tiger.IntegrationSpec (spec) where
 
-import RIO
-import Test.Hspec
-
-import Tiger.Parser
-import Tiger.Semant
-import Tiger.Semant.Translate
-import Tiger.Semant.Types
-import Frame
-import FrameMock
-
-import Lexer.Monad
-
-import Control.Monad.Except
-import Data.Extensible
+import           Control.Monad.Except
 import qualified Data.ByteString.Lazy as B
+import           Data.Extensible
+import           RIO
+import           Test.Hspec
+
+import           Frame
+import           FrameMock
+import           Lexer.Monad
+
+import           Tiger.Parser
+import           Tiger.Semant
+import           Tiger.Semant.Exp
+import           Tiger.Semant.Translate
+import           Tiger.Semant.Types
+
+
 
 spec :: Spec
 spec = pure ()

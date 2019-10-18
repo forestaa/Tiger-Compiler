@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8238e8738aa2dded51b2206a5d64633cf7814d62d8dff391ac1e2872e2a7207d
+-- hash: 58c703cd7285ac255b1ded9e647379ef6cad6d7105bfcbabb7d845055f7f1107
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -69,6 +69,10 @@ library
       Tiger.LSyntax
       Tiger.Parser
       Tiger.Semant
+      Tiger.Semant.BreakPoint
+      Tiger.Semant.Env
+      Tiger.Semant.Exp
+      Tiger.Semant.Level
       Tiger.Semant.MarkEscape
       Tiger.Semant.Translate
       Tiger.Semant.Types
@@ -121,13 +125,12 @@ test-suite compiler-test
       Linear.EvalSpec
       Linear.LexerSpec
       Linear.ParserSpec
+      TestUtils
       Tiger.IntegrationSpec
       Tiger.LexerSpec
       Tiger.ParserSpec
+      Tiger.Semant.LevelSpec
       Tiger.Semant.MarkEscapeSpec
-      Tiger.Semant.TranslateSpec
-      Tiger.Semant.TypesSpec
       Tiger.SemantSpec
-      Tiger.TestUtils
       Paths_Tiger_Compiler
   default-language: Haskell2010

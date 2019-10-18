@@ -1,50 +1,20 @@
 module Tiger.Semant.Translate where
 
-import RIO
+import           Data.Extensible
+import           RIO
 import qualified RIO.List as List
-import qualified RIO.List.Partial as Partial
-import Data.Extensible
 
 import qualified Frame as F
 import qualified IR
-import Unique
+import           Unique
 
-import Tiger.Semant.Types
 import qualified Tiger.LSyntax as T
+import           Tiger.Semant.BreakPoint
+import           Tiger.Semant.Env
+import           Tiger.Semant.Exp
+import           Tiger.Semant.Level
 
 
-data Exp = Ex IR.Exp | Nx IR.Stm | Cx (Label -> Label -> IR.Stm)
-instance Eq Exp where
-  Ex e == Ex e' = e == e'
-  Nx s == Nx s' = s == s'
-  Cx c == Cx c' = c (Label "true" (Unique 0)) (Label "false" (Unique 1)) == c' (Label "true" (Unique 0)) (Label "false" (Unique 1))
-  _ == _ = False
-instance Show Exp where
-  show (Ex e) = "Ex: " ++ show e
-  show (Nx s) = "Nx: " ++ show s
-  show (Cx _) = "Cx"
-newtype BreakPointStack = BreakPointStack [Label]
-type BreakPointEff = State BreakPointStack
-runBreakPointEff :: Eff (("breakpoint" >: BreakPointEff) ': xs) a -> Eff xs a
-runBreakPointEff = flip (evalStateEff @"breakpoint") (BreakPointStack [])
-
-withBreakPoint :: forall xs a. (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Eff xs a -> Eff xs a
-withBreakPoint body = do
-  pushNewBreakPoint
-  ret <- body
-  popBreakPoint
-  pure ret
-  where
-    pushNewBreakPoint :: Eff xs ()
-    pushNewBreakPoint = do
-      done <- newLabel
-      modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (done:breakpoints)
-    popBreakPoint :: Eff xs ()
-    popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (Partial.tail breakpoints)
-fetchCurrentBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs (Maybe Label)
-fetchCurrentBreakPoint = getEff #breakpoint >>= \case
-  BreakPointStack [] -> pure Nothing
-  BreakPointStack (breakpoint:_) -> pure $ Just breakpoint
 
 type FragmentEff f = State [F.ProgramFragment f]
 runFragmentEff :: Eff (("fragment" >: FragmentEff f) ': xs) a -> Eff xs (a, [F.ProgramFragment f])
@@ -54,35 +24,6 @@ saveProcEntry (Level r) stm = modifyEff #fragment . (:) . F.Proc $ #body @= stm 
 saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()
 saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
 
-unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
-unEx (Ex e) = pure e
-unEx (Nx _) = unEx unitExp
-unEx (Cx genstm) = do
-  r <- newTemp
-  t <- newLabel
-  f <- newLabel
-  pure $ IR.ESeq (IR.seqStm [
-      IR.Move (IR.Temp r) (IR.Const 1)
-    , genstm t f
-    , IR.Label f
-    , IR.Move (IR.Temp r) (IR.Const 0)
-    , IR.Label t
-    ]) (IR.Temp r)
-
-unNx :: Lookup xs "label" UniqueEff => Exp -> Eff xs IR.Stm
-unNx (Ex e) = pure $ IR.Exp e
-unNx (Nx s) = pure s
-unNx (Cx genstm) = do
-  t <- newLabel
-  f <- newLabel
-  pure $ IR.seqStm [genstm t f, IR.Label t, IR.Label f]
-
-unCx :: Exp -> Label -> Label -> IR.Stm
-unCx (Ex (IR.Const 0)) = \_ f -> IR.Jump (IR.Name f) [f]
-unCx (Ex (IR.Const _)) = \t _ -> IR.Jump (IR.Name t) [t]
-unCx (Ex e) = IR.CJump IR.Ne e (IR.Const 0)
-unCx (Nx _) = undefined
-unCx (Cx genstm) = genstm
 
 intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i

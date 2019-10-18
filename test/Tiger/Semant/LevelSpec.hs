@@ -1,14 +1,16 @@
-module Tiger.Semant.TypesSpec (spec) where
+module Tiger.Semant.LevelSpec (spec) where
 
-import Test.Hspec
-import Tiger.Semant.Types
+import           Data.Extensible
+import           RIO hiding (exp)
+import           Test.Hspec
+
 import qualified Frame as F
+import           FrameMock
 import qualified IR
-import Unique
-import FrameMock
+import           Unique
 
-import RIO hiding (exp)
-import Data.Extensible
+import           Tiger.Semant.Level
+
 
 
 spec :: Spec

@@ -1,26 +1,30 @@
 module Tiger.Semant where
 
-import RIO
-import qualified RIO.Partial as Partial
+import           Control.Monad.Except
+import           Control.Lens ((.~))
+import           Data.Extensible
+import           Data.Extensible.Effect.Default
+import           Data.Graph
+import           RIO
 import qualified RIO.List as List
 import qualified RIO.Map as Map
+import qualified RIO.Partial as Partial
 import qualified RIO.Set as Set
-
-import Control.Monad.State (modify, gets)
-import Control.Monad.Except
-import Control.Lens ((.~))
-import Data.Extensible
-import Data.Extensible.Effect.Default
-import Data.Graph
 
 import qualified Env as E
 import qualified Frame as F
-import Id
-import SrcLoc
+import           Id
+import           SrcLoc
+import           Unique
+
 import qualified Tiger.LSyntax as T
-import Unique
-import Tiger.Semant.Types
-import Tiger.Semant.Translate
+import           Tiger.Semant.BreakPoint
+import           Tiger.Semant.Env
+import           Tiger.Semant.Exp
+import           Tiger.Semant.Level
+import           Tiger.Semant.Translate
+import           Tiger.Semant.Types
+
 
 
 initTEnv :: TEnv
@@ -127,42 +131,15 @@ skipName :: (
 skipName (TName lid) = lookupTypeIdEff lid >>= skipName
 skipName a@(TArray arr) = case arr ^. #range of
   TName id -> do
-    -- ty <-skipName =<< lookupTypeId id
     ty <- skipName (TName id)
     pure . TArray $ arr & #range .~ ty
   _ -> pure a
 skipName ty = pure ty
--- lookupTypeId :: (
---     Lookup xs "typeEnv" (State TEnv)
---   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
---   ) => LId -> Eff xs Type
--- lookupTypeId (L loc id) = do
---   m <- getsEff #typeEnv $ E.lookup id
---   case m of
---     Nothing -> throwEff #translateError . L loc $ UnknownType id
---     Just ty -> pure ty
--- lookupVarId :: (
---     Lookup xs "varEnv" (State VEnv)
---   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
---   ) => LId -> Eff xs Var
--- lookupVarId (L loc id) = do
---   m <- getsEff #varEnv $ E.lookup id
---   case m of
---     Nothing -> throwEff #translateError . L loc $ VariableUndefined id
---     Just v -> pure v
 lookupSkipName :: (
     Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
   ) => LId -> Eff xs Type
 lookupSkipName = skipName <=< lookupTypeIdEff
--- insertType :: (Lookup xs "typeEnv" (State TEnv)) => Id -> Type -> Eff xs ()
--- insertType id ty = modifyEff #typeEnv $ E.insert id ty
--- insertVar :: (Lookup xs "varEnv" (State VEnv)) => Id -> Var -> Eff xs ()
--- insertVar id v = modifyEff #varEnv $ E.insert id v
--- withTEnvScope :: (Lookup xs "typeEnv" (State TEnv)) => Eff xs a -> Eff xs a
--- withTEnvScope = E.withEnvScope #typeEnv
--- withVEnvScope :: (Lookup xs "varEnv" (State VEnv)) => Eff xs a -> Eff xs a
--- withVEnvScope = E.withEnvScope #varEnv
 
 checkInt :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
 checkInt ty e@(L loc _) =
