@@ -56,6 +56,7 @@ saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
+unEx (Nx _) = unEx unitExp
 unEx (Cx genstm) = do
   r <- newTemp
   t <- newLabel
@@ -264,8 +265,8 @@ forLoopExp :: (
   ) => Access f -> Exp -> Exp -> Exp -> Eff xs Exp
 forLoopExp access from@(Ex _) (Ex to) (Nx bodyStm) = do
   index <- unEx =<< valueIdExp access
-  indexInit <- unNx $ assignExp (Ex index) from
-  increment <- unNx $ assignExp (Ex index) (Ex $ IR.BinOp IR.Plus index (IR.Const 1))
+  indexInit <- unNx =<< assignExp (Ex index) from
+  increment <- unNx =<< assignExp (Ex index) (Ex $ IR.BinOp IR.Plus index (IR.Const 1))
   ul <- IR.Temp <$> newTemp
   loop <- newLabel
   body <- newLabel
@@ -293,11 +294,11 @@ funApplyExp label parent exps = do
   staticLink <- pullInStaticLinksEff parent
   Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
 
-assignExp :: Exp -> Exp -> Exp
-assignExp (Ex var) (Ex e) = Nx $ IR.Move var e
+assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Exp -> Eff xs Exp
+assignExp (Ex var) exp = Nx . IR.Move var <$> unEx exp
 
-varInitExp :: (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
-varInitExp access e = flip assignExp e <$> valueIdExp access
+varInitExp :: (F.Frame f, Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
+varInitExp access e = flip assignExp e =<< valueIdExp access
 
 seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => [Exp] -> Eff xs Exp
 seqExp es = case List.splitAt (length es - 1) es of

@@ -351,7 +351,7 @@ translateAssign v e@(L loc _) = do
   (varExp, varTy) <- translateValue v
   (exp, expTy) <- translateExp e
   if varTy <= expTy
-    then pure (assignExp varExp exp, TUnit)
+    then (, TUnit) <$> assignExp varExp exp
     else throwEff #translateError . L loc $ ExpectedType e varTy expTy
 
 translateSeq :: HasTranslateEff xs f => [T.LExp] -> Eff xs (Exp, Type)

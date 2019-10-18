@@ -1049,6 +1049,7 @@ translateAssignSpec = describe "translate assgin test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
         where
+          expP (Nx (IR.Move (IR.Temp _) (IR.Const 0))) = True
           expP _ = False
 
   it "var x string; x := 0" $ do
