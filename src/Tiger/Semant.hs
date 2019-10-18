@@ -435,8 +435,6 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
     translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
       Fun f -> withNewLevelEff (f ^. #label) escapes $ do
-        -- allocateParameters $ dec ^. #args
-        -- formals <- F.formals . (^. #frame) <$> fetchCurrentLevelEff
         insertFormals $ dec ^. #args
         (bodyExp, bodyTy) <- translateExp $ dec ^. #body
         declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
@@ -445,13 +443,6 @@ translateDecsList = fmap mconcat . traverse translateDecs
           else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
       where
         escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> dec ^. #args
-        allocateParameters :: [T.LField] -> Eff xs ()
-        allocateParameters = mapM_ allocateParameter
-        allocateParameter :: T.LField -> Eff xs ()
-        allocateParameter (L _ (T.Field (L _ id) escape (L loc typeid))) =
-          lookupTypeId typeid >>= \case
-            Just ty -> allocateLocalVariable id escape ty >> pure ()
-            Nothing -> throwEff #translateError . L loc $ UnknownType typeid
         insertFormals :: [T.LField] -> Eff xs ()
         insertFormals args = do
           formals <- fetchCurrentLevelParametersAccessEff
@@ -463,9 +454,6 @@ translateDecsList = fmap mconcat . traverse translateDecs
           lookupTypeId typeid >>= \case
             Just ty -> insertVar id . Var $ #type @= ty <: #access @= access <: nil
             Nothing -> throwEff #translateError . L loc $ UnknownType typeid
-
-
-
 
     translateTypeDecs :: [RealLocated TypeDec] -> Eff xs ()
     translateTypeDecs ds = do
