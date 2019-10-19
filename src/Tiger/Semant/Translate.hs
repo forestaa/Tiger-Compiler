@@ -53,7 +53,6 @@ valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 valueArrayIndexExp _ _ = undefined
 
--- TODO: string comparison
 binOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
 binOpExp op left right
   | isArithmetic op = arithmeticOpExp (arithmeticOpConvert op) left right
@@ -158,16 +157,17 @@ ifElseExp cond thenExp elseExp = do
 
 
 ifNoElseExp :: (Lookup xs "label" UniqueEff) => Exp -> Exp -> Eff xs Exp
-ifNoElseExp cond (Nx thenStm) = do
+ifNoElseExp _ (Cx _) = undefined
+ifNoElseExp cond exp = do
   t <- newLabel
   z <- newLabel
+  thenStm <- unNx exp
   pure . Nx $ IR.seqStm [
       unCx cond t z
     , IR.Label t
     , thenStm
     , IR.Label z
     ]
-ifNoElseExp _ _ = undefined
 
 recordCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => [Exp] -> Eff xs Exp
 recordCreationExp es = do
@@ -190,9 +190,11 @@ arrayCreationExp (Ex size) (Ex init) = do
 arrayCreationExp _ _ = undefined
 
 whileLoopExp :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Exp -> Exp -> Eff xs Exp
-whileLoopExp cond (Nx bodyStm) = do
+whileLoopExp _ (Cx _) = undefined
+whileLoopExp cond exp = do
   test <- newLabel
   body <- newLabel
+  bodyStm <- unNx exp
   fetchCurrentBreakPoint >>= \case
     Nothing -> undefined
     Just done -> pure . Nx $ IR.seqStm [
@@ -203,7 +205,6 @@ whileLoopExp cond (Nx bodyStm) = do
       , IR.Jump (IR.Name test) [test]
       , IR.Label done
       ]
-whileLoopExp _ _ = undefined
 
 forLoopExp :: (
     F.Frame f
@@ -212,13 +213,15 @@ forLoopExp :: (
   , Lookup xs "label" UniqueEff
   , Lookup xs "temp" UniqueEff
   ) => Access f -> Exp -> Exp -> Exp -> Eff xs Exp
-forLoopExp access from@(Ex _) (Ex to) (Nx bodyStm) = do
+forLoopExp _ _ _ (Cx _) = undefined
+forLoopExp access from@(Ex _) (Ex to) exp = do
   index <- unEx =<< valueIdExp access
   indexInit <- unNx =<< assignExp (Ex index) from
   increment <- unNx =<< assignExp (Ex index) (Ex $ IR.BinOp IR.Plus index (IR.Const 1))
   ul <- IR.Temp <$> newTemp
   loop <- newLabel
   body <- newLabel
+  bodyStm <- unNx exp
   fetchCurrentBreakPoint >>= \case
     Nothing -> undefined
     Just done -> pure . Nx $ IR.seqStm [

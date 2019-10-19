@@ -588,6 +588,22 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           expP (Nx (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label _) (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Label z'))))) = z == z'
           expP _ = False
 
+  it "f: () -> (); if 0 == 0 then f()" $ do
+    let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.FunApply "f" []) Nothing
+        result = runEff $ do
+          label <- newLabel
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) true false) (IR.Seq (IR.Label true') (IR.Seq (IR.Exp (IR.Call (IR.Name _) [IR.Temp fp])) (IR.Label false'))))) = true == true' && false == false' && fp == F.fp @FrameMock
+          expP _ = False
+
   it "if x(array) then 0" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) Nothing
         result = runEff $ do
@@ -851,6 +867,22 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
           expP (Nx (IR.Seq (IR.Label test) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Move (IR.Mem _) (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name test') _) (IR.Label done'))))))) = test == test' && body == body' && done == done'
           expP _ = False
 
+  it "f: () -> (); while 0 == 0 do f()" $ do
+    let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.FunApply "f" [])
+        result = runEff $ do
+          label <- newLabel
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Label test) (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Exp (IR.Call (IR.Name _) [IR.Temp fp])) (IR.Seq (IR.Jump (IR.Name test') _) (IR.Label done'))))))) = test == test' && body == body' && done == done' && fp == F.fp @FrameMock
+          expP _ = False
+
   it "while 'hoge' do x := 0" $ do
     let ast = T.expToLExp $ T.While (T.String "hoge") (T.Assign (T.Id "x") (T.Int 0))
         result = runEff $ do
@@ -883,6 +915,22 @@ translateForLoopSpec = describe "translate for loop test" $ do
         ty `shouldBe` TUnit
         where
           expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Seq (IR.Move (IR.Temp ul) (IR.Const 2)) (IR.Seq (IR.Label loop) (IR.Seq (IR.CJump IR.Le (IR.Temp r') (IR.Temp ul') body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Move (IR.Mem _) (IR.Const 3)) (IR.Seq (IR.Move (IR.Temp r'') (IR.BinOp IR.Plus (IR.Temp r''') (IR.Const 1))) (IR.Seq (IR.Jump (IR.Name loop') _) (IR.Label done')))))))))) = r == r' && r == r'' && r == r''' && ul == ul' && body == body' && done == done' && loop == loop'
+          expP _ = False
+
+  it "f: () -> (); for i := 1 to 2 do f()" $ do
+    let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.FunApply "f" [])
+        result = runEff $ do
+          label <- newLabel
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TUnit
+        where
+          expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Seq (IR.Move (IR.Temp ul) (IR.Const 2)) (IR.Seq (IR.Label loop) (IR.Seq (IR.CJump IR.Le (IR.Temp r') (IR.Temp ul') body done) (IR.Seq (IR.Label body') (IR.Seq (IR.Exp (IR.Call (IR.Name _) [IR.Temp fp])) (IR.Seq (IR.Move (IR.Temp r'') (IR.BinOp IR.Plus (IR.Temp r''') (IR.Const 1))) (IR.Seq (IR.Jump (IR.Name loop') _) (IR.Label done')))))))))) = r == r' && r == r'' && r == r''' && ul == ul' && body == body' && done == done' && loop == loop' && fp == F.fp @FrameMock
           expP _ = False
 
   it "for i := 1 to 2 do 3" $ do
