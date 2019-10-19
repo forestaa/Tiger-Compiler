@@ -84,6 +84,7 @@ withLevelEff level a = do
   pure ret
 allocateLocalOnCurrentLevel :: (Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Bool -> Eff xs (F.Access f)
 allocateLocalOnCurrentLevel b = fetchCurrentLevelEff >>= \case
+  TopLevel -> undefined
   Level level -> do
     (frame', access) <- F.allocLocal (level ^. #frame) b
     modifyCurrentLevelEff (const . Level $ set #frame  frame' level)

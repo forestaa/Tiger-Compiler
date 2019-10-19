@@ -19,7 +19,8 @@ import           Tiger.Semant.Level
 type FragmentEff f = State [F.ProgramFragment f]
 runFragmentEff :: Eff (("fragment" >: FragmentEff f) ': xs) a -> Eff xs (a, [F.ProgramFragment f])
 runFragmentEff = flip (runStateEff @"fragment") []
-saveProcEntry :: (F.Frame f, Lookup xs "fragment" (FragmentEff f), Lookup xs "label" UniqueEff) => Level f -> IR.Stm -> Eff xs ()
+saveProcEntry :: (F.Frame f, Lookup xs "fragment" (FragmentEff f)) => Level f -> IR.Stm -> Eff xs ()
+saveProcEntry TopLevel _ = undefined
 saveProcEntry (Level r) stm = modifyEff #fragment . (:) . F.Proc $ #body @= stm <: #frame @= r ^. #frame <: nil
 saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()
 saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
@@ -47,8 +48,10 @@ valueIdExp :: (
 valueIdExp (Access r) = Ex . F.exp (r ^. #access) <$> pullInStaticLinksEff (r ^. #level)
 valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
 valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Plus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
+valueRecFieldExp _ _ = undefined
 valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
+valueArrayIndexExp _ _ = undefined
 
 -- TODO: string comparison
 binOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
@@ -66,6 +69,7 @@ binOpExp op left right
     arithmeticOpConvert T.Minus = IR.Minus
     arithmeticOpConvert T.Times = IR.Mul
     arithmeticOpConvert T.Div   = IR.Div
+    arithmeticOpConvert _       = undefined
 
     relOpConvert T.Eq    = IR.Eq
     relOpConvert T.NEq   = IR.Ne
@@ -73,6 +77,7 @@ binOpExp op left right
     relOpConvert T.Le    = IR.Le
     relOpConvert T.Gt    = IR.Gt
     relOpConvert T.Ge    = IR.Ge
+    relOpConvert _       = undefined
 
 arithmeticOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => IR.BinOp -> Exp -> Exp -> Eff xs Exp
 arithmeticOpExp op left right = do
@@ -95,6 +100,7 @@ stringOpExp T.Eq (Ex left) (Ex right) = do
 stringOpExp T.NEq (Ex left) (Ex right) = do
   it <- F.externalCall @f "stringEqual" [left, right]
   pure . Cx $ \t f -> IR.CJump IR.Eq it (IR.Const 0) t f
+stringOpExp _ _ _ = undefined
 
 ifElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Exp -> Eff xs Exp
 ifElseExp cond (Nx thenStm) (Nx elseStm) = do
@@ -151,9 +157,8 @@ ifElseExp cond thenExp elseExp = do
     ]) (IR.Temp r)
 
 
-ifNoElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Eff xs Exp
+ifNoElseExp :: (Lookup xs "label" UniqueEff) => Exp -> Exp -> Eff xs Exp
 ifNoElseExp cond (Nx thenStm) = do
-  r <- newTemp
   t <- newLabel
   z <- newLabel
   pure . Nx $ IR.seqStm [
@@ -162,6 +167,7 @@ ifNoElseExp cond (Nx thenStm) = do
     , thenStm
     , IR.Label z
     ]
+ifNoElseExp _ _ = undefined
 
 recordCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => [Exp] -> Eff xs Exp
 recordCreationExp es = do
@@ -181,13 +187,14 @@ arrayCreationExp (Ex size) (Ex init) = do
   r <- newTemp
   allocateArrayStm <- IR.Move (IR.Temp r) <$> F.externalCall @f "initArray" [size, init]
   pure . Ex $ IR.ESeq allocateArrayStm (IR.Temp r)
+arrayCreationExp _ _ = undefined
 
 whileLoopExp :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Exp -> Exp -> Eff xs Exp
 whileLoopExp cond (Nx bodyStm) = do
   test <- newLabel
   body <- newLabel
   fetchCurrentBreakPoint >>= \case
-    -- Nothing -> pure Nothing
+    Nothing -> undefined
     Just done -> pure . Nx $ IR.seqStm [
         IR.Label test
       , unCx cond body done
@@ -196,6 +203,7 @@ whileLoopExp cond (Nx bodyStm) = do
       , IR.Jump (IR.Name test) [test]
       , IR.Label done
       ]
+whileLoopExp _ _ = undefined
 
 forLoopExp :: (
     F.Frame f
@@ -212,6 +220,7 @@ forLoopExp access from@(Ex _) (Ex to) (Nx bodyStm) = do
   loop <- newLabel
   body <- newLabel
   fetchCurrentBreakPoint >>= \case
+    Nothing -> undefined
     Just done -> pure . Nx $ IR.seqStm [
         indexInit
       , IR.Move ul to
@@ -223,6 +232,7 @@ forLoopExp access from@(Ex _) (Ex to) (Nx bodyStm) = do
       , IR.Jump (IR.Name loop) [loop]
       , IR.Label done
       ]
+forLoopExp _ _ _ _ = undefined
 
 
 breakExp :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Exp)
@@ -237,6 +247,7 @@ funApplyExp label parent exps = do
 
 assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Exp -> Eff xs Exp
 assignExp (Ex var) exp = Nx . IR.Move var <$> unEx exp
+assignExp _ _ = undefined
 
 varInitExp :: (F.Frame f, Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
 varInitExp access e = flip assignExp e =<< valueIdExp access
@@ -251,14 +262,16 @@ seqExp es = case List.splitAt (length es - 1) es of
       _ -> Ex . IR.ESeq (IR.seqStm stms) <$> unEx e
   _ -> undefined
 
-funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => Exp -> Eff xs ()
+funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "fragment" (FragmentEff f)) => Exp -> Eff xs ()
 funDecExp exp = fetchCurrentLevelEff >>= \case
+  TopLevel -> undefined
   level@(Level r) -> do
     let stm = F.viewShift (r ^. #frame) $ addStoreRV exp
     saveProcEntry level stm
   where
     addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e
     addStoreRV (Nx s) = s
+    addStoreRV (Cx _) = undefined
 
 letExp :: [Exp] -> Exp -> Exp
 letExp [] exp = exp

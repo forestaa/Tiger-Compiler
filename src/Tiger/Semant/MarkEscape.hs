@@ -53,10 +53,12 @@ traverseExp (L loc (T.Let (d:ds) body)) = do
         (escs, lets) <- validateVarUsage [unLId id] $ traverseExp (L loc (T.Let ds body))
         case lets of
           L _ (T.Let decs' body') -> pure . L loc $ T.Let (L loc' (T.VarDec id (b || List.head escs) t init) : decs') body'
+          _ -> undefined
       d' -> do
         lets <- traverseExp (L loc (T.Let ds body))
         case lets of
           L _  (T.Let decs' body') -> pure . L loc $ T.Let (d' : decs') body'
+          _ -> undefined
 traverseExp le = pure le
 
 traverseValue :: T.LValue -> Eff EscapeEff T.LValue

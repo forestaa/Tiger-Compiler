@@ -66,6 +66,7 @@ mkSyntaxToFSyntaxName = mkNameWith $ \s -> fmap toLower s ++ "To" ++ wrappedName
 renameCon :: Con -> Con
 renameCon (NormalC con args) = NormalC (reMkName con) (renameBangType <$> args)
 renameCon (RecC con args) = RecC (reMkName con) (renameVarBangType <$> args)
+renameCon _ = undefined
 
 renameBangType :: BangType -> BangType
 renameBangType (bang, t) = (bang, renameType t)
@@ -78,6 +79,7 @@ renameType t@(ConT syntax)
   | syntax == ''Int || syntax == ''String || syntax == ''Bool = t
   | otherwise = ConT $ mkFSyntaxName syntax
 renameType (AppT f t) = AppT f $ renameType t
+renameType _ = undefined
 
 mkFData' :: Name -> [Con] -> Dec
 mkFData' fsyntax' cons = DataD [] fsyntax' [] Nothing cons [DerivClause Nothing [ConT ''Show, ConT ''Eq]]
@@ -99,7 +101,7 @@ mkUnF syntax fcon cons = do
       sig = mkUnFSig unF fsyntax syntax
   unFFun <- mkUnFFun unF fcon cons
   pure (unFFun, sig)
-    
+
 mkUnFSig :: Name -> Name -> Name -> Dec
 mkUnFSig unF fsyntax syntax = SigD unF (AppT (AppT ArrowT (ConT fsyntax)) (ConT syntax))
 
@@ -111,6 +113,7 @@ mkUnFPat p (NormalC con args) = ConP con (mkUnFPatArg . snd <$> args)
   where
     mkUnFPatArg (VarT _) = p
     mkUnFPatArg _ = WildP
+mkUnFPat _ _ = undefined
 
 mkUnFFun :: Name -> Con -> [Con] -> Q Dec
 mkUnFFun unF fcon syncons = funD unF (mkUnFClause fcon <$> syncons)
@@ -140,7 +143,7 @@ mkUnFPatExpUnit (ConT con)
     x <- newName "x"
     let unF = mkUnFName con
     pure (VarP x, AppE (VarE unF) (VarE x))
-mkUnFPatExpUnit (AppT f (ConT con)) = do
+mkUnFPatExpUnit (AppT _ (ConT con)) = do
   x <- newName "x"
   let unF = mkUnFName con
   pure (VarP x, AppE (AppE (VarE 'fmap) (VarE unF)) (VarE x))
@@ -176,6 +179,7 @@ mkSyntaxToFSyntaxPatExp wrapF (RecC con args) = do
   pure (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
   where
     thd (_,_,z) = z
+mkSyntaxToFSyntaxPatExp _ _ = undefined
 
 mkSyntaxToFSyntaxPatExpUnit :: Type -> Q (Pat, Exp)
 mkSyntaxToFSyntaxPatExpUnit (ConT con)
@@ -186,7 +190,8 @@ mkSyntaxToFSyntaxPatExpUnit (ConT con)
     let syntaxToFSyntax = mkSyntaxToFSyntaxName con
     x <- newName "x"
     pure (VarP x, AppE (VarE syntaxToFSyntax) (VarE x))
-mkSyntaxToFSyntaxPatExpUnit (AppT f (ConT con)) = do
+mkSyntaxToFSyntaxPatExpUnit (AppT _ (ConT con)) = do
   let syntaxToFSyntax = mkSyntaxToFSyntaxName con
   x <- newName "x"
   pure (VarP x, AppE (AppE (VarE 'fmap) (VarE syntaxToFSyntax)) (VarE x))
+mkSyntaxToFSyntaxPatExpUnit _ = undefined

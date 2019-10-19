@@ -354,8 +354,11 @@ groupByDecType :: [T.LDec] -> [Decs]
 groupByDecType = foldr go []
   where
     convertFunDec (L loc (T.FunDec id args rettype body)) = L loc . FunDec $ #id @= id <: #args @= args <: #rettype @= rettype <: #body @= body <: nil
+    convertFunDec _ = undefined
     convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
+    convertVarDec _ = undefined
     convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
+    convertTypeDec _ = undefined
 
     go d@(L _ T.FunDec{}) [] = [FunDecs [convertFunDec d]]
     go d@(L _ T.FunDec{}) (FunDecs ds : acc) = FunDecs (convertFunDec d : ds) : acc
@@ -412,6 +415,7 @@ translateDecsList = fmap mconcat . traverse translateDecs
 
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
     translateFunDec (L loc (FunDec dec)) = lookupVarIdEff (dec ^. #id) >>= \case
+      Var _ -> undefined
       Fun f -> withNewLevelEff (f ^. #label) escapes $ do
         insertFormals $ dec ^. #args
         (bodyExp, bodyTy) <- translateExp $ dec ^. #body

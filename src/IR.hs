@@ -47,5 +47,6 @@ data RelOp = Eq
   deriving (Eq, Show)
 
 seqStm :: [Stm] -> Stm
+seqStm [] = undefined
 seqStm [s] = s
 seqStm (s:ss) = Seq s $ IR.seqStm ss
