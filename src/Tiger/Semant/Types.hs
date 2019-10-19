@@ -11,7 +11,7 @@ data Type = TUnit
           | TInt
           | TString
           | TNil
-          | TRecord (Record '["map" :> Map.Map Id Type, "id" :> Unique])
+          | TRecord (Record '["map" :> [(Id, Type)], "id" :> Unique])
           | TArray (Record '["range" :> Type, "id" :> Unique])
           | TName LId
           deriving (Show)

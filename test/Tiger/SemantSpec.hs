@@ -2,6 +2,7 @@ module Tiger.SemantSpec (spec) where
 
 import           Data.Extensible
 import           RIO
+import qualified RIO.List as List
 import qualified RIO.List.Partial as Partial
 import qualified RIO.Map as Map
 import           Test.Hspec
@@ -169,7 +170,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
           translateExp ast
     case result of
@@ -182,7 +183,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "y")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
           translateExp ast
     case result of
@@ -195,7 +196,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "record")
           insertType "record" recordTy
           _ <- allocateLocalVariable "object" True nameTy
@@ -219,7 +220,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
           _ <- allocateLocalVariable "object" True recordTy
           translateExp ast
     case result of
@@ -261,7 +262,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TString <: #id @= id1 <: nil
-              recordTy = TRecord $ #map @= Map.fromList [("y", arrayTy)] <: #id @= id2 <: nil
+              recordTy = TRecord $ #map @= [("y", arrayTy)] <: #id @= id2 <: nil
           _ <- allocateLocalVariable "x" True recordTy
           translateExp ast
     case result of
@@ -363,7 +364,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           _ <- allocateLocalVariable "x" True recordTy
           translateExp ast
     case result of
@@ -409,7 +410,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id1 <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id1 <: nil
               arrayTy = TArray  $ #range @= TInt <: #id @= id2 <: nil
           _ <- allocateLocalVariable "x" True recordTy
           _ <- allocateLocalVariable "y" True arrayTy
@@ -614,7 +615,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -625,14 +626,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp _))) = True
           expP _ = False
-          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP (TRecord r) = r ^. #map == []
           tyP _ = False
 
   it "type record = {x: int}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -643,14 +644,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1))) (IR.Temp _))) = n == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == Map.fromList [("x", TInt)]
+          tyP (TRecord r) = r ^. #map == [("x", TInt)]
           tyP _ = False
 
   it "type record = {x: int, y: string}; record {x = 1, y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1), T.FieldAssign "y" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -661,7 +662,25 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const i))) (IR.Name _)))) (IR.Temp _))) = n == 2 * F.wordSize @FrameMock && i == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == Map.fromList [("x", TInt), ("y", TString)]
+          tyP (TRecord r) = r ^. #map == [("x", TInt), ("y", TString)]
+          tyP _ = False
+
+  it "type record = {y: int, x: string}; record {y = 1, x = 'hoge'}" $ do
+    let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.Int 1), T.FieldAssign "x" (T.String "hoge")]
+        result = runEff $ do
+          id <- getUniqueEff #id
+          let recordTy = TRecord $ #map @= [("y", TInt), ("x", TString)] <: #id @= id <: nil
+          insertType "record" recordTy
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const i))) (IR.Name _)))) (IR.Temp _))) = n == 2 * F.wordSize @FrameMock && i == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == [("y", TInt), ("x", TString)]
           tyP _ = False
 
   it "type record1 = {}; type record2 = {x: record1};  record2 {x: nil}" $ do
@@ -669,8 +688,8 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let record1Ty = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
-              record2Ty = TRecord $ #map @= Map.fromList [("x", record1Ty)] <: #id @= id2 <: nil
+          let record1Ty = TRecord $ #map @= [] <: #id @= id1 <: nil
+              record2Ty = TRecord $ #map @= [("x", record1Ty)] <: #id @= id2 <: nil
           insertType "record1" record1Ty
           insertType "record2" record2Ty
           translateExp ast
@@ -682,7 +701,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 0))) (IR.Temp _))) = n == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = case  (r ^. #map) Map.!? "x" of
+          tyP (TRecord r) = case List.lookup "x" (r ^. #map) of
             Just (TRecord _) -> True
             _ -> False
           tyP _ = False
@@ -691,7 +710,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -702,7 +721,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -713,7 +732,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -724,7 +743,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -766,7 +785,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id1 <: nil
+          let recordTy = TRecord $ #map @= [] <: #id @= id1 <: nil
               arrayTy = TArray $ #range @= recordTy <: #id @= id2 <: nil
           insertType "record" recordTy
           insertType "array" arrayTy
@@ -990,7 +1009,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Nil]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= Map.fromList [] <: #id @= id <: nil
+          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
           insertType "record" recordTy
           label <- newLabel
           parent <- fetchCurrentLevelEff
@@ -1304,8 +1323,26 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp r'))) = r == r'
           expP _ = False
-          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP (TRecord r) = r ^. #map == []
           tyP _ = False
+
+  it "let type record = {y: int, x: string} in record {y: 0, x: 'hoge'}" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "record" (T.RecordType [T.Field "y" False "int", T.Field "x" False "string"])] (T.RecordCreate "record" [T.FieldAssign "y" (T.Int 0), T.FieldAssign "x" (T.String "hoge")])
+        result = runEff $ do
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        fragments `shouldSatisfy` fragmentsP
+        where
+          expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r') (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r'') (IR.Const n'))) (IR.Name _)))) (IR.Temp r'''))) = r == r' && r == r'' && r == r''' && n == 2 * F.wordSize @FrameMock && n' == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = r ^. #map == [("y", TInt), ("x", TString)]
+          tyP _ = False
+          fragmentsP [F.String _ s] = s == "hoge"
+          fragmentsP _ = False
 
   it "let function f(x: int): int = x in f(1)" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Var (T.Id "x"))] (T.FunApply "f" [T.Int 1])
@@ -1393,7 +1430,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == Map.fromList []
+          tyP (TRecord r) = r ^. #map == []
           tyP _ = False
           bodyP [F.Proc r] = case r ^. #body of
             IR.Move (IR.Temp rv) (IR.Const 0) -> rv == F.rv @FrameMock
@@ -1513,7 +1550,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
           expP _ = False
-          tyP (TRecord r) = case Map.toList $ r ^. #map of
+          tyP (TRecord r) = case r ^. #map of
             [("a", TName b)] -> b == dummyRealLocated "b"
             _ -> False
           tyP _ = False

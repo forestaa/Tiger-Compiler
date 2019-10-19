@@ -4,10 +4,10 @@ import           Control.Monad.Except
 import           Control.Lens ((.~))
 import           Data.Extensible
 import           Data.Extensible.Effect.Default
+import           Data.Foldable
 import           Data.Graph
 import           RIO
 import qualified RIO.List as List
-import qualified RIO.Map as Map
 import qualified RIO.Partial as Partial
 import qualified RIO.Set as Set
 
@@ -191,9 +191,9 @@ translateValue (L loc (T.Id lid)) = do
 translateValue (L loc (T.RecField lv (L _ field))) = do
   (varExp, ty) <- traverse skipName =<< translateValue lv
   case ty of
-    TRecord r -> case Map.lookup field (r ^. #map) of
+    TRecord r -> case List.lookup field (r ^. #map) of
       Just ty -> do
-        let i = Partial.fromJust $ Map.lookupIndex field (r ^. #map)
+        let i = Partial.fromJust $ List.findIndex (\(id, _) -> id == field) (r ^. #map)
         pure . (, ty) $ valueRecFieldExp @f varExp i
       Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
     _ -> throwEff #translateError . L loc $ ExpectedRecordType lv ty
@@ -253,9 +253,8 @@ translateRecordCreation (L loc (typeid, fields)) = do
   ty <- lookupTypeIdEff typeid
   case ty of
     TRecord r -> do
-      let m = Map.toList $ r ^. #map
       (fieldsty, fieldExps) <- unzip3' <$> mapM translateFieldAssign fields
-      typecheck ty m fieldsty
+      typecheck ty (r ^. #map) fieldsty
       (, ty) <$> recordCreationExp @f fieldExps
     _ -> throwEff #translateError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
@@ -484,7 +483,7 @@ typingType :: (
   ) => T.LType -> Eff xs Type
 typingType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
 typingType (L _ (T.RecordType fields)) = do
-  fieldmap <- foldM (\e field -> (\(id, ty) -> Map.insert id ty e) <$> typingField field) Map.empty fields
+  fieldmap <- foldrM (\field e -> (\(id, ty) -> (:) (id, ty) e) <$> typingField field) [] fields
   id <- getUniqueEff #id
   pure . TRecord $ #map @= fieldmap <: #id @= id <: nil
 typingType (L _ (T.ArrayType typeid)) = do
