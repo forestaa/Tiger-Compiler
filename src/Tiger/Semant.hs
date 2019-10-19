@@ -29,20 +29,25 @@ import           Tiger.Semant.Types
 
 initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
-initVEnv :: VEnv f
-initVEnv = E.fromList []
--- initVEnv = E.fromList [
---     ("print", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TUnit <: nil)
---   , ("flush", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [] <: #codomain @= TUnit <: nil)
---   , ("getchar", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [] <: #codomain @= TString <: nil)
---   , ("ord", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TInt <: nil)
---   , ("chr", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TString <: nil)
---   , ("size", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString] <: #codomain @= TInt <: nil)
---   , ("substring", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString, TInt, TInt] <: #codomain @= TString <: nil)
---   , ("concat", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TString, TString] <: #codomain @= TString <: nil)
---   , ("not", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TInt <: nil)
---   , ("exit", Fun $ #label @= undefined <: #level @= TopLevel <: #parent @= undefined <: #domains @= [TInt] <: #codomain @= TUnit <: nil)
---   ]
+insertInitVEnv :: forall xs f. (Lookup xs "varEnv" (State (VEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
+insertInitVEnv = mapM_ insertFun initVEnv
+  where
+    insertFun :: (Id, [Type], Type) -> Eff xs ()
+    insertFun (name, domains, codomain) = do
+      label <- namedLabel name
+      insertVar name . Fun $ #label @= label <: #parent @= TopLevel <: #domains @= domains <: #codomain @= codomain <: nil
+    initVEnv = [
+        ("print", [TString], TUnit)
+      , ("flush", [], TUnit)
+      , ("getchar", [], TString)
+      , ("ord", [TString], TInt)
+      , ("chr", [TInt], TString)
+      , ("size", [TString], TInt)
+      , ("substring", [TString, TInt, TInt], TString)
+      , ("concat", [TString, TString], TString)
+      , ("not", [TInt], TInt)
+      , ("exit", [TInt], TUnit)
+      ]
 
 data TranslateError =
   -- typing
@@ -110,7 +115,7 @@ runTranslateEff :: forall f xs a.
       ': ("translateError" >: EitherEff (RealLocated TranslateError))
       ': xs) a
   -> Eff xs (Either (RealLocated TranslateError) (a, [F.ProgramFragment f]))
-runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv initVEnv
+runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
 
 runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel

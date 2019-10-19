@@ -22,10 +22,10 @@ type VEnv f = E.Env (Var f)
 type HasEnv xs f = (Lookup xs "varEnv" (State (VEnv f)), Lookup xs "typeEnv" (State TEnv))
 evalTEnvEff :: TEnv -> Eff (("typeEnv" >: State TEnv) ': xs) a -> Eff xs a
 evalTEnvEff = flip (evalStateEff @"typeEnv")
-evalVEnvEff :: VEnv f -> Eff (("varEnv" >: State (VEnv f)) ': xs) a -> Eff xs a
-evalVEnvEff = flip (evalStateEff @"varEnv")
-evalEnvEff :: TEnv -> VEnv f -> Eff (("typeEnv" >: State TEnv) ': ("varEnv" >: State (VEnv f)) ': xs) a -> Eff xs a
-evalEnvEff typeEnv varEnv = evalVEnvEff varEnv . evalTEnvEff typeEnv
+evalVEnvEff :: Eff (("varEnv" >: State (VEnv f)) ': xs) a -> Eff xs a
+evalVEnvEff = flip (evalStateEff @"varEnv") (E.fromList [])
+evalEnvEff :: TEnv -> Eff (("typeEnv" >: State TEnv) ': ("varEnv" >: State (VEnv f)) ': xs) a -> Eff xs a
+evalEnvEff typeEnv = evalVEnvEff . evalTEnvEff typeEnv
 
 lookupTypeId :: Lookup xs "typeEnv" (State TEnv) => Id -> Eff xs (Maybe Type)
 lookupTypeId id = getsEff #typeEnv $ E.lookup id
