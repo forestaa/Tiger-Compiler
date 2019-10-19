@@ -15,6 +15,7 @@ import           TestUtils
 import           Tiger.Parser
 import           Tiger.Semant
 import           Tiger.Semant.Exp
+import           Tiger.Semant.MarkEscape
 import           Tiger.Semant.Types
 
 
@@ -140,7 +141,7 @@ translateTest file = do
   e <- liftEither . mapLeft ParseError $ runP parser file bs
   liftEither . mapLeft (TranslateError . unLoc) . leaveEff . runTranslateEffWithNewLevel $ do
     insertInitVEnv
-    translateExp e
+    translateExp $ markEscape e
 
 runErrorTranslateTest :: FilePath -> (TranslateError -> IO ()) -> IO ()
 runErrorTranslateTest file assert =
