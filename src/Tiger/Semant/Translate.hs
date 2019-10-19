@@ -39,7 +39,7 @@ nilExp :: Exp
 nilExp = Ex $ IR.Const 0
 
 unitExp :: Exp
-unitExp = Ex $ IR.Const 0
+unitExp = Nx $ IR.Exp (IR.Const 0)
 
 valueIdExp :: (
     F.Frame f

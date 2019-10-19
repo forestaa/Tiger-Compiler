@@ -1173,6 +1173,14 @@ translateSeqSpec = describe "translate seq test" $ do
           expP (Nx (IR.Seq (IR.Exp (IR.Const 1)) (IR.Move (IR.Temp _) (IR.Const 2)))) = True
           expP _ = False
 
+  it "(1, ())" $ do
+    let ast = T.expToLExp $ T.Seq [T.Int 1, T.Seq []]
+        result = runEff $ translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldBe` Nx (IR.Seq (IR.Exp (IR.Const 1)) (IR.Exp (IR.Const 0)))
+        ty `shouldBe` TUnit
 
 translateLetSpec :: Spec
 translateLetSpec = describe "translate let test" $ do
@@ -1194,7 +1202,7 @@ translateLetSpec = describe "translate let test" $ do
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), fragments) -> do
-        exp `shouldBe` Ex (IR.Const 0)
+        exp `shouldBe` Nx (IR.Exp (IR.Const 0))
         ty `shouldBe` TUnit
         fragments `shouldBe` []
 
