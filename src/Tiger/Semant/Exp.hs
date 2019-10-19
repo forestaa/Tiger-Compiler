@@ -17,7 +17,9 @@ instance Eq Exp where
 instance Show Exp where
   show (Ex e) = "Ex: " ++ show e
   show (Nx s) = "Nx: " ++ show s
-  show (Cx _) = "Cx"
+  show (Cx genstm) = "Cx: λt. λf -> " ++ show (genstm true false)
+    where
+      (true, false) = leaveEff . runUniqueEff @"label" $ (,) <$> namedLabel "t" <*> namedLabel "f"
 
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
