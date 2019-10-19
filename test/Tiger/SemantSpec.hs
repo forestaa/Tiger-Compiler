@@ -1577,6 +1577,23 @@ translateLetSpec = describe "translate let test" $ do
             _ -> False
           tyP _ = False
 
+  it "let type intlist = {hd: int, tl: intlist}; var list:intlist := intlist {hd: 0, tl: nil} in list" $ do
+    let ast = T.expToLExp $ T.Let [T.TypeDec "intlist" (T.RecordType [T.Field "hd" False "int", T.Field "tl" False "intlist"]), T.VarDec "list" False (Just "intlist") (T.RecordCreate "intlist" [T.FieldAssign "hd" (T.Int 0), T.FieldAssign "tl" T.Nil])] (T.Var (T.Id "list"))
+        result = runEff $ do
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), _) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldSatisfy` tyP
+        where
+          expP (Ex (IR.ESeq (IR.Move (IR.Temp x) (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r') (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r'') (IR.Const n'))) (IR.Const 0)))) (IR.Temp r'''))) (IR.Temp x'))) = x == x' && r == r' && r == r'' && r == r''' && n == 2 * F.wordSize @FrameMock && n' == F.wordSize @FrameMock
+          expP _ = False
+          tyP (TRecord r) = case r ^. #map of
+            [("hd", TInt), ("tl", TName intlist)] -> intlist == dummyRealLocated "intlist"
+            _ -> False
+          tyP _ = False
+
   it "let var x: myint := 0 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "myint") (T.Int 0)] (T.Var (T.Id "x"))
         result = runEff $ do

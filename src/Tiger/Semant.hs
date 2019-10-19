@@ -262,6 +262,12 @@ translateRecordCreation (L loc (typeid, fields)) = do
     typecheck _ [] [] = pure ()
     typecheck ty ((id1, _):_) [] = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
     typecheck ty [] ((id2, _):_) = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+    typecheck ty ((id1, TName lid):as) bs = do
+      ty1 <- lookupSkipName lid
+      typecheck ty ((id1, ty1):as) bs
+    typecheck ty as ((id2, TName lid):bs) = do
+      ty2 <- lookupSkipName lid
+      typecheck ty as ((id2, ty2):bs)
     typecheck ty ((id1, ty1):as) ((id2, ty2):bs)
       | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
       | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
