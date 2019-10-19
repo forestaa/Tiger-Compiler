@@ -1035,6 +1035,28 @@ translateFunApplySpec = describe "translate fun application test" $ do
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
 
+  it "f: () -> (); f(0)" $ do
+    let ast = T.expToLExp $ T.FunApply "f" [T.Int 0]
+        result = runEff $ do
+          label <- newLabel
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
+          translateExp ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+
+  it "f: int -> (); f()" $ do
+    let ast = T.expToLExp $ T.FunApply "f" []
+        result = runEff $ do
+          label <- newLabel
+          parent <- fetchCurrentLevelEff
+          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          translateExp ast
+    case result of
+      Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+
   it "var f := (); f()" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
         result = runEff $ do

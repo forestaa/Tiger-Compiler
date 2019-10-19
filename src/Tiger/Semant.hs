@@ -316,7 +316,7 @@ translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
   Fun r -> do
     (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
     domains <- mapM skipName $ r ^. #domains
-    if domains <= argsty
+    if length domains == length argsty && domains <= argsty
       then do
         exp <- funApplyExp (r ^. #label) (r ^. #parent) exps
         (exp, ) <$> skipName (r ^. #codomain)
