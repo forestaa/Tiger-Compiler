@@ -2,7 +2,6 @@ module Tiger.Semant.Types where
 
 import           Data.Extensible
 import           RIO
-import qualified RIO.Map as Map
 
 import           Id
 import           Unique
