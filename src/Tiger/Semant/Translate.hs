@@ -264,6 +264,7 @@ letExp :: [Exp] -> Exp -> Exp
 letExp [] exp = exp
 letExp decs (Ex e) = Ex $ IR.ESeq (IR.seqStm $ fmap (\(Nx s) -> s) decs) e
 letExp decs (Nx s) = Nx $ IR.seqStm (((\(Nx s) -> s) <$> decs) ++ [s])
+letExp decs (Cx genstm) = Cx $ \t f -> IR.seqStm (((\(Nx s) -> s) <$> decs) ++ [genstm t f])
 -- data VarEntry f = Var (Access f)
 
 -- type VEnv f = E.Env (VarEntry f)

@@ -1157,6 +1157,24 @@ translateLetSpec = describe "translate let test" $ do
         ty `shouldBe` TUnit
         fragments `shouldBe` []
 
+  it "let in 1 == 2" $ do
+    let ast = T.expToLExp $ T.Let [] (T.Op (T.Int 1) T.Eq (T.Int 2))
+        result = runEff $ do
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Cx genstm) =
+            let (true, false) = fetchTwoLabel in
+            case genstm true false of
+              IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false' -> true == true' && false == false'
+              _ -> False
+          expP _ = False
+
   it "let var x: int := 0 in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Int 0)] (T.Var (T.Id "x"))
         result = runEff $ do
@@ -1197,6 +1215,24 @@ translateLetSpec = describe "translate let test" $ do
         fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
+          expP _ = False
+
+  it "let var x := 0 in 1 == 2" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Int 0)] (T.Op (T.Int 1) T.Eq (T.Int 2))
+        result = runEff $ do
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure $ show e
+      Right ((exp, ty), fragments) -> do
+        exp `shouldSatisfy` expP
+        ty `shouldBe` TInt
+        fragments `shouldBe` []
+        where
+          expP (Cx genstm) =
+            let (true, false) = fetchTwoLabel in
+            case genstm true false of
+              IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false') -> true == true' && false == false'
+              _ -> False
           expP _ = False
 
   it "let var x: int := 0 in x := 1" $ do
