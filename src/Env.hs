@@ -7,6 +7,7 @@ module Env (
   beginScope,
   endScope,
   withEnvScope,
+  fromList,
 ) where
 
 import RIO hiding (lookup)
@@ -32,6 +33,7 @@ insert id a (Env env) = Env $ env & #stack %~ (:) (Push id) & #env %~ Map.alter 
 
 lookup :: Id -> Env a -> Maybe a
 lookup id (Env env) = case (env ^. #env) Map.!? id of
+  Just [] -> undefined
   Just (a:_) -> pure a
   Nothing -> Nothing
 
@@ -43,9 +45,11 @@ beginScope (Env env) = Env $ env & #stack %~ (:) Begin
 
 endScope :: Env a -> Env a
 endScope (Env env) = case env ^. #stack of
-  (Push id):rest -> endScope . Env $ env & #stack .~ rest & #env %~ Map.update pop id
+  [] -> undefined
+  Push id:rest -> endScope . Env $ env & #stack .~ rest & #env %~ Map.update pop id
   Begin:rest -> Env $ env & #stack .~ rest
   where
+    pop [] = undefined
     pop [_] = Nothing
     pop (_:as) = Just as
 
@@ -55,3 +59,6 @@ withEnvScope k t = do
   a <- t
   modifyEff k endScope
   pure a
+
+fromList :: [(Id, a)] -> Env a
+fromList = foldr (uncurry insert) empty

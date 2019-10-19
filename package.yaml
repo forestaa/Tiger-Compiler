@@ -9,6 +9,7 @@ copyright:           "2017 Daichi Morita"
 extra-source-files:
 - README.md
 - ChangeLog.md
+- package.yaml
 
 # Metadata used when publishing your package
 synopsis:            Short description of your package
@@ -19,20 +20,32 @@ synopsis:            Short description of your package
 # common to point users to the README.md file.
 description:         Please see the README on Github at <https://github.com/forestaa/Tiger-Compiler#readme>
 
+
+custom-setup:
+  dependencies:
+    - base
+    - Cabal
+    - hpack
+
 dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - containers
+- extensible
 - lens
 - mtl
 - monad-skeleton
 - rio
 
 default-extensions:
+- AllowAmbiguousTypes
+- ConstraintKinds
 - DataKinds
+- GADTs
 - GeneralizedNewtypeDeriving
 - FlexibleContexts
 - FlexibleInstances
+- LambdaCase
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds
@@ -41,6 +54,7 @@ default-extensions:
 - TupleSections
 - TypeApplications
 - TypeFamilies
+- TypeFamilyDependencies
 - TypeOperators
 
 library:
@@ -50,7 +64,6 @@ library:
   - happy
   dependencies:
   - array
-  - extensible
   - template-haskell
   ghc-options:
   - -Wall
