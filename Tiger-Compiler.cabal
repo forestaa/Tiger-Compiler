@@ -1,10 +1,10 @@
 cabal-version: 1.24
 
--- This file has been generated from package.yaml by hpack version 0.32.0.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: be8ebc97118727d83dd6bbfba23ab4d80abb163ab779dbeb8feef0e3e974e134
+-- hash: 86eac0d698fe3a7bfee31405f697064285b3d0f07dbb6fb25ed3777807c48884
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -135,6 +135,7 @@ test-suite compiler-test
       Tiger.ParserSpec
       Tiger.Semant.LevelSpec
       Tiger.Semant.MarkEscapeSpec
+      Tiger.Semant.TypeCheckSpec
       Tiger.SemantSpec
       Paths_Tiger_Compiler
   default-language: Haskell2010
