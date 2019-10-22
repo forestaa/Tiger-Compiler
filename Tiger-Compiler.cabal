@@ -1,10 +1,10 @@
 cabal-version: 1.24
 
--- This file has been generated from package.yaml by hpack version 0.32.0.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 58c703cd7285ac255b1ded9e647379ef6cad6d7105bfcbabb7d845055f7f1107
+-- hash: 8fd0d2b444d1d60e8755313c6f8df3572554f3cb7d7de76bd2d3bb6353e41f43
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -36,7 +36,7 @@ custom-setup
 library
   hs-source-dirs:
       src
-  default-extensions: AllowAmbiguousTypes ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
+  default-extensions: AllowAmbiguousTypes BlockArguments ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
   build-depends:
       array
@@ -49,6 +49,7 @@ library
     , mtl
     , rio
     , template-haskell
+    , transformers
   build-tools:
       alex
     , happy
@@ -75,6 +76,7 @@ library
       Tiger.Semant.Level
       Tiger.Semant.MarkEscape
       Tiger.Semant.Translate
+      Tiger.Semant.TypeCheck
       Tiger.Semant.Types
       Tiger.Syntax
       Unique
@@ -86,7 +88,7 @@ executable compiler-exe
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: AllowAmbiguousTypes ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
+  default-extensions: AllowAmbiguousTypes BlockArguments ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -98,6 +100,7 @@ executable compiler-exe
     , monad-skeleton
     , mtl
     , rio
+    , transformers
   other-modules:
       Paths_Tiger_Compiler
   default-language: Haskell2010
@@ -107,7 +110,7 @@ test-suite compiler-test
   main-is: Spec.hs
   hs-source-dirs:
       test
-  default-extensions: AllowAmbiguousTypes ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
+  default-extensions: AllowAmbiguousTypes BlockArguments ConstraintKinds DataKinds GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Tiger-Compiler
@@ -120,6 +123,7 @@ test-suite compiler-test
     , monad-skeleton
     , mtl
     , rio
+    , transformers
   other-modules:
       FrameMock
       Linear.EvalSpec
@@ -131,6 +135,7 @@ test-suite compiler-test
       Tiger.ParserSpec
       Tiger.Semant.LevelSpec
       Tiger.Semant.MarkEscapeSpec
+      Tiger.Semant.TypeCheckSpec
       Tiger.SemantSpec
       Paths_Tiger_Compiler
   default-language: Haskell2010
