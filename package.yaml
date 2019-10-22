@@ -36,6 +36,7 @@ dependencies:
 - mtl
 - monad-skeleton
 - rio
+- transformers
 
 default-extensions:
 - AllowAmbiguousTypes

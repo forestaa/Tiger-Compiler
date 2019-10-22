@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 58c703cd7285ac255b1ded9e647379ef6cad6d7105bfcbabb7d845055f7f1107
+-- hash: be8ebc97118727d83dd6bbfba23ab4d80abb163ab779dbeb8feef0e3e974e134
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -49,6 +49,7 @@ library
     , mtl
     , rio
     , template-haskell
+    , transformers
   build-tools:
       alex
     , happy
@@ -75,6 +76,7 @@ library
       Tiger.Semant.Level
       Tiger.Semant.MarkEscape
       Tiger.Semant.Translate
+      Tiger.Semant.TypeCheck
       Tiger.Semant.Types
       Tiger.Syntax
       Unique
@@ -98,6 +100,7 @@ executable compiler-exe
     , monad-skeleton
     , mtl
     , rio
+    , transformers
   other-modules:
       Paths_Tiger_Compiler
   default-language: Haskell2010
@@ -120,6 +123,7 @@ test-suite compiler-test
     , monad-skeleton
     , mtl
     , rio
+    , transformers
   other-modules:
       FrameMock
       Linear.EvalSpec
