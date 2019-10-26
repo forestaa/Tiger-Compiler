@@ -4,7 +4,6 @@ import           Data.Extensible
 import           RIO
 import qualified RIO.List as List
 import qualified RIO.List.Partial as Partial
-import qualified RIO.Map as Map
 import           Test.Hspec
 
 import qualified Frame as F
@@ -20,6 +19,7 @@ import           Tiger.Semant.Env
 import           Tiger.Semant.Exp
 import           Tiger.Semant.Level
 import           Tiger.Semant.Translate
+import           Tiger.Semant.TypeCheck
 import           Tiger.Semant.Types
 import qualified Tiger.LSyntax as T (expToLExp)
 import qualified Tiger.Syntax as T

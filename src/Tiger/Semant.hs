@@ -1,7 +1,6 @@
 module Tiger.Semant where
 
 import           Control.Monad.Except
-import           Control.Lens ((.~))
 import           Data.Extensible
 import           Data.Extensible.Effect.Default
 import           Data.Foldable
@@ -23,6 +22,7 @@ import           Tiger.Semant.Env
 import           Tiger.Semant.Exp
 import           Tiger.Semant.Level
 import           Tiger.Semant.Translate
+import           Tiger.Semant.TypeCheck
 import           Tiger.Semant.Types
 
 
@@ -49,58 +49,6 @@ insertInitVEnv = mapM_ insertFun initVEnv
       , ("exit", [TInt], TUnit)
       ]
 
-data TranslateError =
-  -- typing
-    VariableUndefined Id
-  | VariableMismatchedWithDeclaredType Id Type Type
-  | UnknownType Id
-  | ExpectedType T.LExp Type Type
-  | ExpectedTypes [T.LExp] [Type] [Type]
-  | ExpectedUnitType T.LExp Type
-  | ExpectedIntType T.LExp Type
-  | ExpectedRecordType T.LValue Type
-  | ExpectedArrayType T.LValue Type
-  | ExpectedVariable Id
-  | ExpectedExpression T.LExp
-  | ExpectedFunction Id
-  | ExpectedTypeForRecordField T.LExp Id Type Type
-  | MissingRecordField T.LValue Type Id
-  | MissingRecordFieldInConstruction T.LExp Type Id
-  | ExtraRecordFieldInConstruction T.LExp Type Id
-  | InvalidRecTypeDeclaration [RealLocated TypeDec]
-  | MultiDeclaredName [LId]
-  | NotDeterminedNilType
-
-  -- translate
-  | BreakOutsideLoop
-
-  | NotImplemented String
-instance Show TranslateError where
-  show (VariableUndefined id) = "undefined variable: " ++ show id
-  show (VariableMismatchedWithDeclaredType id ty ty') = concat ["Couldn't match type: expression doesn't match with declared type: id = ", show id, ", declared type: ", show ty, ", actual type: ", show ty']
-  show (UnknownType id) = "undefined type: " ++ show id
-  show (ExpectedType (L _ e) ty ty') = concat ["Couldn't mach type: ", show ty, " type expected: exp = ", show e, ", actual type = ", show ty']
-  show (ExpectedTypes es types types') = concat [
-    "Couldn't match types: ", show types, " exptected: exps = ", show es, ", actual types = ", show types']
-  show (ExpectedUnitType (L _ e) ty) = concat ["Couldn't match type: unit type expected: exp = ", show e, ", actual type: ", show ty]
-  show (ExpectedIntType (L _ e) ty) = concat ["Couldn't match type: int type expected: exp = ", show e, ", actual type: ", show ty]
-  show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
-  show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
-  show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
-  show (ExpectedExpression (L _ e)) = concat ["Expected Expression: ", show e]
-  show (ExpectedFunction id) = concat ["Expected Function: id = ", show id]
-  show (ExpectedTypeForRecordField (L _ e) id ty ty') = concat ["Couldn't match type: ", show ty, " type expected at field ", show id, ": exp = ", show e, ", actual type: ", show ty']
-  show (MissingRecordField (L _ v) ty id) = concat ["Missing record field: value = ", show v, ", type = ", show ty, ", field = ", show id]
-  show (MissingRecordFieldInConstruction (L _ v) ty id) = concat ["Missing record field in construction: value = ", show v, ", type = ", show ty, ", field = ", show id]
-  show (ExtraRecordFieldInConstruction (L _ v) ty id) = concat ["Record does not have field ", show id, ": value = ", show v, ", type = ", show ty]
-  show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
-  show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
-  show NotDeterminedNilType = concat ["Couldn't determine the type of nil"]
-
-  show BreakOutsideLoop = "break should be inside while or for loop"
-  show (NotImplemented msg) = "not implemented: " ++ msg
-
-
 type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
 runTranslateEff :: forall f xs a.
      Eff (
@@ -120,38 +68,6 @@ runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqu
 runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel
   withNewLevelEff label [] a
-
-lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
-lookupTypeIdEff (L loc id) = lookupTypeId id >>= maybe (throwEff #translateError . L loc $ UnknownType id) pure
-lookupVarIdEff ::  (
-    Lookup xs "varEnv" (State (VEnv f))
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => LId -> Eff xs (Var f)
-lookupVarIdEff (L loc id) = lookupVarId id >>= maybe (throwEff #translateError . L loc $ VariableUndefined id) pure
-
-skipName :: (
-    Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => Type -> Eff xs Type
-skipName (TName lid) = lookupTypeIdEff lid >>= skipName
-skipName a@(TArray arr) = case arr ^. #range of
-  TName id -> do
-    ty <- skipName (TName id)
-    pure . TArray $ arr & #range .~ ty
-  _ -> pure a
-skipName ty = pure ty
-lookupSkipName :: (
-    Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => LId -> Eff xs Type
-lookupSkipName = skipName <=< lookupTypeIdEff
-
-checkInt :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
-checkInt ty e@(L loc _) =
-  unless (ty == TInt) . throwEff #translateError . L loc $ ExpectedIntType e ty
-checkUnit :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
-checkUnit ty e@(L loc _) =
-    unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
 
 allocateLocalVariable :: (F.Frame f, Lookup xs "varEnv" (State (VEnv f)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff) => Id -> Bool -> Type -> Eff xs (Access f)
 allocateLocalVariable id escape ty = do
@@ -188,28 +104,30 @@ translateNil :: (Exp, Type)
 translateNil = (nilExp, TNil)
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
-translateValue (L loc (T.Id lid)) = do
-  var <- lookupVarIdEff lid
-  case var of
-    Var r -> (, r ^. #type) <$> valueIdExp (r ^. #access)
-    Fun _ -> throwEff #translateError . L loc $ ExpectedVariable (unLId lid)
+translateValue (L _ (T.Id lid)) = do
+  ty <- typeCheckId lid
+  lookupVarIdEff lid >>= \case
+    Var r -> (, ty) <$> valueIdExp (r ^. #access)
+    _ -> undefined
 translateValue (L loc (T.RecField lv (L _ field))) = do
-  (varExp, ty) <- traverse skipName =<< translateValue lv
-  case ty of
-    TRecord r -> case List.lookup field (r ^. #map) of
+  (lv, cont) <- typeCheckRecField (L loc (lv, field))
+  (varExp, valueTy) <- translateValue lv
+  ty <- cont valueTy
+  skipName valueTy >>= \case
+    TRecord r ->  case List.lookup field (r ^. #map) of
       Just ty -> do
         let i = Partial.fromJust $ List.findIndex (\(id, _) -> id == field) (r ^. #map)
         pure . (, ty) $ valueRecFieldExp @f varExp i
       Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
-    _ -> throwEff #translateError . L loc $ ExpectedRecordType lv ty
+    _ -> undefined
 translateValue (L loc (T.ArrayIndex lv le)) = do
-  (varExp, ty) <- traverse skipName =<< translateValue lv
-  case ty of
-    TArray a -> do
-      (indexExp, indexTy) <- translateExp le
-      checkInt indexTy le
-      pure . (, a ^. #range) $ valueArrayIndexExp @f varExp indexExp
-    _ -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
+  (lv, cont) <- typeCheckArrayIndex (L loc (lv, le))
+  (varExp, valueTy) <- translateValue lv
+  (le, cont) <- cont valueTy
+  (indexExp, indexTy) <- translateExp le
+  ty <- cont indexTy
+  pure . (, ty) $ valueArrayIndexExp @f varExp indexExp
+
 
 translateBinOp :: forall f xs. HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
@@ -356,10 +274,6 @@ translateLet decs body =
     (exp, ty) <- translateExp body
     pure (letExp exps exp, ty)
 
-newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
-newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
-newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving Show
-data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
 groupByDecType :: [T.LDec] -> [Decs]
 groupByDecType = foldr go []
   where

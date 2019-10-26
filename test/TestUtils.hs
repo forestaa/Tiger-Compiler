@@ -5,7 +5,7 @@ import RIO
 
 import Unique
 
-import Tiger.Semant
+import Tiger.Semant.TypeCheck
 
 
 fetchTwoLabel :: (Label, Label)

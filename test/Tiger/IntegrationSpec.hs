@@ -16,6 +16,7 @@ import           Tiger.Parser
 import           Tiger.Semant
 import           Tiger.Semant.Exp
 import           Tiger.Semant.MarkEscape
+import           Tiger.Semant.TypeCheck
 import           Tiger.Semant.Types
 
 
