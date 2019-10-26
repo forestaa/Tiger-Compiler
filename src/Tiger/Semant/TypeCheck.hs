@@ -106,7 +106,7 @@ checkUnit ty e@(L loc _) =
 typeCheckId :: (
     Lookup xs "varEnv" (State (VEnv f))
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => LId -> Coroutine (Eff xs) '[] Type
+  ) => LId -> Coroutine '[] (Eff xs) Type
 typeCheckId lid@(L loc id) = lookupVarIdEff lid >>= \case
   Var r -> pure $ r ^. #type
   Fun _ -> throwEff #translateError . L loc $ ExpectedVariable id
@@ -114,7 +114,7 @@ typeCheckId lid@(L loc id) = lookupVarIdEff lid >>= \case
 typeCheckRecField :: (
     Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => RealLocated (T.LValue, Id) -> Coroutine (Eff xs) '[(T.LValue, Type)] Type
+  ) => RealLocated (T.LValue, Id) -> Coroutine '[(T.LValue, Type)] (Eff xs) Type
 typeCheckRecField (L loc (lv, field)) = yield @'[] lv $
   skipName >=> \case
     valueTy@(TRecord r) -> case List.lookup field (r ^. #map) of
@@ -125,7 +125,7 @@ typeCheckRecField (L loc (lv, field)) = yield @'[] lv $
 typeCheckArrayIndex :: (
     Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => RealLocated (T.LValue, T.LExp) -> Coroutine (Eff xs) '[(T.LValue, Type), (T.LExp, Type)] Type
+  ) => RealLocated (T.LValue, T.LExp) -> Coroutine '[(T.LValue, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckArrayIndex (L loc (lv, le)) = yield @'[(T.LExp, Type)] lv $
   skipName >=> \case
     TArray a -> yield @'[] le $ \indexTy -> do
