@@ -7,18 +7,11 @@ import           Tiger.Semant
 import           Tiger.Semant.Env
 import           Tiger.Semant.Types
 import qualified Tiger.LSyntax as T
+import           Coroutine
 import           SrcLoc
 import           Unique
 import           Id
 
-
-type family Coroutine (m :: * -> *) (xs :: [*]) (r :: *) where
-  Coroutine m '[] r = m r
-  Coroutine m ((a, b) ': xs) r = m (a, b -> Coroutine m xs r)
-
-yield :: forall xs m a b r. Monad m => a -> (b -> Coroutine m xs r) -> Coroutine m ((a, b) ': xs) r
-yield value cont = pure (value, cont)
-{-# INLINE yield #-}
 
 typeCheckArrayIndex :: (
     Lookup xs "typeEnv" (State TEnv)

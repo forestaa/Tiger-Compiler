@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8fd0d2b444d1d60e8755313c6f8df3572554f3cb7d7de76bd2d3bb6353e41f43
+-- hash: baa7ca753b520a47473341c4b16965c1e1e98e88ca63e851ca9c16e3a4306839
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -55,6 +55,7 @@ library
     , happy
   exposed-modules:
       AbstSyntax.TH
+      Coroutine
       Env
       Frame
       Id
