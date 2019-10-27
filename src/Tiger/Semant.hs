@@ -201,14 +201,15 @@ translateWhileLoop bool body = do
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
   access <- allocateLocalVariable id escape TInt
+  (from, cont) <- typeCheckForLoop (from, to, body)
   (fromExp, fromTy) <- translateExp from
-  checkInt fromTy from
+  (to, cont) <- cont fromTy
   (toExp, toTy) <- translateExp to
-  checkInt toTy to
+  (body, cont) <- cont toTy
   withBreakPoint $ do
     (bodyStm, bodyTy) <- translateExp body
-    checkUnit bodyTy body
-    (, TUnit) <$> forLoopExp access fromExp toExp bodyStm
+    ty <- cont bodyTy
+    (, ty) <$> forLoopExp access fromExp toExp bodyStm
 
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
 translateBreak loc = breakExp >>= \case

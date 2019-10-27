@@ -227,3 +227,16 @@ typeCheckWhileLoop (bool, body) =
     yield @'[] body $ \bodyTy -> do
       checkUnit bodyTy body
       pure TUnit
+
+-- TODO: separate varEnv into accessEnv and typeEnv
+typeCheckForLoop :: (
+    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => (T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckForLoop (from, to, body) =
+  yield @'[(T.LExp, Type), (T.LExp, Type)] from $ \fromTy -> do
+    checkInt fromTy from
+    yield @'[(T.LExp, Type)] to $ \toTy -> do
+      checkInt toTy to
+      yield @'[] body $ \bodyTy -> do
+        checkUnit bodyTy body
+        pure TUnit
