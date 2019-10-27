@@ -9,4 +9,3 @@ type family Coroutine (xs :: [*]) (m :: * -> *) (r :: *) where
 yield :: forall xs m a b r. Monad m => a -> (b -> Coroutine xs m r) -> Coroutine ((a, b) ': xs) m r
 yield value cont = pure (value, cont)
 {-# INLINE yield #-}
-

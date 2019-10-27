@@ -128,7 +128,6 @@ translateValue (L loc (T.ArrayIndex lv le)) = do
   ty <- cont indexTy
   pure . (, ty) $ valueArrayIndexExp @f varExp indexExp
 
-
 translateBinOp :: forall f xs. HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
   (left, cont) <- typeCheckBinOp (L loc (op, left, right))
@@ -139,7 +138,6 @@ translateBinOp (L loc (op, left, right)) = do
   if leftTy /= TString
     then (, ty) <$> binOpExp op leftExp rightExp
     else (, ty) <$> stringOpExp @f op leftExp rightExp
-
 
 translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateIfElse (L loc (bool, then', else')) = do
@@ -152,7 +150,6 @@ translateIfElse (L loc (bool, then', else')) = do
   ty <- cont elseTy
   (, ty) <$> ifElseExp boolExp thenExp elseExp
 
-
 translateIfNoElse :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateIfNoElse bool then' = do
   (bool, cont) <- typeCheckIfNoElse (bool, then')
@@ -161,7 +158,6 @@ translateIfNoElse bool then' = do
   (thenExp, thenTy) <- translateExp then'
   ty <- cont thenTy
   (, ty) <$> ifNoElseExp boolExp thenExp
-
 
 translateRecordCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, [T.LFieldAssign]) -> Eff xs (Exp, Type)
 translateRecordCreation (L loc (typeid, fields)) = do
@@ -176,7 +172,6 @@ translateRecordCreation (L loc (typeid, fields)) = do
     translateFieldAssign :: T.LFieldAssign -> Eff xs (Id, (Exp, Type))
     translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
-
 translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateArrayCreation (L loc (typeid, size, init)) = do
   (size, cont) <- typeCheckArrayCreation (L loc (typeid, size, init))
@@ -185,7 +180,6 @@ translateArrayCreation (L loc (typeid, size, init)) = do
   (initExp, initTy) <- translateExp init
   ty <- cont initTy
   (, ty) <$> arrayCreationExp @f sizeExp initExp
-
 
 translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateWhileLoop bool body = do
@@ -196,7 +190,6 @@ translateWhileLoop bool body = do
     (bodyExp, bodyTy) <- translateExp body
     ty <- cont bodyTy
     (, ty) <$> whileLoopExp boolExp bodyExp
-
 
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
@@ -346,7 +339,6 @@ translateDecsList = fmap mconcat . traverse translateDecs
       where
         extractLId (L _ (TypeDec r)) = r ^. #id
 
-
 checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
 checkSameNameDec ids = case runCheckSameNameDec ids of
   Right _ -> pure ()
@@ -372,7 +364,6 @@ checkInvalidRecType decs =
     graph = typeDecToNode <$> decs
     isCycle (CyclicSCC _) = True
     isCycle _ = False
-
 
 typingType :: (
     Lookup xs "typeEnv" (State TEnv)
