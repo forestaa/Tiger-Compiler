@@ -162,37 +162,20 @@ translateIfNoElse bool then' = do
   ty <- cont thenTy
   (, ty) <$> ifNoElseExp boolExp thenExp
 
+
 translateRecordCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, [T.LFieldAssign]) -> Eff xs (Exp, Type)
 translateRecordCreation (L loc (typeid, fields)) = do
-  ty <- lookupTypeIdEff typeid
-  case ty of
-    TRecord r -> do
-      (fieldsty, fieldExps) <- unzip3' <$> mapM translateFieldAssign fields
-      typecheck ty (r ^. #map) fieldsty
-      (, ty) <$> recordCreationExp @f fieldExps
-    _ -> throwEff #translateError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
+  (fields, cont) <- typeCheckRecordCreation (L loc (typeid, fields))
+  (fieldExps, fieldsTy) <- unzip3' <$> mapM translateFieldAssign fields
+  ty <- cont fieldsTy
+  (, ty) <$> recordCreationExp @f fieldExps
   where
-    typecheck :: Type -> [(Id, Type)] -> [(Id, Type)] -> Eff xs ()
-    typecheck _ [] [] = pure ()
-    typecheck ty ((id1, _):_) [] = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
-    typecheck ty [] ((id2, _):_) = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
-    typecheck ty ((id1, TName lid):as) bs = do
-      ty1 <- lookupSkipName lid
-      typecheck ty ((id1, ty1):as) bs
-    typecheck ty as ((id2, TName lid):bs) = do
-      ty2 <- lookupSkipName lid
-      typecheck ty as ((id2, ty2):bs)
-    typecheck ty ((id1, ty1):as) ((id2, ty2):bs)
-      | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
-      | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
-      |  ty1 > ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
-      | otherwise = typecheck ty as bs
+    unzip3' :: [(a, (b, c))] -> ([b], [(a, c)])
+    unzip3' = foldr (\(a, (b, c)) (bs, acs) -> (b:bs, (a,c):acs)) ([], [])
 
-    unzip3' :: [(a, (b, c))] -> ([(a, c)], [b])
-    unzip3' = foldr (\(a, (b, c)) (acs, bs) -> ((a,c):acs, b:bs)) ([], [])
+    translateFieldAssign :: T.LFieldAssign -> Eff xs (Id, (Exp, Type))
+    translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
-translateFieldAssign :: HasTranslateEff xs f => T.LFieldAssign -> Eff xs (Id, (Exp, Type))
-translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
 translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateArrayCreation (L loc (typeid, size, init)) = lookupSkipName typeid >>= \case

@@ -174,3 +174,31 @@ typeCheckIfNoElse (bool, then') =
     yield @'[] then' $ \thenTy -> do
       checkUnit thenTy then'
       pure TUnit
+
+typeCheckRecordCreation :: forall xs. (
+    Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => RealLocated (LId, [T.LFieldAssign]) -> Coroutine '[([T.LFieldAssign], [(Id, Type)])] (Eff xs) Type
+typeCheckRecordCreation (L loc (typeid, fields)) =
+ lookupTypeIdEff typeid >>= \case
+    ty@(TRecord r) ->
+      yield @'[] fields $ \fieldsTy -> do
+        typecheckFields ty (r ^. #map) fieldsTy
+        pure ty
+    ty -> throwEff #translateError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
+  where
+    typecheckFields :: Type -> [(Id, Type)] -> [(Id, Type)] -> Eff xs ()
+    typecheckFields _ [] [] = pure ()
+    typecheckFields ty ((id1, _):_) [] = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+    typecheckFields ty [] ((id2, _):_) = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+    typecheckFields ty ((id1, TName lid):as) bs = do
+      ty1 <- lookupSkipName lid
+      typecheckFields ty ((id1, ty1):as) bs
+    typecheckFields ty as ((id2, TName lid):bs) = do
+      ty2 <- lookupSkipName lid
+      typecheckFields ty as ((id2, ty2):bs)
+    typecheckFields ty ((id1, ty1):as) ((id2, ty2):bs)
+      | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+      | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+      |  ty1 > ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
+      | otherwise = typecheckFields ty as bs
