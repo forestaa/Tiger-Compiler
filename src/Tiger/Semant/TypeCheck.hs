@@ -102,6 +102,12 @@ checkUnit :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError)
 checkUnit ty e@(L loc _) =
     unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
 
+typeCheckInt :: Type
+typeCheckInt = TInt
+typeCheckString :: Type
+typeCheckString = TString
+typeCheckNil :: Type
+typeCheckNil = TNil
 
 typeCheckId :: (
     Lookup xs "varEnv" (State (VEnv f))
@@ -132,3 +138,22 @@ typeCheckArrayIndex (L loc (lv, le)) = yield @'[(T.LExp, Type)] lv $
       checkInt indexTy le
       pure $ a ^. #range
     ty -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
+
+typeCheckBinOp :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealLocated (T.LOp', T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckBinOp (L loc (op, left, right)) =
+  yield @'[(T.LExp, Type)] left $ \leftTy ->
+    yield @'[] right $ \rightTy -> if
+      | not (isEqNEq op) -> checkInt leftTy left >> checkInt rightTy right >> pure TInt
+      | isUnit leftTy -> throwEff #translateError . L loc $ ExpectedExpression left
+      | isUnit rightTy -> throwEff #translateError . L loc $ ExpectedExpression right
+      | leftTy == TNil && rightTy == TNil -> throwEff #translateError . L loc $ NotDeterminedNilType
+      | not (isComparable leftTy rightTy) -> throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
+      | otherwise -> pure TInt
+  where
+    isEqNEq T.Eq = True
+    isEqNEq T.NEq = True
+    isEqNEq _ = False
+
+    isUnit TUnit = True
+    isUnit _ = False
+

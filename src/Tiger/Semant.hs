@@ -97,11 +97,11 @@ translateExp (L loc (T.FunApply func args)) = translateFunApply $ L loc (func, a
 translateExp (L _ (T.Let decs body)) = translateLet decs body
 
 translateInt :: Int -> (Exp, Type)
-translateInt i = (intExp i, TInt)
+translateInt i = (intExp i, typeCheckInt)
 translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) =>  String -> Eff xs (Exp, Type)
-translateString s = (, TString) <$> stringExp s
+translateString s = (, typeCheckString) <$> stringExp s
 translateNil :: (Exp, Type)
-translateNil = (nilExp, TNil)
+translateNil = (nilExp, typeCheckNil)
 
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L _ (T.Id lid)) = do
@@ -131,27 +131,15 @@ translateValue (L loc (T.ArrayIndex lv le)) = do
 
 translateBinOp :: forall f xs. HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
+  (left, cont) <- typeCheckBinOp (L loc (op, left, right))
   (leftExp, leftTy) <- translateExp left
+  (right, cont) <- cont leftTy
   (rightExp, rightTy) <- translateExp right
-  typecheck op leftTy left rightTy right
+  ty <- cont rightTy
   if leftTy /= TString
-    then (, TInt) <$> binOpExp op leftExp rightExp
-    else (, TInt) <$> stringOpExp @f op leftExp rightExp
-  where
-    isEqNEq T.Eq = True
-    isEqNEq T.NEq = True
-    isEqNEq _ = False
+    then (, ty) <$> binOpExp op leftExp rightExp
+    else (, ty) <$> stringOpExp @f op leftExp rightExp
 
-    isUnit TUnit = True
-    isUnit _ = False
-
-    typecheck op leftTy left rightTy right
-      | not (isEqNEq op) = checkInt leftTy left >> checkInt rightTy right
-      | isUnit leftTy = throwEff #translateError . L loc $ ExpectedExpression left
-      | isUnit rightTy = throwEff #translateError . L loc $ ExpectedExpression right
-      | leftTy == TNil && rightTy == TNil = throwEff #translateError . L loc $ NotDeterminedNilType
-      | not (isComparable leftTy rightTy) = throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
-      | otherwise = pure ()
 
 translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateIfElse (L loc (bool, then', else')) = do

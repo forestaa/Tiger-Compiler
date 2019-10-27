@@ -48,6 +48,7 @@ default-extensions:
 - FlexibleContexts
 - FlexibleInstances
 - LambdaCase
+- MultiWayIf
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds
