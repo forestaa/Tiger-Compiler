@@ -157,3 +157,20 @@ typeCheckBinOp (L loc (op, left, right)) =
     isUnit TUnit = True
     isUnit _ = False
 
+typeCheckIfElse :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealLocated (T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckIfElse (L loc (bool, then', else')) =
+  yield @'[(T.LExp, Type), (T.LExp, Type)] bool $ \boolTy -> do
+    checkInt boolTy bool
+    yield @'[(T.LExp, Type)] then' $ \thenTy ->
+      yield @'[] else' $ \elseTy ->
+        if isComparable thenTy elseTy
+          then pure thenTy
+          else throwEff #translateError . L loc $ ExpectedType else' thenTy elseTy
+
+typeCheckIfNoElse :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => (T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckIfNoElse (bool, then') =
+  yield @'[(T.LExp, Type)] bool $ \boolTy -> do
+    checkInt boolTy bool
+    yield @'[] then' $ \thenTy -> do
+      checkUnit thenTy then'
+      pure TUnit

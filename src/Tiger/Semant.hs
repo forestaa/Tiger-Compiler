@@ -143,21 +143,24 @@ translateBinOp (L loc (op, left, right)) = do
 
 translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateIfElse (L loc (bool, then', else')) = do
+  (bool, cont) <- typeCheckIfElse (L loc (bool, then', else'))
   (boolExp, boolTy) <- translateExp bool
-  checkInt boolTy bool
+  (then', cont) <- cont boolTy
   (thenExp, thenTy) <- translateExp then'
+  (else', cont) <- cont thenTy
   (elseExp, elseTy) <- translateExp else'
-  if isComparable thenTy elseTy
-    then (, thenTy) <$> ifElseExp boolExp thenExp elseExp
-    else throwEff #translateError . L loc $ ExpectedType else' thenTy elseTy
+  ty <- cont elseTy
+  (, ty) <$> ifElseExp boolExp thenExp elseExp
+
 
 translateIfNoElse :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateIfNoElse bool then' = do
+  (bool, cont) <- typeCheckIfNoElse (bool, then')
   (boolExp, boolTy) <- translateExp bool
-  checkInt boolTy bool
+  (then', cont) <- cont boolTy
   (thenExp, thenTy) <- translateExp then'
-  checkUnit thenTy then'
-  (, TUnit) <$> ifNoElseExp boolExp thenExp
+  ty <- cont thenTy
+  (, ty) <$> ifNoElseExp boolExp thenExp
 
 translateRecordCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, [T.LFieldAssign]) -> Eff xs (Exp, Type)
 translateRecordCreation (L loc (typeid, fields)) = do
