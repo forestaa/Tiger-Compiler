@@ -213,7 +213,7 @@ translateForLoop (L _ (L _ id, escape, from, to, body)) = do
 
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
 translateBreak loc = breakExp >>= \case
-  Just exp -> pure (exp, TUnit)
+  Just exp -> pure (exp, typeCheckBreak)
   Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
 translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)

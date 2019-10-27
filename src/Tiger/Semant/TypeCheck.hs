@@ -240,3 +240,6 @@ typeCheckForLoop (from, to, body) =
       yield @'[] body $ \bodyTy -> do
         checkUnit bodyTy body
         pure TUnit
+
+typeCheckBreak :: Type
+typeCheckBreak = TUnit
