@@ -258,3 +258,20 @@ typeCheckFunApply (L loc (func, args)) =
           then pure $ r ^. #codomain
           else throwEff #translateError . L loc $ ExpectedTypes args domains argsTy
     Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
+
+typeCheckAssign :: (
+    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => (T.LValue, T.LExp) -> Coroutine '[(T.LValue, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckAssign (lv, le@(L loc _)) =
+  yield @'[(T.LExp, Type)] lv $ \valueTy ->
+    yield @'[] le $ \expTy ->
+      if valueTy <= expTy
+        then pure TUnit
+        else throwEff #translateError . L loc $ ExpectedType le valueTy expTy
+
+typeCheckSeq :: [T.LExp] -> Coroutine '[([T.LExp], [Type])] (Eff xs) Type
+typeCheckSeq es =
+  yield @'[] es $ \expTys ->
+    case List.lastMaybe expTys of
+      Just ty -> pure ty
+      Nothing -> pure TUnit

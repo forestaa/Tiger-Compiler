@@ -257,6 +257,7 @@ varInitExp access e = flip assignExp e =<< valueIdExp access
 
 seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => [Exp] -> Eff xs Exp
 seqExp es = case List.splitAt (length es - 1) es of
+  ([], []) -> pure unitExp
   ([], [e]) -> pure e
   (es, [e]) -> do
     stms <- mapM unNx es

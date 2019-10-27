@@ -219,19 +219,20 @@ translateFunApply (L loc (func, args)) = do
     Var _ -> undefined
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
-translateAssign v e@(L loc _) = do
+translateAssign v e = do
+  (v, cont) <- typeCheckAssign (v, e)
   (varExp, varTy) <- translateValue v
+  (e, cont) <- cont varTy
   (exp, expTy) <- translateExp e
-  if varTy <= expTy
-    then (, TUnit) <$> assignExp varExp exp
-    else throwEff #translateError . L loc $ ExpectedType e varTy expTy
+  ty <- cont expTy
+  (, ty) <$> assignExp varExp exp
 
 translateSeq :: HasTranslateEff xs f => [T.LExp] -> Eff xs (Exp, Type)
 translateSeq es = do
+  (es, cont) <- typeCheckSeq es
   (exps, types) <- List.unzip <$> mapM translateExp es
-  case List.lastMaybe types of
-    Just ty -> (, ty) <$> seqExp exps
-    Nothing -> pure (unitExp, TUnit)
+  ty <- cont types
+  (, ty) <$> seqExp exps
 
 translateLet :: HasTranslateEff xs f => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
 translateLet decs body =
