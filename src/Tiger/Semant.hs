@@ -217,16 +217,13 @@ translateBreak loc = breakExp >>= \case
   Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
 translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
-translateFunApply (L loc (func, args)) = lookupVarIdEff func >>= \case
-  Fun r -> do
-    (exps, argsty) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
-    domains <- mapM skipName $ r ^. #domains
-    if length domains == length argsty && domains <= argsty
-      then do
-        exp <- funApplyExp (r ^. #label) (r ^. #parent) exps
-        (exp, ) <$> skipName (r ^. #codomain)
-      else throwEff #translateError . L loc $ ExpectedTypes args domains argsty
-  Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
+translateFunApply (L loc (func, args)) = do
+  (args, cont) <- typeCheckFunApply (L loc (func, args))
+  (exps, argsTy) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
+  ty <- cont argsTy
+  lookupVarIdEff func >>= \case
+    Fun r -> (, ty) <$> funApplyExp (r ^. #label) (r ^. #parent) exps
+    Var _ -> undefined
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e@(L loc _) = do

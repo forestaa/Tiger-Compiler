@@ -243,3 +243,18 @@ typeCheckForLoop (from, to, body) =
 
 typeCheckBreak :: Type
 typeCheckBreak = TUnit
+
+typeCheckFunApply :: (
+    Lookup xs "varEnv" (State (VEnv f))
+  , Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => RealLocated (LId, [T.LExp]) -> Coroutine '[([T.LExp], [Type])] (Eff xs) Type
+typeCheckFunApply (L loc (func, args)) =
+  lookupVarIdEff func >>= \case
+    Fun r ->
+      yield @'[] args $ \argsTy -> do
+        domains <- mapM skipName $ r ^. #domains
+        if length domains == length argsTy && domains <= argsTy
+          then pure $ r ^. #codomain
+          else throwEff #translateError . L loc $ ExpectedTypes args domains argsTy
+    Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
