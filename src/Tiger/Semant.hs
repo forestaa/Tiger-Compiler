@@ -178,15 +178,14 @@ translateRecordCreation (L loc (typeid, fields)) = do
 
 
 translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
-translateArrayCreation (L loc (typeid, size, init)) = lookupSkipName typeid >>= \case
-  ty@(TArray a) -> do
-    (sizeExp, sizeTy) <- translateExp size
-    checkInt sizeTy size
-    (initExp, initty) <- translateExp init
-    if a ^. #range <= initty
-      then (, ty) <$> arrayCreationExp @f sizeExp initExp
-      else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initty
-  ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
+translateArrayCreation (L loc (typeid, size, init)) = do
+  (size, cont) <- typeCheckArrayCreation (L loc (typeid, size, init))
+  (sizeExp, sizeTy) <- translateExp size
+  (init, cont) <- cont sizeTy
+  (initExp, initTy) <- translateExp init
+  ty <- cont initTy
+  (, ty) <$> arrayCreationExp @f sizeExp initExp
+
 
 translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateWhileLoop bool body = do

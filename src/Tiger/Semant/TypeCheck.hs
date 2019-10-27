@@ -202,3 +202,18 @@ typeCheckRecordCreation (L loc (typeid, fields)) =
       | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
       |  ty1 > ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
       | otherwise = typecheckFields ty as bs
+
+typeCheckArrayCreation :: (
+      Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => RealLocated (LId, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckArrayCreation (L loc (typeid, size, init)) =
+  lookupSkipName typeid >>= \case
+    ty@(TArray a) ->
+      yield @'[(T.LExp, Type)] size $ \sizeTy -> do
+        checkInt sizeTy size
+        yield @'[] init $ \initTy ->
+          if a ^. #range <= initTy
+            then pure ty
+            else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initTy
+    ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
