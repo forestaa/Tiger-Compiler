@@ -217,3 +217,13 @@ typeCheckArrayCreation (L loc (typeid, size, init)) =
             then pure ty
             else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initTy
     ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
+
+typeCheckWhileLoop :: (
+    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => (T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckWhileLoop (bool, body) =
+  yield @'[(T.LExp, Type)] bool $ \boolTy -> do
+    checkInt boolTy bool
+    yield @'[] body $ \bodyTy -> do
+      checkUnit bodyTy body
+      pure TUnit

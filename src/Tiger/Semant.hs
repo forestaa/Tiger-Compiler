@@ -189,12 +189,14 @@ translateArrayCreation (L loc (typeid, size, init)) = do
 
 translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateWhileLoop bool body = do
+  (bool, cont) <- typeCheckWhileLoop (bool, body)
   (boolExp, boolTy) <- translateExp bool
-  checkInt boolTy bool
+  (body, cont) <- cont boolTy
   withBreakPoint $ do
     (bodyExp, bodyTy) <- translateExp body
-    checkUnit bodyTy body
-    (, TUnit) <$> whileLoopExp boolExp bodyExp
+    ty <- cont bodyTy
+    (, ty) <$> whileLoopExp boolExp bodyExp
+
 
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
