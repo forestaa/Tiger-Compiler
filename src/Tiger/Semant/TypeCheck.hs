@@ -10,6 +10,7 @@ import qualified RIO.List as List
 import qualified RIO.Set as Set
 
 import           Coroutine
+import qualified Env as E
 import           SrcLoc
 import           Unique
 import           Id
@@ -17,6 +18,28 @@ import           Id
 import           Tiger.Semant.Env
 import           Tiger.Semant.Types
 import qualified Tiger.LSyntax as T
+
+
+initTEnv :: TEnv
+initTEnv = E.fromList [("string", TString), ("int", TInt)]
+insertInitVTEnv :: forall xs. (Lookup xs "varTypeEnv" (State VTEnv)) => Eff xs ()
+insertInitVTEnv = mapM_ insertFunType initVEnv
+  where
+    insertFunType :: (Id, [Type], Type) -> Eff xs ()
+    insertFunType (name, domains, codomain) =
+      insertVarType name . FunType $ #domains @= domains <: #codomain @= codomain <: nil
+    initVEnv = [
+        ("print", [TString], TUnit)
+      , ("flush", [], TUnit)
+      , ("getchar", [], TString)
+      , ("ord", [TString], TInt)
+      , ("chr", [TInt], TString)
+      , ("size", [TString], TInt)
+      , ("substring", [TString, TInt, TInt], TString)
+      , ("concat", [TString, TString], TString)
+      , ("not", [TInt], TInt)
+      , ("exit", [TInt], TUnit)
+      ]
 
 
 data TranslateError =
@@ -75,13 +98,22 @@ newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe
 newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving Show
 data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
 
-lookupTypeIdEff :: (Lookup xs "typeEnv" (State TEnv), Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => LId -> Eff xs Type
-lookupTypeIdEff (L loc id) = lookupTypeId id >>= maybe (throwEff #translateError . L loc $ UnknownType id) pure
-lookupVarIdEff ::  (
-    Lookup xs "varEnv" (State (VEnv f))
+lookupTypeIdEff :: (
+    Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => LId -> Eff xs (Var f)
-lookupVarIdEff (L loc id) = lookupVarId id >>= maybe (throwEff #translateError . L loc $ VariableUndefined id) pure
+  ) => LId -> Eff xs Type
+lookupTypeIdEff (L loc id) =
+  lookupTypeId id >>= \case
+    Just ty -> pure ty
+    Nothing -> throwEff #translateError . L loc $ UnknownType id
+lookupVarTypeEff ::  (
+    Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => LId -> Eff xs VarType
+lookupVarTypeEff (L loc id) =
+  lookupVarType id >>= \case
+    Just ty -> pure ty
+    Nothing -> throwEff #translateError . L loc $ VariableUndefined id
 
 skipName :: (
     Lookup xs "typeEnv" (State TEnv)
@@ -115,12 +147,12 @@ typeCheckNil :: Type
 typeCheckNil = TNil
 
 typeCheckId :: (
-    Lookup xs "varEnv" (State (VEnv f))
+    Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
   ) => LId -> Coroutine '[] (Eff xs) Type
-typeCheckId lid@(L loc id) = lookupVarIdEff lid >>= \case
-  Var r -> pure $ r ^. #type
-  Fun _ -> throwEff #translateError . L loc $ ExpectedVariable id
+typeCheckId lid@(L loc id) = lookupVarTypeEff lid >>= \case
+  VarType ty -> pure ty
+  FunType _ -> throwEff #translateError . L loc $ ExpectedVariable id
 
 typeCheckRecField :: (
     Lookup xs "typeEnv" (State TEnv)
@@ -233,11 +265,12 @@ typeCheckWhileLoop (bool, body) =
       checkUnit bodyTy body
       pure TUnit
 
--- TODO: separate varEnv into accessEnv and typeEnv
 typeCheckForLoop :: (
-    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => (T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
-typeCheckForLoop (from, to, body) =
+    Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => (Id, T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckForLoop (index, from, to, body) = do
+  insertVarType index $ VarType TInt
   yield @'[(T.LExp, Type), (T.LExp, Type)] from $ \fromTy -> do
     checkInt fromTy from
     yield @'[(T.LExp, Type)] to $ \toTy -> do
@@ -250,19 +283,19 @@ typeCheckBreak :: Type
 typeCheckBreak = TUnit
 
 typeCheckFunApply :: (
-    Lookup xs "varEnv" (State (VEnv f))
+    Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
   ) => RealLocated (LId, [T.LExp]) -> Coroutine '[([T.LExp], [Type])] (Eff xs) Type
 typeCheckFunApply (L loc (func, args)) =
-  lookupVarIdEff func >>= \case
-    Fun r ->
+  lookupVarTypeEff func >>= \case
+    FunType r ->
       yield @'[] args $ \argsTy -> do
         domains <- mapM skipName $ r ^. #domains
         if length domains == length argsTy && domains <= argsTy
           then pure $ r ^. #codomain
           else throwEff #translateError . L loc $ ExpectedTypes args domains argsTy
-    Var _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
+    VarType _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
 
 typeCheckAssign :: (
     Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
@@ -283,12 +316,16 @@ typeCheckSeq es =
 
 typeCheckLet :: (
     Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "varTypeEnv" (State VTEnv)
   ) => ([T.LDec], T.LExp) -> Coroutine '[([Decs], ()), (T.LExp, Type)] (Eff xs) Type
-typeCheckLet (decs, body) =
-  withTEnvScope $
-    yield @'[(T.LExp, Type)] (groupByDecType decs) $ \() ->
-      yield @'[] body $ \bodyTy ->
-        pure bodyTy
+typeCheckLet (decs, body) = do
+  beginTEnvScope
+  beginVTEnvScope
+  yield @'[(T.LExp, Type)] (groupByDecType decs) $ \() ->
+    yield @'[] body $ \bodyTy -> do
+      endVTEnvScope
+      endTEnvScope
+      pure bodyTy
 
 groupByDecType :: [T.LDec] -> [Decs]
 groupByDecType = foldr go []
@@ -313,36 +350,53 @@ groupByDecType = foldr go []
     go d@(L _ T.TypeDec{}) acc = TypeDecs [convertTypeDec d] : acc
 
 typeCheckVarDec :: (
-    Lookup xs "typeEnv" (State TEnv)
+    Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => RealLocated VarDec -> Coroutine '[(T.LExp, Type)] (Eff xs) Type
+  ) => RealLocated VarDec -> Coroutine '[(T.LExp, Type)] (Eff xs) ()
 typeCheckVarDec (L loc (VarDec r)) =
   yield @'[] (r ^. #init) $ \initTy ->
     case r ^. #type of
       Nothing | initTy == TNil -> throwEff #translateError . L loc $ NotDeterminedNilType
-      Nothing -> pure initTy
+      Nothing -> insertVarType (unLId $ r ^. #id) $ VarType initTy
       Just typeid -> do
         declaredTy <- lookupSkipName typeid
         if declaredTy <= initTy  -- opposite to subtyping
-          then pure declaredTy
+          then insertVarType (unLId $ r ^. #id) $ VarType declaredTy
           else throwEff #translateError . L loc $ ExpectedType (r ^. #init) declaredTy initTy
 
-typeCheckFunDecs :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [RealLocated FunDec] -> Eff xs ()
-typeCheckFunDecs ds = checkSameNameDec $ fmap extractLId ds
+typeCheckFunDecs :: forall xs. (
+    Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => [RealLocated FunDec] -> Eff xs ()
+typeCheckFunDecs ds = do
+  checkSameNameDec $ fmap extractLId ds
+  mapM_ insertFunType ds
   where
     extractLId (L _ (FunDec r)) = r ^. #id
+    insertFunType :: RealLocated FunDec -> Eff xs ()
+    insertFunType (L _ (FunDec dec)) = do
+      domains <- mapM (\(L _ (T.Field _ _ typeid)) -> lookupTypeIdEff typeid) $ dec ^. #args
+      codomain <- maybe (pure TUnit) lookupTypeIdEff $ dec ^. #rettype
+      insertVarType (unLId $ dec ^. #id) . FunType $ #domains @= domains <: #codomain @= codomain <: nil
 
-typeCheckFunDec :: (
-    Lookup xs "typeEnv" (State TEnv)
+typeCheckFunDec :: forall xs. (
+    Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "typeEnv" (State TEnv)
   , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => RealLocated FunDec -> Coroutine '[(([(Id, Type)], T.LExp), Type)] (Eff xs) ()
+  ) => RealLocated FunDec -> Coroutine '[(T.LExp, Type)] (Eff xs) ()
 typeCheckFunDec (L loc (FunDec dec)) = do
-  argIdTys <- mapM (\(L _ (T.Field (L _ id) _ typeid)) -> (id, ) <$> lookupTypeIdEff typeid) $ dec ^. #args
-  yield @'[] (argIdTys, dec ^. #body) $ \bodyTy -> do
+  beginVTEnvScope
+  mapM_ insertParameterVarType $ dec ^. #args
+  yield @'[] (dec ^. #body) $ \bodyTy -> do
     declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
     if declaredTy <= bodyTy
-      then pure ()
+      then endVTEnvScope
       else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
+  where
+    insertParameterVarType :: T.LField -> Eff xs ()
+    insertParameterVarType (L _ (T.Field (L _ id) _ typeid)) = lookupTypeIdEff typeid >>= insertVarType id . VarType
 
 typeCheckTypeDecs :: (
     Lookup xs "typeEnv" (State TEnv)

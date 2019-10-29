@@ -7,7 +7,6 @@ import           RIO
 import qualified RIO.List as List
 import qualified RIO.Partial as Partial
 
-import qualified Env as E
 import qualified Frame as F
 import           Id
 import           SrcLoc
@@ -24,33 +23,32 @@ import           Tiger.Semant.Types
 
 
 
-initTEnv :: TEnv
-initTEnv = E.fromList [("string", TString), ("int", TInt)]
-insertInitVEnv :: forall xs f. (Lookup xs "varEnv" (State (VEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
-insertInitVEnv = mapM_ insertFun initVEnv
+insertInitVAEnv :: forall xs f. (Lookup xs "varAccessEnv" (State (VAEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
+insertInitVAEnv = mapM_ insertFunAccess initVEnv
   where
-    insertFun :: (Id, [Type], Type) -> Eff xs ()
-    insertFun (name, domains, codomain) = do
+    insertFunAccess :: Id -> Eff xs ()
+    insertFunAccess name = do
       label <- namedLabel name
-      insertVar name . Fun $ #label @= label <: #parent @= TopLevel <: #domains @= domains <: #codomain @= codomain <: nil
+      insertVarAccess name . FunAccess $ #label @= label <: #parent @= TopLevel <: nil
     initVEnv = [
-        ("print", [TString], TUnit)
-      , ("flush", [], TUnit)
-      , ("getchar", [], TString)
-      , ("ord", [TString], TInt)
-      , ("chr", [TInt], TString)
-      , ("size", [TString], TInt)
-      , ("substring", [TString, TInt, TInt], TString)
-      , ("concat", [TString, TString], TString)
-      , ("not", [TInt], TInt)
-      , ("exit", [TInt], TUnit)
+        "print"
+      , "flush"
+      , "getchar"
+      , "ord"
+      , "chr"
+      , "size"
+      , "substring"
+      , "concat"
+      , "not"
+      , "exit"
       ]
 
 type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
 runTranslateEff :: forall f xs a.
      Eff (
          ("typeEnv" >: State TEnv)
-      ': ("varEnv" >: State (VEnv f))
+      ': ("varTypeEnv" >: State VTEnv)
+      ': ("varAccessEnv" >: State (VAEnv f))
       ': ("nestingLevel" >: NestingLevelEff f)
       ': ("breakpoint" >: BreakPointEff)
       ': ("fragment" >: FragmentEff f)
@@ -66,12 +64,26 @@ runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel
   withNewLevelEff label [] a
 
-allocateLocalVariable :: (F.Frame f, Lookup xs "varEnv" (State (VEnv f)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff) => Id -> Bool -> Type -> Eff xs (Access f)
-allocateLocalVariable id escape ty = do
+lookupVarAccessEff :: (
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => LId -> Eff xs (VarAccess f)
+lookupVarAccessEff (L loc id) =
+  lookupVarAccess id >>= \case
+    Just ty -> pure ty
+    Nothing -> throwEff #translateError . L loc $ VariableUndefined id
+
+allocateLocalVariable :: (
+    F.Frame f
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "temp" UniqueEff
+  ) => Id -> Bool -> Eff xs (Access f)
+allocateLocalVariable id escape = do
   a <- allocateLocalOnCurrentLevel escape
   level <- fetchCurrentLevelEff
   let access = Access $ #level @= level <: #access @= a <: nil
-  insertVar id . Var $ #type @= ty <: #access @= access <: nil
+  insertVarAccess id $ VarAccess access
   pure access
 
 
@@ -103,8 +115,8 @@ translateNil = (nilExp, typeCheckNil)
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L _ (T.Id lid)) = do
   ty <- typeCheckId lid
-  lookupVarIdEff lid >>= \case
-    Var r -> (, ty) <$> valueIdExp (r ^. #access)
+  lookupVarAccessEff lid >>= \case
+    VarAccess access -> (, ty) <$> valueIdExp access
     _ -> undefined
 translateValue (L loc (T.RecField lv (L _ field))) = do
   (lv, cont) <- typeCheckRecField (L loc (lv, field))
@@ -190,8 +202,8 @@ translateWhileLoop bool body = do
 
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
-  access <- allocateLocalVariable id escape TInt
-  (from, cont) <- typeCheckForLoop (from, to, body)
+  access <- allocateLocalVariable id escape
+  (from, cont) <- typeCheckForLoop (id, from, to, body)
   (fromExp, fromTy) <- translateExp from
   (to, cont) <- cont fromTy
   (toExp, toTy) <- translateExp to
@@ -211,9 +223,9 @@ translateFunApply (L loc (func, args)) = do
   (args, cont) <- typeCheckFunApply (L loc (func, args))
   (exps, argsTy) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
   ty <- cont argsTy
-  lookupVarIdEff func >>= \case
-    Fun r -> (, ty) <$> funApplyExp (r ^. #label) (r ^. #parent) exps
-    Var _ -> undefined
+  lookupVarAccessEff func >>= \case
+    FunAccess r -> (, ty) <$> funApplyExp (r ^. #label) (r ^. #parent) exps
+    VarAccess _ -> undefined
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e = do
@@ -232,9 +244,9 @@ translateSeq es = do
   (, ty) <$> seqExp exps
 
 translateLet :: HasTranslateEff xs f => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
-translateLet decs body = do
-  (decsList, cont) <- typeCheckLet (decs, body)
-  withVEnvScope $ do
+translateLet decs body =
+  withVAEnvScope $ do
+    (decsList, cont) <- typeCheckLet (decs, body)
     exps <- translateDecsList decsList
     (body, cont) <- cont ()
     (bodyExp, bodyTy) <- translateExp body
@@ -252,44 +264,41 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateVarDec (L loc (VarDec r)) = do
       (init, cont) <- typeCheckVarDec (L loc (VarDec r))
       (initExp, initTy) <- translateExp init
-      ty <- cont initTy
-      access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape) ty
+      cont initTy
+      access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape)
       varInitExp access initExp
 
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
     translateFunDecs ds = do
       typeCheckFunDecs ds
-      mapM_ insertFunEntry ds
+      mapM_ insertFunAccess ds
       mapM_ translateFunDec ds
 
-    insertFunEntry :: RealLocated FunDec -> Eff xs ()
-    insertFunEntry (L _ (FunDec r)) = do
+    insertFunAccess :: RealLocated FunDec -> Eff xs ()
+    insertFunAccess (L _ (FunDec r)) = do
       label <- namedLabel . unLId $ r ^. #id
       parent <- fetchCurrentLevelEff
-      codomain <- maybe (pure TUnit) lookupTypeIdEff $ r ^. #rettype
-      let fun = Fun $ #label @= label <: #parent @= parent <: #domains @= domains <: #codomain @= codomain <: nil
-      insertVar (unLId $ r ^. #id) fun
-      where
-        domains = TName . (\(L _ (T.Field _ _ typeid)) -> typeid)  <$> r ^. #args
+      insertVarAccess (unLId $ r ^. #id) . FunAccess $ #label @= label <: #parent @= parent <: nil
 
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
     translateFunDec (L loc (FunDec dec)) = do
-      ((argIdTys, body), cont) <- typeCheckFunDec (L loc (FunDec dec))
-      lookupVarIdEff (dec ^. #id) >>= \case
-        Var _ -> undefined
-        Fun f -> withNewLevelEff (f ^. #label) escapes $ do
-          insertFormals argIdTys
+      (body, cont) <- typeCheckFunDec (L loc (FunDec dec))
+      lookupVarAccessEff (dec ^. #id) >>= \case
+        VarAccess _ -> undefined
+        FunAccess f -> withNewLevelEff (f ^. #label) escapes $ do
+          insertFormals . fmap extractLId $ dec ^. #args
           (bodyExp, bodyTy) <- translateExp body
           cont bodyTy
           funDecExp bodyExp
       where
+        extractLId (L _ (T.Field (L _ id) _ _)) = id
         escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> dec ^. #args
-        insertFormals :: [(Id, Type)] -> Eff xs ()
+        insertFormals :: [Id] -> Eff xs ()
         insertFormals args = do
           formals <- fetchCurrentLevelParametersAccessEff
           zipWithM_ insertFormal args formals
-        insertFormal :: (Id, Type) -> F.Access f -> Eff xs ()
-        insertFormal (id, ty) a = do
+        insertFormal :: Id -> F.Access f -> Eff xs ()
+        insertFormal id a = do
           level <- fetchCurrentLevelEff
           let access = Access $ #level @= level <: #access @= a <: nil
-          insertVar id . Var $ #type @= ty <: #access @= access <: nil
+          insertVarAccess id $ VarAccess access

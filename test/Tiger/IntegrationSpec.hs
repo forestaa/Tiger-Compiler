@@ -141,7 +141,8 @@ translateTest file = do
   bs <- liftIO $ B.readFile file
   e <- liftEither . mapLeft ParseError $ runP parser file bs
   liftEither . mapLeft (TranslateError . unLoc) . leaveEff . runTranslateEffWithNewLevel $ do
-    insertInitVEnv
+    insertInitVAEnv
+    insertInitVTEnv
     translateExp $ markEscape e
 
 runErrorTranslateTest :: FilePath -> (TranslateError -> IO ()) -> IO ()
