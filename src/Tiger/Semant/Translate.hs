@@ -13,10 +13,10 @@ import           SrcLoc
 import           Tiger.Semant.Env
 import qualified Tiger.LSyntax as T
 import           Tiger.Semant.BreakPoint
-import           Tiger.Semant.Env
 import           Tiger.Semant.Exp
 import           Tiger.Semant.Level
--- import           Tiger.Semant.TypeCheck
+import qualified Tiger.Semant.TypeCheck as TC
+import           Tiger.Semant.Types
 
 
 data TranslateError =
@@ -45,6 +45,32 @@ lookupVarAccessEff (L loc id) =
     Just ty -> pure ty
     Nothing -> throwEff #translateError . L loc $ VariableUndefined id
 
+allocateLocalVariable :: (
+    F.Frame f
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "temp" UniqueEff
+  ) => Id -> Bool -> Eff xs (Access f)
+allocateLocalVariable id escape = do
+  a <- allocateLocalOnCurrentLevel escape
+  level <- fetchCurrentLevelEff
+  let access = Access $ #level @= level <: #access @= a <: nil
+  insertVarAccess id $ VarAccess access
+  pure access
+
+
+insertFunAccess :: (
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "label" UniqueEff
+  ) => Id -> Eff xs ()
+insertFunAccess name = do
+  label <- namedLabel name
+  parent <- fetchCurrentLevelEff
+  insertVarAccess name . FunAccess $ #label @= label <: #parent @= parent <: nil
+
+
+
 
 
 intExp :: Int -> Exp
@@ -67,15 +93,44 @@ valueIdExp :: (
   , Lookup xs "nestingLevel" (NestingLevelEff f)
   ) => Access f -> Eff xs Exp
 valueIdExp (Access r) = Ex . F.exp (r ^. #access) <$> pullInStaticLinksEff (r ^. #level)
+valueIdExpEff :: (
+    F.Frame f
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => LId -> Eff xs Exp
+valueIdExpEff lid = lookupVarAccessEff lid >>= \case
+  VarAccess a -> valueIdExp a
+  _ -> undefined
+
+
 valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
 valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Plus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
 valueRecFieldExp _ _ = undefined
+valueRecFieldExpEff :: forall f xs. (
+    F.Frame f
+  , Lookup xs "typeEnv" (State TEnv)
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TC.TypeCheckError))
+  ) => Type -> Exp -> Id -> Eff xs Exp
+valueRecFieldExpEff ty varExp field =
+  TC.skipName ty >>= \case
+    TRecord r -> case List.findIndex (\(id, _) -> id == field) (r ^. #map) of
+      Just i -> pure $ valueRecFieldExp @f varExp i
+      _ -> undefined
+    _ -> undefined
 valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 valueArrayIndexExp _ _ = undefined
 
-binOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
-binOpExp op left right
+binOpExp :: forall f xs. (
+    F.Frame f
+  , Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff
+  ) => Type -> T.LOp' -> Exp -> Exp -> Eff xs Exp
+binOpExp TString op left right = stringOpExp @f op left right
+binOpExp _ op left right = intOpExp op left right
+
+intOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
+intOpExp op left right
   | isArithmetic op = arithmeticOpExp (arithmeticOpConvert op) left right
   | otherwise = condOpExp (relOpConvert op) left right
   where
@@ -259,15 +314,28 @@ forLoopExp access from@(Ex _) (Ex to) exp = do
 forLoopExp _ _ _ _ = undefined
 
 
-breakExp :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Exp)
-breakExp = fetchCurrentBreakPoint >>= \case
-  Just done -> pure . Just . Nx $ IR.Jump (IR.Name done) [done]
-  Nothing -> pure Nothing
+breakExp :: (
+    Lookup xs "breakpoint" BreakPointEff
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => RealSrcSpan -> Eff xs Exp
+breakExp loc = fetchCurrentBreakPoint >>= \case
+  Just done -> pure . Nx $ IR.Jump (IR.Name done) [done]
+  Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
-funApplyExp :: (Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f) => Label -> Level f -> [Exp] -> Eff xs Exp
-funApplyExp label parent exps = do
-  staticLink <- pullInStaticLinksEff parent
-  Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
+funApplyExp :: (
+    F.Frame f
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "label" UniqueEff
+  , Lookup xs "temp" UniqueEff
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => LId -> [Exp] -> Eff xs Exp
+funApplyExp func exps =
+  lookupVarAccessEff func >>= \case
+    FunAccess r -> do
+      staticLink <- pullInStaticLinksEff (r ^. #parent)
+      Ex . IR.Call (IR.Name (r ^. #label)) . (:) staticLink <$> mapM unEx exps
+    VarAccess _ -> undefined
 
 assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Exp -> Eff xs Exp
 assignExp (Ex var) exp = Nx . IR.Move var <$> unEx exp

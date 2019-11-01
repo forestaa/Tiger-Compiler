@@ -6,7 +6,6 @@ import           Data.Extensible
 import           Data.Foldable
 import           RIO
 import qualified RIO.List as List
-import qualified RIO.Partial as Partial
 
 import qualified Frame as F
 import           Id
@@ -71,20 +70,6 @@ runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel
   withNewLevelEff label [] a
 
-allocateLocalVariable :: (
-    F.Frame f
-  , Lookup xs "varAccessEnv" (State (VAEnv f))
-  , Lookup xs "nestingLevel" (NestingLevelEff f)
-  , Lookup xs "temp" UniqueEff
-  ) => Id -> Bool -> Eff xs (Access f)
-allocateLocalVariable id escape = do
-  a <- allocateLocalOnCurrentLevel escape
-  level <- fetchCurrentLevelEff
-  let access = Access $ #level @= level <: #access @= a <: nil
-  insertVarAccess id $ VarAccess access
-  pure access
-
-
 translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Int i)) = pure $ translateInt i
 translateExp (L _ (T.String s)) = translateString s
@@ -113,20 +98,12 @@ translateNil = (nilExp, typeCheckNil)
 translateValue :: forall f xs. (HasTranslateEff xs f) => T.LValue -> Eff xs (Exp, Type)
 translateValue (L _ (T.Id lid)) = do
   ty <- typeCheckId lid
-  lookupVarAccessEff lid >>= \case
-    VarAccess access -> (, ty) <$> valueIdExp access
-    _ -> undefined
+  (, ty) <$> valueIdExpEff lid
 translateValue (L loc (T.RecField lv (L _ field))) = do
   (lv, cont) <- typeCheckRecField (L loc (lv, field))
   (varExp, valueTy) <- translateValue lv
   ty <- cont valueTy
-  skipName valueTy >>= \case
-    TRecord r ->  case List.lookup field (r ^. #map) of
-      Just ty -> do
-        let i = Partial.fromJust $ List.findIndex (\(id, _) -> id == field) (r ^. #map)
-        pure . (, ty) $ valueRecFieldExp @f varExp i
-      Nothing -> throwEff #typeCheckError . L loc $ MissingRecordField lv ty field
-    _ -> undefined
+  (, ty) <$> valueRecFieldExpEff @f valueTy varExp field
 translateValue (L loc (T.ArrayIndex lv le)) = do
   (lv, cont) <- typeCheckArrayIndex (L loc (lv, le))
   (varExp, valueTy) <- translateValue lv
@@ -142,9 +119,7 @@ translateBinOp (L loc (op, left, right)) = do
   (right, cont) <- cont leftTy
   (rightExp, rightTy) <- translateExp right
   ty <- cont rightTy
-  if leftTy /= TString
-    then (, ty) <$> binOpExp op leftExp rightExp
-    else (, ty) <$> stringOpExp @f op leftExp rightExp
+  (, ty) <$> binOpExp @f leftTy op leftExp rightExp
 
 translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateIfElse (L loc (bool, then', else')) = do
@@ -176,8 +151,8 @@ translateRecordCreation (L loc (typeid, fields)) = do
     unzip3' :: [(a, (b, c))] -> ([b], [(a, c)])
     unzip3' = foldr (\(a, (b, c)) (bs, acs) -> (b:bs, (a,c):acs)) ([], [])
 
-    translateFieldAssign :: T.LFieldAssign -> Eff xs (Id, (Exp, Type))
-    translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
+translateFieldAssign :: HasTranslateEff xs f => T.LFieldAssign -> Eff xs (Id, (Exp, Type))
+translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
 translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateArrayCreation (L loc (typeid, size, init)) = do
@@ -200,30 +175,26 @@ translateWhileLoop bool body = do
 
 translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
-  access <- allocateLocalVariable id escape
   (from, cont) <- typeCheckForLoop (id, from, to, body)
   (fromExp, fromTy) <- translateExp from
   (to, cont) <- cont fromTy
   (toExp, toTy) <- translateExp to
   (body, cont) <- cont toTy
   withBreakPoint $ do
+    access <- allocateLocalVariable id escape
     (bodyStm, bodyTy) <- translateExp body
     ty <- cont bodyTy
     (, ty) <$> forLoopExp access fromExp toExp bodyStm
 
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
-translateBreak loc = breakExp >>= \case
-  Just exp -> pure (exp, typeCheckBreak)
-  Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
+translateBreak loc = (, typeCheckBreak) <$> breakExp loc
 
 translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
 translateFunApply (L loc (func, args)) = do
   (args, cont) <- typeCheckFunApply (L loc (func, args))
   (exps, argsTy) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
   ty <- cont argsTy
-  lookupVarAccessEff func >>= \case
-    FunAccess r -> (, ty) <$> funApplyExp (r ^. #label) (r ^. #parent) exps
-    VarAccess _ -> undefined
+  (, ty) <$> funApplyExp func exps
 
 translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e = do
@@ -269,14 +240,8 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
     translateFunDecs ds = do
       typeCheckFunDecs ds
-      mapM_ insertFunAccess ds
+      mapM_ (\(L _ (FunDec r)) -> insertFunAccess . unLId $ r ^. #id) ds
       mapM_ translateFunDec ds
-
-    insertFunAccess :: RealLocated FunDec -> Eff xs ()
-    insertFunAccess (L _ (FunDec r)) = do
-      label <- namedLabel . unLId $ r ^. #id
-      parent <- fetchCurrentLevelEff
-      insertVarAccess (unLId $ r ^. #id) . FunAccess $ #label @= label <: #parent @= parent <: nil
 
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
     translateFunDec (L loc (FunDec dec)) = do
