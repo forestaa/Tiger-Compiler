@@ -5,16 +5,27 @@ import           RIO
 import qualified RIO.List as List
 
 import qualified Frame as F
+import           Id
 import qualified IR
 import           Unique
+import           SrcLoc
 
+import           Tiger.Semant.Env
 import qualified Tiger.LSyntax as T
 import           Tiger.Semant.BreakPoint
 import           Tiger.Semant.Env
 import           Tiger.Semant.Exp
 import           Tiger.Semant.Level
+-- import           Tiger.Semant.TypeCheck
 
 
+data TranslateError =
+    VariableUndefined Id
+  | BreakOutsideLoop
+
+instance Show TranslateError where
+  show (VariableUndefined id) = "undefined variable: " ++ show id
+  show BreakOutsideLoop = "break should be inside while or for loop"
 
 type FragmentEff f = State [F.ProgramFragment f]
 runFragmentEff :: Eff (("fragment" >: FragmentEff f) ': xs) a -> Eff xs (a, [F.ProgramFragment f])
@@ -24,6 +35,16 @@ saveProcEntry TopLevel _ = undefined
 saveProcEntry (Level r) stm = modifyEff #fragment . (:) . F.Proc $ #body @= stm <: #frame @= r ^. #frame <: nil
 saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()
 saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
+
+lookupVarAccessEff :: (
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  ) => LId -> Eff xs (VarAccess f)
+lookupVarAccessEff (L loc id) =
+  lookupVarAccess id >>= \case
+    Just ty -> pure ty
+    Nothing -> throwEff #translateError . L loc $ VariableUndefined id
+
 
 
 intExp :: Int -> Exp

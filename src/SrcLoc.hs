@@ -40,7 +40,7 @@ combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
     (srow, scol) = min (srcSRow span1, srcSCol span1) (srcSRow span2, srcSCol span2)
     (erow, ecol) = min (srcERow span1, srcECol span1) (srcERow span2, srcECol span2)
 
-data RealLocated e = L RealSrcSpan e deriving (Eq)
+data RealLocated e = L RealSrcSpan e deriving (Eq, Functor)
 instance Show e => Show (RealLocated e) where
   show (L loc e) = locatedMessage loc $ show e
 

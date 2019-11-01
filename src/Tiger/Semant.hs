@@ -1,6 +1,7 @@
 module Tiger.Semant where
 
 import           Control.Monad.Except
+import qualified Data.Bifunctor as Bi
 import           Data.Extensible
 import           Data.Foldable
 import           RIO
@@ -21,6 +22,11 @@ import           Tiger.Semant.Translate
 import           Tiger.Semant.TypeCheck
 import           Tiger.Semant.Types
 
+
+data SemantAnalysisError =
+    TranslateError TranslateError
+  | TypeCheckError TypeCheckError
+  deriving Show
 
 
 insertInitVAEnv :: forall xs f. (Lookup xs "varAccessEnv" (State (VAEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
@@ -43,7 +49,7 @@ insertInitVAEnv = mapM_ insertFunAccess initVEnv
       , "exit"
       ]
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)), Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
 runTranslateEff :: forall f xs a.
      Eff (
          ("typeEnv" >: State TEnv)
@@ -55,23 +61,15 @@ runTranslateEff :: forall f xs a.
       ': ("temp" >: UniqueEff)
       ': ("label" >: UniqueEff)
       ': ("id" >: UniqueEff)
+      ': ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
       ': ("translateError" >: EitherEff (RealLocated TranslateError))
       ': xs) a
-  -> Eff xs (Either (RealLocated TranslateError) (a, [F.ProgramFragment f]))
-runTranslateEff = runEitherEff @"translateError" . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
+  -> Eff xs (Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment f]))
+runTranslateEff = fmap join . (fmap (Bi.first (fmap TranslateError)) . runEitherEff @"translateError") . (fmap (Bi.first  (fmap TypeCheckError)) . runEitherEff @"typeCheckError") . runUniqueEff @"id" . runUniqueEff @"label" . runUniqueEff @"temp" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
 
 runTranslateEffWithNewLevel a = runTranslateEff $ do
   label <- newLabel
   withNewLevelEff label [] a
-
-lookupVarAccessEff :: (
-    Lookup xs "varAccessEnv" (State (VAEnv f))
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
-  ) => LId -> Eff xs (VarAccess f)
-lookupVarAccessEff (L loc id) =
-  lookupVarAccess id >>= \case
-    Just ty -> pure ty
-    Nothing -> throwEff #translateError . L loc $ VariableUndefined id
 
 allocateLocalVariable :: (
     F.Frame f
@@ -127,7 +125,7 @@ translateValue (L loc (T.RecField lv (L _ field))) = do
       Just ty -> do
         let i = Partial.fromJust $ List.findIndex (\(id, _) -> id == field) (r ^. #map)
         pure . (, ty) $ valueRecFieldExp @f varExp i
-      Nothing -> throwEff #translateError . L loc $ MissingRecordField lv ty field
+      Nothing -> throwEff #typeCheckError . L loc $ MissingRecordField lv ty field
     _ -> undefined
 translateValue (L loc (T.ArrayIndex lv le)) = do
   (lv, cont) <- typeCheckArrayIndex (L loc (lv, le))

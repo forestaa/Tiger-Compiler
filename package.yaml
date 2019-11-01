@@ -43,6 +43,7 @@ default-extensions:
 - BlockArguments
 - ConstraintKinds
 - DataKinds
+- DeriveFunctor
 - GADTs
 - GeneralizedNewtypeDeriving
 - FlexibleContexts

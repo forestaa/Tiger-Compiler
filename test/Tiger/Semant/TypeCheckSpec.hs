@@ -71,7 +71,7 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
 runEff :: Eff '[
         ("typeEnv" >: State TEnv)
       , ("id" >: UniqueEff)
-      , ("translateError" >: EitherEff (RealLocated TranslateError))
+      , ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
       ] a
-  -> Either (RealLocated TranslateError) a
-runEff = leaveEff . runEitherEff @"translateError" . runUniqueEff @"id" . evalTEnvEff initTEnv
+  -> Either (RealLocated TypeCheckError) a
+runEff = leaveEff . runEitherEff @"typeCheckError" . runUniqueEff @"id" . evalTEnvEff initTEnv

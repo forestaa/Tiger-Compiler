@@ -42,8 +42,7 @@ insertInitVTEnv = mapM_ insertFunType initVEnv
       ]
 
 
-data TranslateError =
-  -- typing
+data TypeCheckError =
     VariableUndefined Id
   | VariableMismatchedWithDeclaredType Id Type Type
   | UnknownType Id
@@ -64,11 +63,8 @@ data TranslateError =
   | MultiDeclaredName [LId]
   | NotDeterminedNilType
 
-  -- translate
-  | BreakOutsideLoop
-
   | NotImplemented String
-instance Show TranslateError where
+instance Show TypeCheckError where
   show (VariableUndefined id) = "undefined variable: " ++ show id
   show (VariableMismatchedWithDeclaredType id ty ty') = concat ["Couldn't match type: expression doesn't match with declared type: id = ", show id, ", declared type: ", show ty, ", actual type: ", show ty']
   show (UnknownType id) = "undefined type: " ++ show id
@@ -90,7 +86,6 @@ instance Show TranslateError where
   show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
   show NotDeterminedNilType = concat ["Couldn't determine the type of nil"]
 
-  show BreakOutsideLoop = "break should be inside while or for loop"
   show (NotImplemented msg) = "not implemented: " ++ msg
 
 newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
@@ -100,24 +95,24 @@ data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDe
 
 lookupTypeIdEff :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => LId -> Eff xs Type
 lookupTypeIdEff (L loc id) =
   lookupTypeId id >>= \case
     Just ty -> pure ty
-    Nothing -> throwEff #translateError . L loc $ UnknownType id
+    Nothing -> throwEff #typeCheckError . L loc $ UnknownType id
 lookupVarTypeEff ::  (
     Lookup xs "varTypeEnv" (State VTEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => LId -> Eff xs VarType
 lookupVarTypeEff (L loc id) =
   lookupVarType id >>= \case
     Just ty -> pure ty
-    Nothing -> throwEff #translateError . L loc $ VariableUndefined id
+    Nothing -> throwEff #typeCheckError . L loc $ VariableUndefined id
 
 skipName :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => Type -> Eff xs Type
 skipName (TName lid) = lookupTypeIdEff lid >>= skipName
 skipName a@(TArray arr) = case arr ^. #range of
@@ -128,16 +123,16 @@ skipName a@(TArray arr) = case arr ^. #range of
 skipName ty = pure ty
 lookupSkipName :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => LId -> Eff xs Type
 lookupSkipName = skipName <=< lookupTypeIdEff
 
-checkInt :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
+checkInt :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => Type -> T.LExp -> Eff xs ()
 checkInt ty e@(L loc _) =
-  unless (ty == TInt) . throwEff #translateError . L loc $ ExpectedIntType e ty
-checkUnit :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => Type -> T.LExp -> Eff xs ()
+  unless (ty == TInt) . throwEff #typeCheckError . L loc $ ExpectedIntType e ty
+checkUnit :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => Type -> T.LExp -> Eff xs ()
 checkUnit ty e@(L loc _) =
-    unless (ty == TUnit) . throwEff #translateError . L loc $ ExpectedUnitType e ty
+    unless (ty == TUnit) . throwEff #typeCheckError . L loc $ ExpectedUnitType e ty
 
 typeCheckInt :: Type
 typeCheckInt = TInt
@@ -148,43 +143,43 @@ typeCheckNil = TNil
 
 typeCheckId :: (
     Lookup xs "varTypeEnv" (State VTEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => LId -> Coroutine '[] (Eff xs) Type
 typeCheckId lid@(L loc id) = lookupVarTypeEff lid >>= \case
   VarType ty -> pure ty
-  FunType _ -> throwEff #translateError . L loc $ ExpectedVariable id
+  FunType _ -> throwEff #typeCheckError . L loc $ ExpectedVariable id
 
 typeCheckRecField :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated (T.LValue, Id) -> Coroutine '[(T.LValue, Type)] (Eff xs) Type
 typeCheckRecField (L loc (lv, field)) = yield @'[] lv $
   skipName >=> \case
     valueTy@(TRecord r) -> case List.lookup field (r ^. #map) of
       Just ty -> pure ty
-      Nothing -> throwEff #translateError . L loc $ MissingRecordField lv valueTy field
-    valueTy -> throwEff #translateError . L loc $ ExpectedRecordType lv valueTy
+      Nothing -> throwEff #typeCheckError . L loc $ MissingRecordField lv valueTy field
+    valueTy -> throwEff #typeCheckError . L loc $ ExpectedRecordType lv valueTy
 
 typeCheckArrayIndex :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated (T.LValue, T.LExp) -> Coroutine '[(T.LValue, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckArrayIndex (L loc (lv, le)) = yield @'[(T.LExp, Type)] lv $
   skipName >=> \case
     TArray a -> yield @'[] le $ \indexTy -> do
       checkInt indexTy le
       pure $ a ^. #range
-    ty -> throwEff #translateError . L loc $ ExpectedArrayType lv ty
+    ty -> throwEff #typeCheckError . L loc $ ExpectedArrayType lv ty
 
-typeCheckBinOp :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealLocated (T.LOp', T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckBinOp :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => RealLocated (T.LOp', T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckBinOp (L loc (op, left, right)) =
   yield @'[(T.LExp, Type)] left $ \leftTy ->
     yield @'[] right $ \rightTy -> if
       | not (isEqNEq op) -> checkInt leftTy left >> checkInt rightTy right >> pure TInt
-      | isUnit leftTy -> throwEff #translateError . L loc $ ExpectedExpression left
-      | isUnit rightTy -> throwEff #translateError . L loc $ ExpectedExpression right
-      | leftTy == TNil && rightTy == TNil -> throwEff #translateError . L loc $ NotDeterminedNilType
-      | not (isComparable leftTy rightTy) -> throwEff #translateError . L loc $ ExpectedType right leftTy rightTy
+      | isUnit leftTy -> throwEff #typeCheckError . L loc $ ExpectedExpression left
+      | isUnit rightTy -> throwEff #typeCheckError . L loc $ ExpectedExpression right
+      | leftTy == TNil && rightTy == TNil -> throwEff #typeCheckError . L loc $ NotDeterminedNilType
+      | not (isComparable leftTy rightTy) -> throwEff #typeCheckError . L loc $ ExpectedType right leftTy rightTy
       | otherwise -> pure TInt
   where
     isEqNEq T.Eq = True
@@ -194,7 +189,7 @@ typeCheckBinOp (L loc (op, left, right)) =
     isUnit TUnit = True
     isUnit _ = False
 
-typeCheckIfElse :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealLocated (T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckIfElse :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => RealLocated (T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckIfElse (L loc (bool, then', else')) =
   yield @'[(T.LExp, Type), (T.LExp, Type)] bool $ \boolTy -> do
     checkInt boolTy bool
@@ -202,9 +197,9 @@ typeCheckIfElse (L loc (bool, then', else')) =
       yield @'[] else' $ \elseTy ->
         if isComparable thenTy elseTy
           then pure thenTy
-          else throwEff #translateError . L loc $ ExpectedType else' thenTy elseTy
+          else throwEff #typeCheckError . L loc $ ExpectedType else' thenTy elseTy
 
-typeCheckIfNoElse :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => (T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
+typeCheckIfNoElse :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => (T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckIfNoElse (bool, then') =
   yield @'[(T.LExp, Type)] bool $ \boolTy -> do
     checkInt boolTy bool
@@ -214,7 +209,7 @@ typeCheckIfNoElse (bool, then') =
 
 typeCheckRecordCreation :: forall xs. (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated (LId, [T.LFieldAssign]) -> Coroutine '[([T.LFieldAssign], [(Id, Type)])] (Eff xs) Type
 typeCheckRecordCreation (L loc (typeid, fields)) =
  lookupTypeIdEff typeid >>= \case
@@ -222,12 +217,12 @@ typeCheckRecordCreation (L loc (typeid, fields)) =
       yield @'[] fields $ \fieldsTy -> do
         typecheckFields ty (r ^. #map) fieldsTy
         pure ty
-    ty -> throwEff #translateError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
+    ty -> throwEff #typeCheckError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
     typecheckFields :: Type -> [(Id, Type)] -> [(Id, Type)] -> Eff xs ()
     typecheckFields _ [] [] = pure ()
-    typecheckFields ty ((id1, _):_) [] = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
-    typecheckFields ty [] ((id2, _):_) = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+    typecheckFields ty ((id1, _):_) [] = throwEff #typeCheckError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+    typecheckFields ty [] ((id2, _):_) = throwEff #typeCheckError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
     typecheckFields ty ((id1, TName lid):as) bs = do
       ty1 <- lookupSkipName lid
       typecheckFields ty ((id1, ty1):as) bs
@@ -235,14 +230,14 @@ typeCheckRecordCreation (L loc (typeid, fields)) =
       ty2 <- lookupSkipName lid
       typecheckFields ty as ((id2, ty2):bs)
     typecheckFields ty ((id1, ty1):as) ((id2, ty2):bs)
-      | id1 < id2 = throwEff #translateError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
-      | id1 > id2 = throwEff #translateError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
-      |  ty1 > ty2 = throwEff #translateError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
+      | id1 < id2 = throwEff #typeCheckError . L loc $ MissingRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id1
+      | id1 > id2 = throwEff #typeCheckError . L loc $ ExtraRecordFieldInConstruction (L loc $ T.RecordCreate typeid fields) ty id2
+      |  ty1 > ty2 = throwEff #typeCheckError . L loc $ ExpectedTypeForRecordField (L loc $ T.RecordCreate typeid fields) id1 ty1 ty2
       | otherwise = typecheckFields ty as bs
 
 typeCheckArrayCreation :: (
       Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated (LId, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckArrayCreation (L loc (typeid, size, init)) =
   lookupSkipName typeid >>= \case
@@ -252,11 +247,11 @@ typeCheckArrayCreation (L loc (typeid, size, init)) =
         yield @'[] init $ \initTy ->
           if a ^. #range <= initTy
             then pure ty
-            else throwEff #translateError . L loc $ ExpectedType init (a ^. #range) initTy
-    ty -> throwEff #translateError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
+            else throwEff #typeCheckError . L loc $ ExpectedType init (a ^. #range) initTy
+    ty -> throwEff #typeCheckError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
 
 typeCheckWhileLoop :: (
-    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+    Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => (T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckWhileLoop (bool, body) =
   yield @'[(T.LExp, Type)] bool $ \boolTy -> do
@@ -267,7 +262,7 @@ typeCheckWhileLoop (bool, body) =
 
 typeCheckForLoop :: (
     Lookup xs "varTypeEnv" (State VTEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => (Id, T.LExp, T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckForLoop (index, from, to, body) = do
   insertVarType index $ VarType TInt
@@ -285,7 +280,7 @@ typeCheckBreak = TUnit
 typeCheckFunApply :: (
     Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated (LId, [T.LExp]) -> Coroutine '[([T.LExp], [Type])] (Eff xs) Type
 typeCheckFunApply (L loc (func, args)) =
   lookupVarTypeEff func >>= \case
@@ -294,18 +289,18 @@ typeCheckFunApply (L loc (func, args)) =
         domains <- mapM skipName $ r ^. #domains
         if length domains == length argsTy && domains <= argsTy
           then pure $ r ^. #codomain
-          else throwEff #translateError . L loc $ ExpectedTypes args domains argsTy
-    VarType _ -> throwEff #translateError . L loc $ ExpectedFunction (unLId func)
+          else throwEff #typeCheckError . L loc $ ExpectedTypes args domains argsTy
+    VarType _ -> throwEff #typeCheckError . L loc $ ExpectedFunction (unLId func)
 
 typeCheckAssign :: (
-    Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+    Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => (T.LValue, T.LExp) -> Coroutine '[(T.LValue, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckAssign (lv, le@(L loc _)) =
   yield @'[(T.LExp, Type)] lv $ \valueTy ->
     yield @'[] le $ \expTy ->
       if valueTy <= expTy
         then pure TUnit
-        else throwEff #translateError . L loc $ ExpectedType le valueTy expTy
+        else throwEff #typeCheckError . L loc $ ExpectedType le valueTy expTy
 
 typeCheckSeq :: [T.LExp] -> Coroutine '[([T.LExp], [Type])] (Eff xs) Type
 typeCheckSeq es =
@@ -352,23 +347,23 @@ groupByDecType = foldr go []
 typeCheckVarDec :: (
     Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated VarDec -> Coroutine '[(T.LExp, Type)] (Eff xs) ()
 typeCheckVarDec (L loc (VarDec r)) =
   yield @'[] (r ^. #init) $ \initTy ->
     case r ^. #type of
-      Nothing | initTy == TNil -> throwEff #translateError . L loc $ NotDeterminedNilType
+      Nothing | initTy == TNil -> throwEff #typeCheckError . L loc $ NotDeterminedNilType
       Nothing -> insertVarType (unLId $ r ^. #id) $ VarType initTy
       Just typeid -> do
         declaredTy <- lookupSkipName typeid
         if declaredTy <= initTy  -- opposite to subtyping
           then insertVarType (unLId $ r ^. #id) $ VarType declaredTy
-          else throwEff #translateError . L loc $ ExpectedType (r ^. #init) declaredTy initTy
+          else throwEff #typeCheckError . L loc $ ExpectedType (r ^. #init) declaredTy initTy
 
 typeCheckFunDecs :: forall xs. (
     Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => [RealLocated FunDec] -> Eff xs ()
 typeCheckFunDecs ds = do
   checkSameNameDec $ fmap extractLId ds
@@ -384,7 +379,7 @@ typeCheckFunDecs ds = do
 typeCheckFunDec :: forall xs. (
     Lookup xs "varTypeEnv" (State VTEnv)
   , Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => RealLocated FunDec -> Coroutine '[(T.LExp, Type)] (Eff xs) ()
 typeCheckFunDec (L loc (FunDec dec)) = do
   beginVTEnvScope
@@ -393,14 +388,14 @@ typeCheckFunDec (L loc (FunDec dec)) = do
     declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
     if declaredTy <= bodyTy
       then endVTEnvScope
-      else throwEff #translateError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
+      else throwEff #typeCheckError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
   where
     insertParameterVarType :: T.LField -> Eff xs ()
     insertParameterVarType (L _ (T.Field (L _ id) _ typeid)) = lookupTypeIdEff typeid >>= insertVarType id . VarType
 
 typeCheckTypeDecs :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   , Lookup xs "id" UniqueEff
   ) => [RealLocated TypeDec] -> Eff xs ()
 typeCheckTypeDecs ds = do
@@ -414,10 +409,10 @@ typeCheckTypeDecs ds = do
   where
     extractLId (L _ (TypeDec r)) = r ^. #id
 
-checkSameNameDec :: Lookup xs "translateError" (EitherEff (RealLocated TranslateError)) => [LId] -> Eff xs ()
+checkSameNameDec :: Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)) => [LId] -> Eff xs ()
 checkSameNameDec ids = case runCheckSameNameDec ids of
   Right _ -> pure ()
-  Left loc -> throwEff #translateError . L loc $ MultiDeclaredName ids
+  Left loc -> throwEff #typeCheckError . L loc $ MultiDeclaredName ids
   where
     runCheckSameNameDec = leaveEff . runEitherDef . flip runReaderDef Set.empty . checkSameNameDec'
 
@@ -426,10 +421,10 @@ checkSameNameDec ids = case runCheckSameNameDec ids of
       asks (Set.member id) >>= bool (pure ()) (contEff #cont $ const (throwError loc))
       local (Set.insert id) . castEff $ checkSameNameDec' ids
 
-checkInvalidRecType :: (Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => [RealLocated TypeDec] -> Eff xs ()
+checkInvalidRecType :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => [RealLocated TypeDec] -> Eff xs ()
 checkInvalidRecType decs =
   if any isCycle $ stronglyConnComp graph
-    then throwEff #translateError . L undefined $ InvalidRecTypeDeclaration decs
+    then throwEff #typeCheckError . L undefined $ InvalidRecTypeDeclaration decs
     else pure ()
   where
     typeDecToNode (L _ (TypeDec r)) = (r ^. #id, unLId $ r ^. #id, typeToEdge (r ^. #type))
@@ -442,7 +437,7 @@ checkInvalidRecType decs =
 
 typeCheckType :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   , Lookup xs "id" UniqueEff
   ) => T.LType -> Eff xs Type
 typeCheckType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
@@ -457,6 +452,6 @@ typeCheckType (L _ (T.ArrayType typeid)) = do
 
 typeCheckField :: (
     Lookup xs "typeEnv" (State TEnv)
-  , Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
+  , Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))
   ) => T.LField -> Eff xs (Id, Type)
 typeCheckField (L _ (T.Field (L _ id) _ typeid)) = (id,) <$> lookupTypeIdEff typeid
