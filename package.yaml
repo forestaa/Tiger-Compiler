@@ -36,16 +36,20 @@ dependencies:
 - mtl
 - monad-skeleton
 - rio
+- transformers
 
 default-extensions:
 - AllowAmbiguousTypes
+- BlockArguments
 - ConstraintKinds
 - DataKinds
+- DeriveFunctor
 - GADTs
 - GeneralizedNewtypeDeriving
 - FlexibleContexts
 - FlexibleInstances
 - LambdaCase
+- MultiWayIf
 - NoImplicitPrelude
 - OverloadedLabels
 - PolyKinds

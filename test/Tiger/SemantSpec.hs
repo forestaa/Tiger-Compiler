@@ -4,11 +4,11 @@ import           Data.Extensible
 import           RIO
 import qualified RIO.List as List
 import qualified RIO.List.Partial as Partial
-import qualified RIO.Map as Map
 import           Test.Hspec
 
 import qualified Frame as F
 import           FrameMock
+import           Id
 import qualified IR
 import           SrcLoc
 import           TestUtils
@@ -20,6 +20,7 @@ import           Tiger.Semant.Env
 import           Tiger.Semant.Exp
 import           Tiger.Semant.Level
 import           Tiger.Semant.Translate
+import           Tiger.Semant.TypeCheck
 import           Tiger.Semant.Types
 import qualified Tiger.LSyntax as T (expToLExp)
 import qualified Tiger.Syntax as T
@@ -88,7 +89,7 @@ translateVariableSpec = describe "translate variable test" $ do
   it "first local variable" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -99,8 +100,8 @@ translateVariableSpec = describe "translate variable test" $ do
   it "second local variable" $ do
     let ast = T.expToLExp $ T.Var (T.Id "y")
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
-          _ <- allocateLocalVariable "y" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
+          allocateLocalVariableAndInsertType "y" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -111,8 +112,8 @@ translateVariableSpec = describe "translate variable test" $ do
   it "second local variable, first is not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "y")
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
-          _ <- allocateLocalVariable "y" True TInt
+          allocateLocalVariableAndInsertType "x" False TInt
+          allocateLocalVariableAndInsertType "y" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -123,8 +124,8 @@ translateVariableSpec = describe "translate variable test" $ do
   it "first local variable, second is not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
-          _ <- allocateLocalVariable "y" False TInt
+          allocateLocalVariableAndInsertType "x" True TInt
+          allocateLocalVariableAndInsertType "y" False TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -135,7 +136,7 @@ translateVariableSpec = describe "translate variable test" $ do
   it "local variable, not escaped" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -152,16 +153,17 @@ translateVariableSpec = describe "translate variable test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
 
   it "variable referes function" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
         result = runEff $ do
-          insertVar "x" $ Fun undefined
+          insertVarType "x" $ FunType undefined
+          insertVarAccess "x" $ FunAccess undefined
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedVariable
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedVariable
 
 
 translateRecordFieldSpec :: Spec
@@ -171,7 +173,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
-          _ <- allocateLocalVariable "object" True recordTy
+          allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -184,7 +186,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
-          _ <- allocateLocalVariable "object" True recordTy
+          allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -199,7 +201,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "record")
           insertType "record" recordTy
-          _ <- allocateLocalVariable "object" True nameTy
+          allocateLocalVariableAndInsertType "object" True nameTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -210,22 +212,22 @@ translateRecordFieldSpec = describe "translate record field test" $ do
   it "not record type" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = runEff $ do
-          _ <- allocateLocalVariable "object" True TInt
+          allocateLocalVariableAndInsertType "object" True TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedRecordType
 
   it "missing record field" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
         result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
-          _ <- allocateLocalVariable "object" True recordTy
+          allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordField: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isMissingRecordField
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMissingRecordField
 
 
 translateArrayIndexSpec :: Spec
@@ -235,7 +237,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -248,7 +250,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -263,7 +265,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           id2 <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TString <: #id @= id1 <: nil
               recordTy = TRecord $ #map @= [("y", arrayTy)] <: #id @= id2 <: nil
-          _ <- allocateLocalVariable "x" True recordTy
+          allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -278,7 +280,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "array")
           insertType "array" arrayTy
-          _ <- allocateLocalVariable "x" True nameTy
+          allocateLocalVariableAndInsertType "x" True nameTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -291,20 +293,20 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType" ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "array type expected" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType" ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedArrayType
 
 translateBinOpSpec :: Spec
 translateBinOpSpec = describe "translate binop test" $ do
@@ -324,25 +326,25 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "x + x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "x == x (array)" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -358,14 +360,14 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return NotdeterminedNilType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isNotDeterminedNilType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndNotDeterminedNilType
 
   it "nil == x (record)" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True recordTy
+          allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -412,12 +414,12 @@ translateBinOpSpec = describe "translate binop test" $ do
           id2 <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id1 <: nil
               arrayTy = TArray  $ #range @= TInt <: #id @= id2 <: nil
-          _ <- allocateLocalVariable "x" True recordTy
-          _ <- allocateLocalVariable "y" True arrayTy
+          allocateLocalVariableAndInsertType "x" True recordTy
+          allocateLocalVariableAndInsertType "y" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedType
 
   it "0 + (0 == 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Int 0) T.Plus (T.Op (T.Int 0) T.Eq (T.Int 0))
@@ -450,11 +452,11 @@ translateBinOpSpec = describe "translate binop test" $ do
   it "(x := 0) == (x := 0)" $ do
     let ast = T.expToLExp $ T.Op (T.Assign (T.Id "x") (T.Int 0)) T.Eq (T.Assign (T.Id "x") (T.Int 0))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedExpression: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedExpression
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedExpression
 
   it "'hoge' < 'hoge'" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.Lt (T.String "hoge")
@@ -462,7 +464,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
 
 translateIfElseSpec :: Spec
@@ -483,7 +485,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
   it "if 0 == 0 then x := 0 else x := 1" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -551,11 +553,11 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
 
 translateIfNoElseSpec :: Spec
@@ -563,7 +565,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
   it "if 0 == 0 then x := 0" $ do
     let ast = T.expToLExp $ T.If (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0)) Nothing
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -577,7 +579,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
   it "if 0 then x := 0" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Assign (T.Id "x") (T.Int 0)) Nothing
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -593,7 +595,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -609,20 +611,20 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
         result = runEff $ do
           id <- getUniqueEff #id
           let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
-          _ <- allocateLocalVariable "x" True arrayTy
+          allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "if 0 then 0" $ do
     let ast = T.expToLExp $ T.If (T.Int 0) (T.Int 0) Nothing
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedUnitType
 
 
 translateRecordCreationSpec :: Spec
@@ -731,7 +733,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMissingRecordFieldInConstruction
 
   it "type record = {}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
@@ -742,7 +744,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExtraRecordFieldInConstruction: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExtraRecordFieldInConstruction
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExtraRecordFieldInConstruction
 
   it "type record = {x: int}; record {y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
@@ -753,7 +755,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MissingRecordFieldInConstruction: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isMissingRecordFieldInConstruction
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMissingRecordFieldInConstruction
 
   it "type record = {x: int}; record {x = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
@@ -764,7 +766,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeForRecordField: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedTypeForRecordField
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedTypeForRecordField
 
   it "type myint = int; myint {}" $ do
     let ast = T.expToLExp $ T.RecordCreate "myint" []
@@ -773,7 +775,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedRecordType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedRecordType
 
 
 translateArrayCreationSpec :: Spec
@@ -826,7 +828,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedArrayType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedArrayType
 
   it "type array = array of int; array [0] of 'hoge'" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.String "hoge")
@@ -837,7 +839,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedType
 
   it "type array = array of int; array ['hoge'] of 0" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.String "hoge") (T.Int 0)
@@ -848,7 +850,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
 
 translateWhileLoopSpec :: Spec
@@ -856,7 +858,7 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
   it "while 0 == 0 do x := 0" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Assign (T.Id "x") (T.Int 0))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -872,7 +874,7 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -886,11 +888,11 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
   it "while 'hoge' do x := 0" $ do
     let ast = T.expToLExp $ T.While (T.String "hoge") (T.Assign (T.Id "x") (T.Int 0))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "while 0 == 0 do 0" $ do
     let ast = T.expToLExp $ T.While (T.Op (T.Int 0) T.Eq (T.Int 0)) (T.Int 0)
@@ -898,7 +900,7 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedUnitType
 
 
 translateForLoopSpec :: Spec
@@ -906,7 +908,7 @@ translateForLoopSpec = describe "translate for loop test" $ do
   it "for i := 1 to 2 do x := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" True TInt
+          allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -922,7 +924,7 @@ translateForLoopSpec = describe "translate for loop test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TUnit <: nil
+          insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -939,25 +941,25 @@ translateForLoopSpec = describe "translate for loop test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedUnitType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedUnitType
 
   it "for i := 'hoge' to 2 do y := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.String "hoge") (T.Int 2) (T.Assign (T.Id "x") (T.Int 3))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType"
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
   it "for i := 1 to 'hoge' do x := 3" $ do
     let ast = T.expToLExp $ T.For "i" False (T.Int 1) (T.String "hoge") (T.Assign (T.Id "x") (T.Int 3))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType"
-      Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
 
 translateBreakSpec :: Spec
@@ -1007,16 +1009,16 @@ translateBreakSpec = describe "translate break test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
+      Left (L _ e) -> e `shouldSatisfy` isTranslateErrorAndBreakOutsideLoop
 
   it "(for i := 1 to 3 do x := 2, break)" $ do
     let ast = T.expToLExp $ T.Seq [T.For "i" False (T.Int 1) (T.Int 2) (T.Assign (T.Id "x") (T.Int 3)), T.Break]
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isBreakOutsideLoop
+      Left (L _ e) -> e `shouldSatisfy` isTranslateErrorAndBreakOutsideLoop
 
 
 translateFunApplySpec :: Spec
@@ -1026,7 +1028,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [] TNil
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1042,7 +1044,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [TInt] TNil
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1061,7 +1063,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           insertType "record" recordTy
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [recordTy] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [recordTy] TNil
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1077,42 +1079,42 @@ translateFunApplySpec = describe "translate fun application test" $ do
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [TInt] TNil
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedTypes
 
   it "f: () -> (); f(0)" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Int 0]
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [] TNil
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedTypes
 
   it "f: int -> (); f()" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
         result = runEff $ do
           label <- newLabel
           parent <- fetchCurrentLevelEff
-          insertVar "f" . Fun $ #label @= label <: #parent @= parent <: #domains @= [TInt] <: #codomain @= TNil <: nil
+          insertFun "f" label parent [TInt] TNil
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypes: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedTypes
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedTypes
 
   it "var f := (); f()" $ do
     let ast = T.expToLExp $ T.FunApply "f" []
         result = runEff $ do
-          _ <- allocateLocalVariable "f" False TNil
+          allocateLocalVariableAndInsertType "f" False TNil
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedFunction: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedFunction
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedFunction
 
 
 translateAssignSpec :: Spec
@@ -1120,7 +1122,7 @@ translateAssignSpec = describe "translate assgin test" $ do
   it "var x int; x := 0" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1134,8 +1136,8 @@ translateAssignSpec = describe "translate assgin test" $ do
   it "var x int; var y: unit; y := (x := 0)" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "y") (T.Assign (T.Id "x") (T.Int 0))
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
-          _ <- allocateLocalVariable "y" False TUnit
+          allocateLocalVariableAndInsertType "x" False TInt
+          allocateLocalVariableAndInsertType "y" False TUnit
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1149,11 +1151,11 @@ translateAssignSpec = describe "translate assgin test" $ do
   it "var x string; x := 0" $ do
     let ast = T.expToLExp $ T.Assign (T.Id "x") (T.Int 0)
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TString
+          allocateLocalVariableAndInsertType "x" False TString
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedType
 
 
 translateSeqSpec :: Spec
@@ -1183,7 +1185,7 @@ translateSeqSpec = describe "translate seq test" $ do
   it "(x := 0)" $ do
     let ast = T.expToLExp $ T.Seq [T.Assign (T.Id "x") (T.Int 0)]
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1210,7 +1212,7 @@ translateSeqSpec = describe "translate seq test" $ do
   it "(1, x := 2)" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1, T.Assign (T.Id "x") (T.Int 2)]
         result = runEff $ do
-          _ <- allocateLocalVariable "x" False TInt
+          allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
       Left (L _ e) -> expectationFailure $ show e
@@ -1656,7 +1658,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUnknownType
 
   it "let x := let y := 0 in y in y" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False Nothing (T.Let [T.VarDec "y" False Nothing (T.Int 0)] (T.Var (T.Id "y")))] (T.Var (T.Id "y"))
@@ -1664,7 +1666,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
 
   it "let type a = b; type b = c; type c = a in 0" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "b"), T.TypeDec "b" (T.TypeId "c"), T.TypeDec "c" (T.TypeId "a")] (T.Int 0)
@@ -1672,7 +1674,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return InvalidRecTypeDeclaration: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isInvalidRecTypeDeclaration
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndInvalidRecTypeDeclaration
 
   it "type a = {a: b}; var x = 0; type b = {b: a} in x" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType [T.Field "a" False "b"]), T.VarDec "x" False Nothing (T.Int 0), T.TypeDec "b" (T.RecordType [T.Field "b" False "a"])] (T.Var (T.Id "x"))
@@ -1680,7 +1682,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUnknownType
 
   it "let function f() = g(); var x := 0; function g() = f() in f()" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] Nothing (T.FunApply "g" []), T.VarDec "x" False Nothing (T.Int 0), T.FunDec "g" [] Nothing (T.FunApply "f" [])] (T.FunApply "g" [])
@@ -1688,7 +1690,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UndefinedVariale: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUndefinedVariable
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
 
   it "let var x: int = 'hoge' in x" $ do
     let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.String "hoge")] (T.Var (T.Id "x"))
@@ -1696,7 +1698,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isExpectedType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedType
 
   it "let function f(x: hoge): int = 0 in 0" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "hoge"] (Just "int") (T.Int 0)] (T.Int 0)
@@ -1704,7 +1706,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return UnknownType: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isUnknownType
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUnknownType
 
   it "let function f(): int = 0; function f(): int = 0 in 0" $ do
     let ast = T.expToLExp $ T.Let [T.FunDec "f" [] (Just "int") (T.Int 0), T.FunDec "f" [] (Just "int") (T.Int 0)] (T.Int 0)
@@ -1712,7 +1714,7 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName
 
   it "let type a = int; type a = string in 0" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.TypeId "int"), T.TypeDec "a" (T.TypeId "int")] (T.Int 0)
@@ -1720,19 +1722,54 @@ translateLetSpec = describe "translate let test" $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return MultiDeclaredName: " ++ show ret
-      Left (L _ e) -> e `shouldSatisfy` isMultiDeclaredName
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName
 
+  it "let function f(x: int): int = x; function g(): int = x in g()" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Var (T.Id "x")), T.FunDec "g" [] (Just "int") (T.Var (T.Id "x"))] (T.FunApply "g" [])
+        result = runEff $ translateExp ast
+    case result of
+      Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
+
+  it "let x = let function f(x: int): int = x in f(1) in f(2)" $ do
+    let ast = T.expToLExp $ T.Let [T.VarDec "x" False (Just "int") (T.Let [T.FunDec "f" [T.Field "x" False "int"] (Just "int") (T.Var (T.Id "x"))] (T.FunApply "f" [T.Int 1]))] (T.FunApply "f" [T.Int 2])
+        result = runEff $ translateExp ast
+    case result of
+      Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
+      Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
 
 runEff :: Eff '[
         ("typeEnv" >: State TEnv)
-      , ("varEnv" >: State (VEnv FrameMock))
+      , ("varTypeEnv" >: State VTEnv)
+      , ("varAccessEnv" >: State (VAEnv FrameMock))
       , ("nestingLevel" >: NestingLevelEff FrameMock)
       , ("breakpoint" >: BreakPointEff)
       , ("fragment" >: FragmentEff FrameMock)
       , ("temp" >: UniqueEff)
       , ("label" >: UniqueEff)
       , ("id" >: UniqueEff)
+      , ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
       , ("translateError" >: EitherEff (RealLocated TranslateError))
       ] a
-  -> Either (RealLocated TranslateError) (a, [F.ProgramFragment FrameMock])
+  -> Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment FrameMock])
 runEff = leaveEff . runTranslateEffWithNewLevel
+
+allocateLocalVariableAndInsertType :: (
+    F.Frame f
+  , Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  , Lookup xs "nestingLevel" (NestingLevelEff f)
+  , Lookup xs "temp" UniqueEff
+  ) => Id -> Bool -> Type -> Eff xs ()
+allocateLocalVariableAndInsertType name escape ty = do
+  allocateLocalVariable name escape
+  insertVarType name $ VarType ty
+
+insertFun :: (
+    F.Frame f
+  , Lookup xs "varTypeEnv" (State VTEnv)
+  , Lookup xs "varAccessEnv" (State (VAEnv f))
+  ) => Id -> Label -> Level f -> [Type] -> Type -> Eff xs ()
+insertFun name label parent domains codomain = do
+  insertVarAccess name . FunAccess $ #label @= label <: #parent @= parent <: nil
+  insertVarType name . FunType $ #domains @= domains <: #codomain @= codomain <: nil
