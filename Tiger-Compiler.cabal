@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 029202ce58cab7400338c2224d5c7cb38777cee0453ed282effc85852595acce
+-- hash: 5abd68e8ddc01e5dbd54716afcd5b3687534d1444ddc9e76d4d9cad7b5e1892a
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -113,6 +113,8 @@ test-suite compiler-test
       test
   default-extensions: AllowAmbiguousTypes BlockArguments ConstraintKinds DataKinds DeriveFunctor GADTs GeneralizedNewtypeDeriving FlexibleContexts FlexibleInstances LambdaCase MultiWayIf NoImplicitPrelude OverloadedLabels PolyKinds ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+      hspec-discover:hspec-discover
   build-depends:
       Tiger-Compiler
     , base >=4.7 && <5

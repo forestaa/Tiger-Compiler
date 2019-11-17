@@ -100,3 +100,5 @@ tests:
     dependencies:
     - Tiger-Compiler
     - hspec
+    build-tools:
+    - hspec-discover
