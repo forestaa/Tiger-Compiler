@@ -4,7 +4,7 @@ cabal-version: 1.24
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5abd68e8ddc01e5dbd54716afcd5b3687534d1444ddc9e76d4d9cad7b5e1892a
+-- hash: a43931afe8663033017fe0008d4c4e8082e9c6348c53c443c87362c65190f9c2
 
 name:           Tiger-Compiler
 version:        0.1.0.0
@@ -44,6 +44,7 @@ library
     , bytestring
     , containers
     , extensible
+    , extensible-skeleton
     , lens
     , monad-skeleton
     , mtl
@@ -97,6 +98,7 @@ executable compiler-exe
     , bytestring
     , containers
     , extensible
+    , extensible-skeleton
     , lens
     , monad-skeleton
     , mtl
@@ -121,6 +123,7 @@ test-suite compiler-test
     , bytestring
     , containers
     , extensible
+    , extensible-skeleton
     , hspec
     , lens
     , monad-skeleton

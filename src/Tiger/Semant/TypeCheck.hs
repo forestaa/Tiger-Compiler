@@ -2,6 +2,7 @@ module Tiger.Semant.TypeCheck where
 
 import           Control.Monad.Except
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           Data.Extensible.Effect.Default
 import           Data.Foldable
 import           Data.Graph

@@ -3,6 +3,7 @@ module Tiger.Semant.Level where
 import           Control.Monad.State.Class
 import           Control.Monad.Error.Class
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           Data.Extensible.Effect.Default
 import           RIO
 import qualified RIO.List.Partial as List

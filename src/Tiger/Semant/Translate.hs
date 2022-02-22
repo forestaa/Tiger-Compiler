@@ -1,6 +1,7 @@
 module Tiger.Semant.Translate where
 
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO
 import qualified RIO.List as List
 

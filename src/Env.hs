@@ -15,6 +15,7 @@ import qualified RIO.Map as Map
 
 import Control.Lens ((.~), (%~))
 import Data.Extensible
+import Data.Extensible.Effect
 
 import Id
 

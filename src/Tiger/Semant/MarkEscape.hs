@@ -3,6 +3,7 @@ module Tiger.Semant.MarkEscape (markEscape) where
 import RIO
 import qualified RIO.List.Partial as List (head)
 import Data.Extensible
+import Data.Extensible.Effect
 import Data.Maybe
 import qualified Tiger.LSyntax as T
 

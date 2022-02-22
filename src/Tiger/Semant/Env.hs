@@ -1,6 +1,7 @@
 module Tiger.Semant.Env where
 
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO
 
 import qualified Env as E

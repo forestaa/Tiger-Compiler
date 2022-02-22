@@ -4,6 +4,7 @@ import RIO
 
 import Control.Lens ((.~))
 import Data.Extensible
+import Data.Extensible.Effect
 
 
 newtype Unique = Unique Int deriving (Eq, Show)

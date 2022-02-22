@@ -1,6 +1,7 @@
 module Tiger.Semant.Exp where
 
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO
 
 import qualified IR

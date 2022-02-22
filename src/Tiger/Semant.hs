@@ -3,6 +3,7 @@ module Tiger.Semant where
 import           Control.Monad.Except
 import qualified Data.Bifunctor as Bi
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           Data.Foldable
 import           RIO
 import qualified RIO.List as List

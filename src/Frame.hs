@@ -5,6 +5,7 @@ import RIO
 import qualified Unique as U
 import qualified IR
 import Data.Extensible
+import Data.Extensible.Effect
 
 class Frame f where
   type Access f = a | a -> f

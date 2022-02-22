@@ -32,6 +32,7 @@ dependencies:
 - bytestring
 - containers
 - extensible
+- extensible-skeleton
 - lens
 - mtl
 - monad-skeleton

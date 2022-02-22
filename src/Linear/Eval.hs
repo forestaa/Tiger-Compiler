@@ -4,6 +4,7 @@ import RIO
 
 import Control.Monad.Except
 import Data.Extensible
+import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 
 import qualified Env as E
