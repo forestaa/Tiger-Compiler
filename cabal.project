@@ -1,0 +1,7 @@
+packages: .
+
+source-repository-package
+  type: git
+  location: https://github.com/fumieval/extensible
+  tag: 35bf36b97259f466cb1c5f840c9e491807e17e8d
+  subdir: . extensible-skeleton

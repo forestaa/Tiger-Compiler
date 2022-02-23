@@ -3,6 +3,7 @@ module Tiger.IntegrationSpec (spec) where
 import           Control.Monad.Except
 import qualified Data.ByteString.Lazy as B
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO
 import           Test.Hspec
 

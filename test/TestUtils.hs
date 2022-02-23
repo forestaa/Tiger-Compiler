@@ -1,6 +1,7 @@
 module TestUtils where
 
 import Data.Extensible
+import Data.Extensible.Effect
 import RIO
 
 import Unique

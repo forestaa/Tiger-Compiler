@@ -2,6 +2,7 @@ module FrameMock where
 
 import           Control.Monad.State.Strict
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO hiding (exp)
 
 import qualified Frame as F

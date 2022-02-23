@@ -109,7 +109,7 @@ mkUnFSyn :: Name -> Con -> Name -> Dec
 mkUnFSyn unF con x = FunD unF [Clause [mkUnFPat (VarP x) con] (NormalB (VarE x)) []]
 
 mkUnFPat :: Pat -> Con -> Pat
-mkUnFPat p (NormalC con args) = ConP con (mkUnFPatArg . snd <$> args)
+mkUnFPat p (NormalC con args) = ConP con [] (mkUnFPatArg . snd <$> args)
   where
     mkUnFPatArg (VarT _) = p
     mkUnFPatArg _ = WildP
@@ -126,10 +126,10 @@ mkUnFClause fcon con = do
 mkUnFPatExp :: Con -> Q (Pat, Exp)
 mkUnFPatExp (NormalC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkUnFPatExpUnit . snd) args
-  pure (ConP (mkName $ nameBase con) pats, foldl' AppE (ConE con) exps)
+  pure (ConP (mkName $ nameBase con) [] pats, foldl' AppE (ConE con) exps)
 mkUnFPatExp (RecC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkUnFPatExpUnit . thd) args
-  pure (ConP (mkName $ nameBase con) pats, foldl' AppE (ConE con) exps)
+  pure (ConP (mkName $ nameBase con) [] pats, foldl' AppE (ConE con) exps)
   where
     thd (_,_,z) = z
 mkUnFPatExp c = fail $ "mkUnFPatExp: This pattern is not implemented: " ++ show c
@@ -173,10 +173,10 @@ mkSyntaxToFSyntaxClause wrapF con = do
 mkSyntaxToFSyntaxPatExp :: Name -> Con -> Q (Pat, Exp)
 mkSyntaxToFSyntaxPatExp wrapF (NormalC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . snd) args
-  pure (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
+  pure (ConP con [] pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
 mkSyntaxToFSyntaxPatExp wrapF (RecC con args) = do
   (pats, exps) <- List.unzip <$> traverse (mkSyntaxToFSyntaxPatExpUnit . thd) args
-  pure (ConP con pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
+  pure (ConP con [] pats, AppE (VarE wrapF) (foldl' AppE (ConE $ reMkName con) exps))
   where
     thd (_,_,z) = z
 mkSyntaxToFSyntaxPatExp _ _ = undefined

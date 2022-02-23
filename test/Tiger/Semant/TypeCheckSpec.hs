@@ -2,6 +2,7 @@ module Tiger.Semant.TypeCheckSpec (spec) where
 
 import           Control.Monad.Trans.Cont
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO
 import qualified RIO.List as List
 import qualified RIO.List.Partial as Partial

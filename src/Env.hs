@@ -10,7 +10,7 @@ module Env (
   fromList,
 ) where
 
-import RIO hiding (lookup)
+import RIO hiding (lookup, (%~), (.~))
 import qualified RIO.Map as Map
 
 import Control.Lens ((.~), (%~))

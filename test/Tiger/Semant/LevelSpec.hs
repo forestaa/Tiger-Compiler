@@ -1,6 +1,7 @@
 module Tiger.Semant.LevelSpec (spec) where
 
 import           Data.Extensible
+import           Data.Extensible.Effect
 import           RIO hiding (exp)
 import           Test.Hspec
 

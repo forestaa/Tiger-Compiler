@@ -1,6 +1,7 @@
 {
 module Linear.Parser where
 
+import Prelude
 import RIO
 import RIO.List.Partial ((!!))
 

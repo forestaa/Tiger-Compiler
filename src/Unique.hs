@@ -1,6 +1,6 @@
 module Unique where
 
-import RIO
+import RIO hiding ((.~))
 
 import Control.Lens ((.~))
 import Data.Extensible

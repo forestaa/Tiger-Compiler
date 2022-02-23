@@ -1,7 +1,8 @@
 .stack-work/
 dist-newstyle/
-compiler.cabal
 *~
 /tiger/
 
 .vscode/
+
+cabal.project.local
