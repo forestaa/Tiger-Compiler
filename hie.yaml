@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:Tiger-Compiler"
+
+    - path: "./app/Main.hs"
+      component: "Tiger-Compiler:exe:compiler-exe"
+
+    - path: "./test"
+      component: "Tiger-Compiler:test:compiler-test"
