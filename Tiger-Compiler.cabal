@@ -39,11 +39,12 @@ common deps
     , rio
     , transformers
 
-common extensions
+common default
   default-extensions: AllowAmbiguousTypes BlockArguments DataKinds GADTs LambdaCase MultiWayIf NoImplicitPrelude OverloadedLabels TupleSections TypeFamilies TypeFamilyDependencies
+  default-language: GHC2021
 
 library
-  import: deps, extensions
+  import: deps, default
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wredundant-constraints -fno-warn-unticked-promoted-constructors -fno-warn-name-shadowing
@@ -81,10 +82,9 @@ library
       Unique
   other-modules:
       Paths_Tiger_Compiler
-  default-language: GHC2021
 
 executable compiler-exe
-  import: deps, extensions
+  import: deps, default
   main-is: Main.hs
   hs-source-dirs:
       app
@@ -93,10 +93,9 @@ executable compiler-exe
       Tiger-Compiler
   other-modules:
       Paths_Tiger_Compiler
-  default-language: GHC2021
 
 test-suite compiler-test
-  import: deps, extensions
+  import: deps, default
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   hs-source-dirs:
@@ -121,4 +120,3 @@ test-suite compiler-test
       Tiger.Semant.TypeCheckSpec
       Tiger.SemantSpec
       Paths_Tiger_Compiler
-  default-language: GHC2021
