@@ -2,7 +2,6 @@
 module Linear.Lexer where
 
 import Prelude
-import RIO
 
 import qualified Data.ByteString.Lazy.Char8 as B
 

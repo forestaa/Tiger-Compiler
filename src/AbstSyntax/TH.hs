@@ -7,7 +7,6 @@ import RIO.Char (toLower)
 import qualified RIO.List as List
 
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
 
 
 -- Functor(?) f traverse declarations of syntax tree
