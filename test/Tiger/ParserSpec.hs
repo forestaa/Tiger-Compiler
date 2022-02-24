@@ -1,21 +1,18 @@
 module Tiger.ParserSpec (spec) where
 
-import Test.Hspec
-import Tiger.Parser
-import Tiger.LSyntax
-
-import Lexer.Monad
-
-import RIO
-import qualified Data.ByteString.Lazy as B
-
 import Control.Monad.Except
+import Data.ByteString.Lazy qualified as B
+import Lexer.Monad
+import RIO
+import Test.Hspec
+import Tiger.LSyntax
+import Tiger.Parser
 
 spec :: Spec
 spec =
   describe "parser test" $ do
     it "samples/test**.tig" $ do
-      let cases = ((:) '0' . show <$> [1..9]) ++ (map show [10..48])
+      let cases = ((:) '0' . show <$> [1 .. 9]) ++ (map show [10 .. 48])
           testcases = (++) <$> (("test/Tiger/samples/test" ++) <$> cases) <*> [".tig"]
       res <- runExceptT (traverse parserTest testcases)
       res `shouldSatisfy` isRight

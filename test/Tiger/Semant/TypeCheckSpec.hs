@@ -1,32 +1,29 @@
 module Tiger.Semant.TypeCheckSpec (spec) where
 
-import           Control.Monad.Trans.Cont
-import           Data.Extensible
-import           Data.Extensible.Effect
-import           RIO
-import qualified RIO.List as List
-import qualified RIO.List.Partial as Partial
-import qualified RIO.Map as Map
-import           Test.Hspec
-
-import qualified Frame as F
-import           FrameMock
-import qualified IR
-import           SrcLoc
-import           TestUtils
-import           Unique
-
-import           Tiger.Semant
-import           Tiger.Semant.BreakPoint
-import           Tiger.Semant.Env
-import           Tiger.Semant.Exp
-import           Tiger.Semant.Level
-import           Tiger.Semant.Translate
-import           Tiger.Semant.TypeCheck
-import           Tiger.Semant.Types
-import qualified Tiger.LSyntax as T (valueToLValue, expToLExp)
-import qualified Tiger.Syntax as T
-
+import Control.Monad.Trans.Cont
+import Data.Extensible
+import Data.Extensible.Effect
+import Frame qualified as F
+import FrameMock
+import IR qualified
+import RIO
+import RIO.List qualified as List
+import RIO.List.Partial qualified as Partial
+import RIO.Map qualified as Map
+import SrcLoc
+import Test.Hspec
+import TestUtils
+import Tiger.LSyntax qualified as T (expToLExp, valueToLValue)
+import Tiger.Semant
+import Tiger.Semant.BreakPoint
+import Tiger.Semant.Env
+import Tiger.Semant.Exp
+import Tiger.Semant.Level
+import Tiger.Semant.Translate
+import Tiger.Semant.TypeCheck
+import Tiger.Semant.Types
+import Tiger.Syntax qualified as T
+import Unique
 
 spec :: Spec
 spec = typeCheckArrayIndexSpec
@@ -67,12 +64,12 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
       Right ty -> expectationFailure $ "should return ExpectedArrayType, but got " ++ show ty
       Left (L _ e) -> e `shouldSatisfy` isExpectedArrayType
 
-
-
-runEff :: Eff '[
-        ("typeEnv" >: State TEnv)
-      , ("id" >: UniqueEff)
-      , ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
-      ] a
-  -> Either (RealLocated TypeCheckError) a
+runEff ::
+  Eff
+    '[ ("typeEnv" >: State TEnv),
+       ("id" >: UniqueEff),
+       ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
+     ]
+    a ->
+  Either (RealLocated TypeCheckError) a
 runEff = leaveEff . runEitherEff @"typeCheckError" . runUniqueEff @"id" . evalTEnvEff initTEnv

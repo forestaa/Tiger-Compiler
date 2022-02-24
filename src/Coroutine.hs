@@ -1,7 +1,7 @@
 module Coroutine where
 
-import RIO
 import Data.Kind (Type)
+import RIO
 
 type family Coroutine (xs :: [Type]) (m :: Type -> Type) (r :: Type) where
   Coroutine '[] m r = m r

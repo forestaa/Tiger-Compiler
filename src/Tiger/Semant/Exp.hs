@@ -1,13 +1,13 @@
 module Tiger.Semant.Exp where
 
-import           Data.Extensible
-import           Data.Extensible.Effect
-import           RIO
-
-import qualified IR
-import           Unique
+import Data.Extensible
+import Data.Extensible.Effect
+import IR qualified
+import RIO
+import Unique
 
 data Exp = Ex IR.Exp | Nx IR.Stm | Cx (Label -> Label -> IR.Stm)
+
 instance Eq Exp where
   Ex e == Ex e' = e == e'
   Nx s == Nx s' = s == s'
@@ -15,13 +15,13 @@ instance Eq Exp where
     where
       (true, false) = leaveEff . runUniqueEff @"label" $ (,) <$> newLabel <*> newLabel
   _ == _ = False
+
 instance Show Exp where
   show (Ex e) = "Ex: " ++ show e
   show (Nx s) = "Nx: " ++ show s
   show (Cx genstm) = "Cx: λt. λf -> " ++ show (genstm true false)
     where
       (true, false) = leaveEff . runUniqueEff @"label" $ (,) <$> namedLabel "t" <*> namedLabel "f"
-
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
@@ -30,13 +30,17 @@ unEx (Cx genstm) = do
   r <- newTemp
   t <- newLabel
   f <- newLabel
-  pure $ IR.ESeq (IR.seqStm [
-      IR.Move (IR.Temp r) (IR.Const 1)
-    , genstm t f
-    , IR.Label f
-    , IR.Move (IR.Temp r) (IR.Const 0)
-    , IR.Label t
-    ]) (IR.Temp r)
+  pure $
+    IR.ESeq
+      ( IR.seqStm
+          [ IR.Move (IR.Temp r) (IR.Const 1),
+            genstm t f,
+            IR.Label f,
+            IR.Move (IR.Temp r) (IR.Const 0),
+            IR.Label t
+          ]
+      )
+      (IR.Temp r)
 
 unNx :: Lookup xs "label" UniqueEff => Exp -> Eff xs IR.Stm
 unNx (Ex e) = pure $ IR.Exp e
@@ -52,4 +56,3 @@ unCx (Ex (IR.Const _)) = \t _ -> IR.Jump (IR.Name t) [t]
 unCx (Ex e) = IR.CJump IR.Ne e (IR.Const 0)
 unCx (Nx _) = undefined
 unCx (Cx genstm) = genstm
-

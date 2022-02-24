@@ -1,26 +1,22 @@
 module Tiger.IntegrationSpec (spec) where
 
-import           Control.Monad.Except
-import qualified Data.ByteString.Lazy as B
-import           Data.Extensible
-import           Data.Extensible.Effect
-import           RIO
-import           Test.Hspec
-
-import           Frame
-import           FrameMock
-import           Lexer.Monad
-import           SrcLoc
-import           TestUtils
-
-import           Tiger.Parser
-import           Tiger.Semant
-import           Tiger.Semant.Exp
-import           Tiger.Semant.MarkEscape
-import           Tiger.Semant.TypeCheck
-import           Tiger.Semant.Types
-
-
+import Control.Monad.Except
+import Data.ByteString.Lazy qualified as B
+import Data.Extensible
+import Data.Extensible.Effect
+import Frame
+import FrameMock
+import Lexer.Monad
+import RIO
+import SrcLoc
+import Test.Hspec
+import TestUtils
+import Tiger.Parser
+import Tiger.Semant
+import Tiger.Semant.Exp
+import Tiger.Semant.MarkEscape
+import Tiger.Semant.TypeCheck
+import Tiger.Semant.Types
 
 spec :: Spec
 spec = integrationSpec
@@ -133,10 +129,10 @@ integrationSpec = describe "integration test for translate" $ do
     res `shouldSatisfy` isRight
   where
     testcase s = "test/Tiger/samples/" ++ s
-    validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1..8], [12], [27], [30], [37], [41..42], [44], [46..48]]
+    validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1 .. 8], [12], [27], [30], [37], [41 .. 42], [44], [46 .. 48]]
 
+data Error = ParseError String | SemantAnalysisError SemantAnalysisError deriving (Show)
 
-data Error = ParseError String | SemantAnalysisError SemantAnalysisError deriving Show
 translateTest :: FilePath -> ExceptT Error IO ((Exp, Type), [ProgramFragment FrameMock])
 translateTest file = do
   bs <- liftIO $ B.readFile file

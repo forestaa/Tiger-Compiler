@@ -1,13 +1,12 @@
 module Linear.EvalSpec (spec) where
 
-import Test.Hspec
+import Data.ByteString.Lazy qualified as B
+import Lexer.Monad
 import Linear.Eval
 import Linear.LSyntax
 import Linear.Parser
-import Lexer.Monad
-
 import RIO
-import qualified Data.ByteString.Lazy as B
+import Test.Hspec
 
 spec :: Spec
 spec =

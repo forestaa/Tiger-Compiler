@@ -2,10 +2,9 @@
 
 module Linear.LSyntax where
 
-import Id
-import SrcLoc
-
 import AbstSyntax.TH
-import qualified Linear.Syntax as S
+import Id
+import Linear.Syntax qualified as S
+import SrcLoc
 
 $(mkFAbstSyntaxes ''RealLocated 'dummyRealLocated [''S.Stm, ''S.Exp])

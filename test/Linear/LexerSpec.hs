@@ -1,10 +1,9 @@
 module Linear.LexerSpec (spec) where
 
-import Test.Hspec
+import Data.ByteString.Lazy qualified as B
 import Linear.Lexer
-
 import RIO
-import qualified Data.ByteString.Lazy as B
+import Test.Hspec
 
 spec :: Spec
 spec =

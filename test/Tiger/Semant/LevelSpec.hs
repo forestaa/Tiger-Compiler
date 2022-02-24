@@ -1,18 +1,14 @@
 module Tiger.Semant.LevelSpec (spec) where
 
-import           Data.Extensible
-import           Data.Extensible.Effect
-import           RIO hiding (exp)
-import           Test.Hspec
-
-import qualified Frame as F
-import           FrameMock
-import qualified IR
-import           Unique
-
-import           Tiger.Semant.Level
-
-
+import Data.Extensible
+import Data.Extensible.Effect
+import Frame qualified as F
+import FrameMock
+import IR qualified
+import RIO hiding (exp)
+import Test.Hspec
+import Tiger.Semant.Level
+import Unique
 
 spec :: Spec
 spec = do
@@ -54,7 +50,6 @@ pullInStaticLinksEffSpec = describe "pullInStaticLinksEff test" $ do
       (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> fp == F.fp @FrameMock
       _ -> False
 
-
 fetchCurrentLevelParametersAccessEffSpec :: Spec
 fetchCurrentLevelParametersAccessEffSpec = describe "fetch current level parameters access test" $ do
   it "non escape parameter" $ do
@@ -74,7 +69,6 @@ fetchCurrentLevelParametersAccessEffSpec = describe "fetch current level paramet
     access `shouldSatisfy` \case
       [InFrame 4] -> True
       _ -> False
-
 
 runEff :: Eff '["temp" >: UniqueEff, "label" >: UniqueEff, "nestingLevel" >: NestingLevelEff FrameMock] a -> a
 runEff = leaveEff . runNestingLevelEff . runUniqueEff @"label" . runUniqueEff @"temp"

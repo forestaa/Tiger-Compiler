@@ -1,32 +1,28 @@
 module Tiger.SemantSpec (spec) where
 
-import           Data.Extensible
-import           Data.Extensible.Effect
-import           RIO
-import qualified RIO.List as List
-import qualified RIO.List.Partial as Partial
-import           Test.Hspec
-
-import qualified Frame as F
-import           FrameMock
-import           Id
-import qualified IR
-import           SrcLoc
-import           TestUtils
-import           Unique
-
-import           Tiger.Semant
-import           Tiger.Semant.BreakPoint
-import           Tiger.Semant.Env
-import           Tiger.Semant.Exp
-import           Tiger.Semant.Level
-import           Tiger.Semant.Translate
-import           Tiger.Semant.TypeCheck
-import           Tiger.Semant.Types
-import qualified Tiger.LSyntax as T (expToLExp)
-import qualified Tiger.Syntax as T
-
-
+import Data.Extensible
+import Data.Extensible.Effect
+import Frame qualified as F
+import FrameMock
+import IR qualified
+import Id
+import RIO
+import RIO.List qualified as List
+import RIO.List.Partial qualified as Partial
+import SrcLoc
+import Test.Hspec
+import TestUtils
+import Tiger.LSyntax qualified as T (expToLExp)
+import Tiger.Semant
+import Tiger.Semant.BreakPoint
+import Tiger.Semant.Env
+import Tiger.Semant.Exp
+import Tiger.Semant.Level
+import Tiger.Semant.Translate
+import Tiger.Semant.TypeCheck
+import Tiger.Semant.Types
+import Tiger.Syntax qualified as T
+import Unique
 
 spec :: Spec
 spec = do
@@ -70,11 +66,11 @@ translateStringSpec = describe "translate string test" $ do
         ty `shouldBe` TString
         length fragments `shouldBe` 1
         Partial.head fragments `shouldSatisfy` fragmentP
-    where
-      expP (Ex (IR.Name _)) = True
-      expP _ = False
-      fragmentP (F.String (Label _ _) s) = s == "hoge"
-      fragmentP _ = False
+  where
+    expP (Ex (IR.Name _)) = True
+    expP _ = False
+    fragmentP (F.String (Label _ _) s) = s == "hoge"
+    fragmentP _ = False
 
 translateNilSpec :: Spec
 translateNilSpec = describe "translate nil test" $ do
@@ -107,7 +103,7 @@ translateVariableSpec = describe "translate variable test" $ do
     case result of
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
-        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-2*F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
+        exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-2 * F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
 
   it "second local variable, first is not escaped" $ do
@@ -165,7 +161,6 @@ translateVariableSpec = describe "translate variable test" $ do
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedVariable
-
 
 translateRecordFieldSpec :: Spec
 translateRecordFieldSpec = describe "translate record field test" $ do
@@ -230,7 +225,6 @@ translateRecordFieldSpec = describe "translate record field test" $ do
       Right ret -> expectationFailure $ "should return MissingRecordField: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndMissingRecordField
 
-
 translateArrayIndexSpec :: Spec
 translateArrayIndexSpec = describe "translate array index test" $ do
   it "array index x[0]" $ do
@@ -264,7 +258,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TString <: #id @= id1 <: nil
+          let arrayTy = TArray $ #range @= TString <: #id @= id1 <: nil
               recordTy = TRecord $ #map @= [("y", arrayTy)] <: #id @= id2 <: nil
           allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
@@ -278,7 +272,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
               nameTy = TName (dummyRealLocated "array")
           insertType "array" arrayTy
           allocateLocalVariableAndInsertType "x" True nameTy
@@ -293,7 +287,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.String "hoge"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -323,7 +317,7 @@ translateBinOpSpec = describe "translate binop test" $ do
 
   it "'hoge' + 1" $ do
     let ast = T.expToLExp $ T.Op (T.String "hoge") T.Plus (T.Int 0)
-        result = runEff  $ do
+        result = runEff $ do
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
@@ -333,7 +327,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -344,7 +338,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -414,7 +408,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
           let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id1 <: nil
-              arrayTy = TArray  $ #range @= TInt <: #id @= id2 <: nil
+              arrayTy = TArray $ #range @= TInt <: #id @= id2 <: nil
           allocateLocalVariableAndInsertType "x" True recordTy
           allocateLocalVariableAndInsertType "y" True arrayTy
           translateExp ast
@@ -467,7 +461,6 @@ translateBinOpSpec = describe "translate binop test" $ do
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
-
 translateIfElseSpec :: Spec
 translateIfElseSpec = describe "translate if-else test" $ do
   it "if 0 == 0 then 1 else 0" $ do
@@ -494,7 +487,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
         where
-          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f')(IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z''))))))))) = t == t' && f == f' && z == z'' && z' == z''
+          expP (Nx (IR.Seq (IR.CJump IR.Eq (IR.Const 0) (IR.Const 0) t f) (IR.Seq (IR.Label t') (IR.Seq (IR.Move _ (IR.Const 0)) (IR.Seq (IR.Jump (IR.Name z) _) (IR.Seq (IR.Label f') (IR.Seq (IR.Move _ (IR.Const 1)) (IR.Seq (IR.Jump (IR.Name z') _) (IR.Label z''))))))))) = t == t' && f == f' && z == z'' && z' == z''
           expP _ = False
 
   it "if 0 == 0 then 0 == 0 else 0 == 1" $ do
@@ -553,13 +546,12 @@ translateIfElseSpec = describe "translate if-else test" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
-
 
 translateIfNoElseSpec :: Spec
 translateIfNoElseSpec = describe "translate if-no-else test" $ do
@@ -611,7 +603,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) Nothing
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray  $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -626,7 +618,6 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedTypeInt: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedUnitType
-
 
 translateRecordCreationSpec :: Spec
 translateRecordCreationSpec = describe "translate record creation test" $ do
@@ -778,7 +769,6 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Right ret -> expectationFailure $ "should return ExpectedRecordType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedRecordType
 
-
 translateArrayCreationSpec :: Spec
 translateArrayCreationSpec = describe "translate array creation test" $ do
   it "type array = array of int; array [0] of 0" $ do
@@ -792,7 +782,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
-        ty `shouldSatisfy`isIntArray
+        ty `shouldSatisfy` isIntArray
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 1])) (IR.Temp _))) = True
           expP _ = False
@@ -813,7 +803,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
       Left (L _ e) -> expectationFailure $ show e
       Right ((exp, ty), _) -> do
         exp `shouldSatisfy` expP
-        ty `shouldSatisfy`isRecordArray
+        ty `shouldSatisfy` isRecordArray
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 0])) (IR.Temp _))) = True
           expP _ = False
@@ -852,7 +842,6 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedIntType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
-
 
 translateWhileLoopSpec :: Spec
 translateWhileLoopSpec = describe "translate while loop test" $ do
@@ -902,7 +891,6 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedUnitType:" ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedUnitType
-
 
 translateForLoopSpec :: Spec
 translateForLoopSpec = describe "translate for loop test" $ do
@@ -962,7 +950,6 @@ translateForLoopSpec = describe "translate for loop test" $ do
       Right ret -> expectationFailure $ "should return ExpectedIntType"
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedIntType
 
-
 translateBreakSpec :: Spec
 translateBreakSpec = describe "translate break test" $ do
   it "while 0 == 0 do break" $ do
@@ -1020,7 +1007,6 @@ translateBreakSpec = describe "translate break test" $ do
     case result of
       Right ret -> expectationFailure $ "should return BreakOutsideLoop: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTranslateErrorAndBreakOutsideLoop
-
 
 translateFunApplySpec :: Spec
 translateFunApplySpec = describe "translate fun application test" $ do
@@ -1117,7 +1103,6 @@ translateFunApplySpec = describe "translate fun application test" $ do
       Right ret -> expectationFailure $ "should return ExpectedFunction: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedFunction
 
-
 translateAssignSpec :: Spec
 translateAssignSpec = describe "translate assgin test" $ do
   it "var x int; x := 0" $ do
@@ -1157,7 +1142,6 @@ translateAssignSpec = describe "translate assgin test" $ do
     case result of
       Right ret -> expectationFailure $ "should return ExpectedType: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndExpectedType
-
 
 translateSeqSpec :: Spec
 translateSeqSpec = describe "translate seq test" $ do
@@ -1269,10 +1253,10 @@ translateLetSpec = describe "translate let test" $ do
         fragments `shouldBe` []
         where
           expP (Cx genstm) =
-            let (true, false) = fetchTwoLabel in
-            case genstm true false of
-              IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false' -> true == true' && false == false'
-              _ -> False
+            let (true, false) = fetchTwoLabel
+             in case genstm true false of
+                  IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false' -> true == true' && false == false'
+                  _ -> False
           expP _ = False
 
   it "let var x: int := 0 in x" $ do
@@ -1329,10 +1313,10 @@ translateLetSpec = describe "translate let test" $ do
         fragments `shouldBe` []
         where
           expP (Cx genstm) =
-            let (true, false) = fetchTwoLabel in
-            case genstm true false of
-              IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false') -> true == true' && false == false'
-              _ -> False
+            let (true, false) = fetchTwoLabel
+             in case genstm true false of
+                  IR.Seq (IR.Move (IR.Temp _) (IR.Const 0)) (IR.CJump IR.Eq (IR.Const 1) (IR.Const 2) true' false') -> true == true' && false == false'
+                  _ -> False
           expP _ = False
 
   it "let var x: int := 0 in x := 1" $ do
@@ -1440,7 +1424,7 @@ translateLetSpec = describe "translate let test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
           bodyP [F.Proc r] = case r ^. #body of
-            IR.Move (IR.Temp rv) (IR.Temp (Temp _ )) -> rv == F.rv @FrameMock
+            IR.Move (IR.Temp rv) (IR.Temp (Temp _)) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc r] = case r ^. #frame of
@@ -1493,8 +1477,8 @@ translateLetSpec = describe "translate let test" $ do
           bodyP _ = False
           frameP [F.Proc r1, F.Proc r2] = case (r1 ^. #frame, r2 ^. #frame) of
             (FrameMock r1, FrameMock r2) -> case (r1 ^. #formals, r2 ^. #formals) of
-                  ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
-                  _ -> False
+              ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
+              _ -> False
           frameP _ = False
 
   it "let type a = record{}; function f(): a = nil in f()" $ do
@@ -1739,38 +1723,50 @@ translateLetSpec = describe "translate let test" $ do
       Right ret -> expectationFailure $ "should return UndefinedVariable: " ++ show ret
       Left (L _ e) -> e `shouldSatisfy` isTypeCheckErrorAndUndefinedVariable
 
-runEff :: Eff '[
-        ("typeEnv" >: State TEnv)
-      , ("varTypeEnv" >: State VTEnv)
-      , ("varAccessEnv" >: State (VAEnv FrameMock))
-      , ("nestingLevel" >: NestingLevelEff FrameMock)
-      , ("breakpoint" >: BreakPointEff)
-      , ("fragment" >: FragmentEff FrameMock)
-      , ("temp" >: UniqueEff)
-      , ("label" >: UniqueEff)
-      , ("id" >: UniqueEff)
-      , ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
-      , ("translateError" >: EitherEff (RealLocated TranslateError))
-      ] a
-  -> Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment FrameMock])
+runEff ::
+  Eff
+    '[ ("typeEnv" >: State TEnv),
+       ("varTypeEnv" >: State VTEnv),
+       ("varAccessEnv" >: State (VAEnv FrameMock)),
+       ("nestingLevel" >: NestingLevelEff FrameMock),
+       ("breakpoint" >: BreakPointEff),
+       ("fragment" >: FragmentEff FrameMock),
+       ("temp" >: UniqueEff),
+       ("label" >: UniqueEff),
+       ("id" >: UniqueEff),
+       ("typeCheckError" >: EitherEff (RealLocated TypeCheckError)),
+       ("translateError" >: EitherEff (RealLocated TranslateError))
+     ]
+    a ->
+  Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment FrameMock])
 runEff = leaveEff . runTranslateEffWithNewLevel
 
-allocateLocalVariableAndInsertType :: (
-    F.Frame f
-  , Lookup xs "varTypeEnv" (State VTEnv)
-  , Lookup xs "varAccessEnv" (State (VAEnv f))
-  , Lookup xs "nestingLevel" (NestingLevelEff f)
-  , Lookup xs "temp" UniqueEff
-  ) => Id -> Bool -> Type -> Eff xs ()
+allocateLocalVariableAndInsertType ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f)),
+    Lookup xs "nestingLevel" (NestingLevelEff f),
+    Lookup xs "temp" UniqueEff
+  ) =>
+  Id ->
+  Bool ->
+  Type ->
+  Eff xs ()
 allocateLocalVariableAndInsertType name escape ty = do
   allocateLocalVariable name escape
   insertVarType name $ VarType ty
 
-insertFun :: (
-    F.Frame f
-  , Lookup xs "varTypeEnv" (State VTEnv)
-  , Lookup xs "varAccessEnv" (State (VAEnv f))
-  ) => Id -> Label -> Level f -> [Type] -> Type -> Eff xs ()
+insertFun ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  ) =>
+  Id ->
+  Label ->
+  Level f ->
+  [Type] ->
+  Type ->
+  Eff xs ()
 insertFun name label parent domains codomain = do
   insertVarAccess name . FunAccess $ #label @= label <: #parent @= parent <: nil
   insertVarType name . FunType $ #domains @= domains <: #codomain @= codomain <: nil

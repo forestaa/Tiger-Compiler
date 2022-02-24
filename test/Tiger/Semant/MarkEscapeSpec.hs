@@ -1,12 +1,10 @@
 module Tiger.Semant.MarkEscapeSpec where
 
-import Test.Hspec
 import RIO
-
-import Tiger.Semant.MarkEscape
+import Test.Hspec
 import Tiger.LSyntax (expToLExp)
-import qualified Tiger.Syntax as T
-
+import Tiger.Semant.MarkEscape
+import Tiger.Syntax qualified as T
 
 spec :: Spec
 spec =

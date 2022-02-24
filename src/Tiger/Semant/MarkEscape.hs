@@ -1,15 +1,14 @@
 module Tiger.Semant.MarkEscape (markEscape) where
 
-import RIO
-import qualified RIO.List.Partial as List (head)
 import Data.Extensible
 import Data.Extensible.Effect
 import Data.Maybe
-import qualified Tiger.LSyntax as T
-
-import qualified Env as E
+import Env qualified as E
 import Id
+import RIO
+import RIO.List.Partial qualified as List (head)
 import SrcLoc
+import Tiger.LSyntax qualified as T
 
 type EscapeEff = '["depth" >: State Int, "env" >: State (E.Env Int)]
 
@@ -47,19 +46,19 @@ traverseExp (L loc (T.For id _ from to body)) = do
   (escs, body') <- validateVarUsage [unLId id] $ traverseExp body
   pure . L loc $ T.For id (List.head escs) from' to' body'
 traverseExp (L loc (T.Let [] body)) = L loc . T.Let [] <$> traverseExp body
-traverseExp (L loc (T.Let (d:ds) body)) = do
-    d' <- traverseDec d
-    case d' of
-      L loc' (T.VarDec id b t init) -> do
-        (escs, lets) <- validateVarUsage [unLId id] $ traverseExp (L loc (T.Let ds body))
-        case lets of
-          L _ (T.Let decs' body') -> pure . L loc $ T.Let (L loc' (T.VarDec id (b || List.head escs) t init) : decs') body'
-          _ -> undefined
-      d' -> do
-        lets <- traverseExp (L loc (T.Let ds body))
-        case lets of
-          L _  (T.Let decs' body') -> pure . L loc $ T.Let (d' : decs') body'
-          _ -> undefined
+traverseExp (L loc (T.Let (d : ds) body)) = do
+  d' <- traverseDec d
+  case d' of
+    L loc' (T.VarDec id b t init) -> do
+      (escs, lets) <- validateVarUsage [unLId id] $ traverseExp (L loc (T.Let ds body))
+      case lets of
+        L _ (T.Let decs' body') -> pure . L loc $ T.Let (L loc' (T.VarDec id (b || List.head escs) t init) : decs') body'
+        _ -> undefined
+    d' -> do
+      lets <- traverseExp (L loc (T.Let ds body))
+      case lets of
+        L _ (T.Let decs' body') -> pure . L loc $ T.Let (d' : decs') body'
+        _ -> undefined
 traverseExp le = pure le
 
 traverseValue :: T.LValue -> Eff EscapeEff T.LValue

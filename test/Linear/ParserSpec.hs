@@ -1,11 +1,10 @@
 module Linear.ParserSpec (spec) where
 
-import Test.Hspec
-import Linear.Parser
+import Data.ByteString.Lazy qualified as B
 import Lexer.Monad
-
+import Linear.Parser
 import RIO
-import qualified Data.ByteString.Lazy as B
+import Test.Hspec
 
 spec :: Spec
 spec =

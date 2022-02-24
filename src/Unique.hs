@@ -1,14 +1,13 @@
 module Unique where
 
-import RIO hiding ((.~))
-
 import Control.Lens ((.~))
 import Data.Extensible
 import Data.Extensible.Effect
-
+import RIO hiding ((.~))
 
 newtype Unique = Unique Int deriving (Eq, Show)
-type UniqueEff  = State Unique
+
+type UniqueEff = State Unique
 
 class HasUnique u where
   getUnique :: u -> Unique
@@ -35,6 +34,7 @@ getUniqueEff k = do
   pure $ Unique id
 
 newtype Temp = Temp Unique deriving (Eq, Show)
+
 newTemp :: Lookup xs "temp" UniqueEff => Eff xs Temp
 newTemp = Temp <$> getUniqueEff #temp
 
@@ -42,6 +42,7 @@ makeString :: Temp -> String
 makeString (Temp (Unique n)) = "t" ++ show n
 
 data Label = Label String Unique deriving (Eq, Show)
+
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
 
