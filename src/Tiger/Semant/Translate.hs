@@ -32,7 +32,7 @@ runFragmentEff = flip (runStateEff @"fragment") []
 
 saveProcEntry :: (F.Frame f, Lookup xs "fragment" (FragmentEff f)) => Level f -> IR.Stm -> Eff xs ()
 saveProcEntry TopLevel _ = undefined
-saveProcEntry (Level r) stm = modifyEff #fragment . (:) . F.Proc $ #body @= stm <: #frame @= r ^. #frame <: nil
+saveProcEntry level@Level {} stm = modifyEff #fragment . (:) $ F.Proc stm level.frame
 
 saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()
 saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
@@ -60,7 +60,7 @@ allocateLocalVariable ::
 allocateLocalVariable id escape = do
   a <- allocateLocalOnCurrentLevel escape
   level <- fetchCurrentLevelEff
-  let access = Access $ #level @= level <: #access @= a <: nil
+  let access = Access level a
   insertVarAccess id $ VarAccess access
   pure access
 
@@ -74,7 +74,7 @@ insertFunAccess ::
 insertFunAccess name = do
   label <- namedLabel name
   parent <- fetchCurrentLevelEff
-  insertVarAccess name . FunAccess $ #label @= label <: #parent @= parent <: nil
+  insertVarAccess name $ FunAccess label parent
 
 intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
@@ -97,7 +97,7 @@ valueIdExp ::
   ) =>
   Access f ->
   Eff xs Exp
-valueIdExp (Access r) = Ex . F.exp (r ^. #access) <$> pullInStaticLinksEff (r ^. #level)
+valueIdExp Access {..} = Ex . F.exp access <$> pullInStaticLinksEff level
 
 valueIdExpEff ::
   ( F.Frame f,
@@ -128,7 +128,7 @@ valueRecFieldExpEff ::
   Eff xs Exp
 valueRecFieldExpEff ty varExp field =
   TC.skipName ty >>= \case
-    TRecord r -> case List.findIndex (\(id, _) -> id == field) (r ^. #map) of
+    r@TRecord {} -> case List.findIndex (\(id, _) -> id == field) r.map of
       Just i -> pure $ valueRecFieldExp @f varExp i
       _ -> undefined
     _ -> undefined
@@ -383,9 +383,9 @@ funApplyExp ::
   Eff xs Exp
 funApplyExp func exps =
   lookupVarAccessEff func >>= \case
-    FunAccess r -> do
-      staticLink <- pullInStaticLinksEff (r ^. #parent)
-      Ex . IR.Call (IR.Name (r ^. #label)) . (:) staticLink <$> mapM unEx exps
+    FunAccess {..} -> do
+      staticLink <- pullInStaticLinksEff parent
+      Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
     VarAccess _ -> undefined
 
 assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Exp -> Eff xs Exp
@@ -410,8 +410,8 @@ funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff 
 funDecExp exp =
   fetchCurrentLevelEff >>= \case
     TopLevel -> undefined
-    level@(Level r) -> do
-      let stm = F.viewShift (r ^. #frame) $ addStoreRV exp
+    level@Level {} -> do
+      let stm = F.viewShift level.frame $ addStoreRV exp
       saveProcEntry level stm
   where
     addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e

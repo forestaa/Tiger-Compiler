@@ -1,3 +1,5 @@
+{-# LANGUAGE FieldSelectors #-}
+
 module Lexer.Monad where
 
 import Control.Monad.Except
@@ -44,7 +46,7 @@ failP = throwError
 getInput :: P AlexInput
 getInput = do
   s <- get
-  pure $ AlexInput (location s) (buffer s)
+  pure $ AlexInput s.location s.buffer
 
 setInput :: AlexInput -> P ()
 setInput (AlexInput loc buf) = modify $ \s -> s {location = loc, buffer = buf}

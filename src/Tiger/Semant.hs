@@ -31,7 +31,7 @@ insertInitVAEnv = mapM_ insertFunAccess initVEnv
     insertFunAccess :: Id -> Eff xs ()
     insertFunAccess name = do
       label <- namedLabel name
-      insertVarAccess name . FunAccess $ #label @= label <: #parent @= TopLevel <: nil
+      insertVarAccess name $ FunAccess label TopLevel
     initVEnv =
       [ "print",
         "flush",
@@ -233,32 +233,32 @@ translateDecsList = fmap mconcat . traverse translateDecs
     translateDecs (TypeDecs ds) = typeCheckTypeDecs ds >> pure []
 
     translateVarDec :: RealLocated VarDec -> Eff xs Exp
-    translateVarDec (L loc (VarDec r)) = do
-      (init, cont) <- typeCheckVarDec (L loc (VarDec r))
+    translateVarDec (L loc vardec@VarDec {}) = do
+      (init, cont) <- typeCheckVarDec (L loc vardec)
       (initExp, initTy) <- translateExp init
       cont initTy
-      access <- allocateLocalVariable (unLId $ r ^. #id) (r ^. #escape)
+      access <- allocateLocalVariable (unLId vardec.id) vardec.escape
       varInitExp access initExp
 
     translateFunDecs :: [RealLocated FunDec] -> Eff xs ()
     translateFunDecs ds = do
       typeCheckFunDecs ds
-      mapM_ (\(L _ (FunDec r)) -> insertFunAccess . unLId $ r ^. #id) ds
+      mapM_ (\(L _ fundec@FunDec {}) -> insertFunAccess $ unLId fundec.id) ds
       mapM_ translateFunDec ds
 
     translateFunDec :: forall xs. (HasTranslateEff xs f) => RealLocated FunDec -> Eff xs ()
-    translateFunDec (L loc (FunDec dec)) = do
-      (body, cont) <- typeCheckFunDec (L loc (FunDec dec))
-      lookupVarAccessEff (dec ^. #id) >>= \case
+    translateFunDec (L loc fundec@FunDec {}) = do
+      (body, cont) <- typeCheckFunDec (L loc fundec)
+      lookupVarAccessEff fundec.id >>= \case
         VarAccess _ -> undefined
-        FunAccess f -> withNewLevelEff (f ^. #label) escapes $ do
-          insertFormals . fmap extractLId $ dec ^. #args
+        FunAccess {..} -> withNewLevelEff label escapes $ do
+          insertFormals $ fmap extractLId fundec.args
           (bodyExp, bodyTy) <- translateExp body
           cont bodyTy
           funDecExp bodyExp
       where
         extractLId (L _ (T.Field (L _ id) _ _)) = id
-        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> dec ^. #args
+        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> fundec.args
         insertFormals :: [Id] -> Eff xs ()
         insertFormals args = do
           formals <- fetchCurrentLevelParametersAccessEff
@@ -266,5 +266,5 @@ translateDecsList = fmap mconcat . traverse translateDecs
         insertFormal :: Id -> F.Access f -> Eff xs ()
         insertFormal id a = do
           level <- fetchCurrentLevelEff
-          let access = Access $ #level @= level <: #access @= a <: nil
+          let access = Access level a
           insertVarAccess id $ VarAccess access

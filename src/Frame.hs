@@ -20,7 +20,7 @@ class Frame f where
   viewShift :: f -> IR.Stm -> IR.Stm
 
 data ProgramFragment f where
-  Proc :: Frame f => Record '["body" >: IR.Stm, "frame" >: f] -> ProgramFragment f
+  Proc :: Frame f => {body :: IR.Stm, frame :: f} -> ProgramFragment f
   String :: U.Label -> String -> ProgramFragment f
 
 deriving instance Eq f => Eq (ProgramFragment f)

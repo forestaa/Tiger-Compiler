@@ -26,7 +26,7 @@ insertInitVTEnv = mapM_ insertFunType initVEnv
   where
     insertFunType :: (Id, [Type], Type) -> Eff xs ()
     insertFunType (name, domains, codomain) =
-      insertVarType name . FunType $ #domains @= domains <: #codomain @= codomain <: nil
+      insertVarType name $ FunType domains codomain
     initVEnv =
       [ ("print", [TString], TUnit),
         ("flush", [], TUnit),
@@ -92,11 +92,11 @@ instance Show TypeCheckError where
   show NotDeterminedNilType = concat ["Couldn't determine the type of nil"]
   show (NotImplemented msg) = "not implemented: " ++ msg
 
-newtype FunDec = FunDec (Record '["id" >: LId, "args" >: [T.LField], "rettype" >: Maybe LId, "body" >: T.LExp])
+data FunDec = FunDec {id :: LId, args :: [T.LField], rettype :: Maybe LId, body :: T.LExp}
 
-newtype VarDec = VarDec (Record '["id" >: LId, "escape" >: Bool, "type" >: Maybe LId, "init" >: T.LExp])
+data VarDec = VarDec {id :: LId, escape :: Bool, ty :: Maybe LId, init :: T.LExp}
 
-newtype TypeDec = TypeDec (Record '["id" >: LId, "type" >: T.LType]) deriving (Show)
+data TypeDec = TypeDec {id :: LId, ty :: T.LType} deriving (Show)
 
 data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
 
@@ -129,11 +129,11 @@ skipName ::
   Type ->
   Eff xs Type
 skipName (TName lid) = lookupTypeIdEff lid >>= skipName
-skipName a@(TArray arr) = case arr ^. #range of
+skipName arr@TArray {} = case arr.range of
   TName id -> do
     ty <- skipName (TName id)
-    pure . TArray $ set #range ty arr
-  _ -> pure a
+    pure arr {range = ty}
+  _ -> pure arr
 skipName ty = pure ty
 
 lookupSkipName ::
@@ -170,7 +170,7 @@ typeCheckId ::
 typeCheckId lid@(L loc id) =
   lookupVarTypeEff lid >>= \case
     VarType ty -> pure ty
-    FunType _ -> throwEff #typeCheckError . L loc $ ExpectedVariable id
+    FunType {} -> throwEff #typeCheckError . L loc $ ExpectedVariable id
 
 typeCheckRecField ::
   ( Lookup xs "typeEnv" (State TEnv),
@@ -181,9 +181,9 @@ typeCheckRecField ::
 typeCheckRecField (L loc (lv, field)) =
   yield @'[] lv $
     skipName >=> \case
-      valueTy@(TRecord r) -> case List.lookup field (r ^. #map) of
+      r@TRecord {} -> case List.lookup field r.map of
         Just ty -> pure ty
-        Nothing -> throwEff #typeCheckError . L loc $ MissingRecordField lv valueTy field
+        Nothing -> throwEff #typeCheckError . L loc $ MissingRecordField lv r field
       valueTy -> throwEff #typeCheckError . L loc $ ExpectedRecordType lv valueTy
 
 typeCheckArrayIndex ::
@@ -195,9 +195,9 @@ typeCheckArrayIndex ::
 typeCheckArrayIndex (L loc (lv, le)) =
   yield @'[(T.LExp, Type)] lv $
     skipName >=> \case
-      TArray a -> yield @'[] le $ \indexTy -> do
+      arr@TArray {} -> yield @'[] le $ \indexTy -> do
         checkInt indexTy le
-        pure $ a ^. #range
+        pure arr.range
       ty -> throwEff #typeCheckError . L loc $ ExpectedArrayType lv ty
 
 typeCheckBinOp :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => RealLocated (T.LOp', T.LExp, T.LExp) -> Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
@@ -246,10 +246,10 @@ typeCheckRecordCreation ::
   Coroutine '[([T.LFieldAssign], [(Id, Type)])] (Eff xs) Type
 typeCheckRecordCreation (L loc (typeid, fields)) =
   lookupTypeIdEff typeid >>= \case
-    ty@(TRecord r) ->
+    r@TRecord {} ->
       yield @'[] fields $ \fieldsTy -> do
-        typecheckFields ty (r ^. #map) fieldsTy
-        pure ty
+        typecheckFields r r.map fieldsTy
+        pure r
     ty -> throwEff #typeCheckError . L loc $ ExpectedRecordType (L loc (T.Id typeid)) ty
   where
     typecheckFields :: Type -> [(Id, Type)] -> [(Id, Type)] -> Eff xs ()
@@ -276,13 +276,13 @@ typeCheckArrayCreation ::
   Coroutine '[(T.LExp, Type), (T.LExp, Type)] (Eff xs) Type
 typeCheckArrayCreation (L loc (typeid, size, init)) =
   lookupSkipName typeid >>= \case
-    ty@(TArray a) ->
+    arr@TArray {} ->
       yield @'[(T.LExp, Type)] size $ \sizeTy -> do
         checkInt sizeTy size
         yield @'[] init $ \initTy ->
-          if a ^. #range <= initTy
-            then pure ty
-            else throwEff #typeCheckError . L loc $ ExpectedType init (a ^. #range) initTy
+          if arr.range <= initTy
+            then pure arr
+            else throwEff #typeCheckError . L loc $ ExpectedType init arr.range initTy
     ty -> throwEff #typeCheckError . L loc $ ExpectedArrayType (L loc (T.Id typeid)) ty
 
 typeCheckWhileLoop ::
@@ -325,11 +325,11 @@ typeCheckFunApply ::
   Coroutine '[([T.LExp], [Type])] (Eff xs) Type
 typeCheckFunApply (L loc (func, args)) =
   lookupVarTypeEff func >>= \case
-    FunType r ->
+    fun@FunType {} ->
       yield @'[] args $ \argsTy -> do
-        domains <- mapM skipName $ r ^. #domains
+        domains <- mapM skipName fun.domains
         if length domains == length argsTy && domains <= argsTy
-          then pure $ r ^. #codomain
+          then pure fun.codomain
           else throwEff #typeCheckError . L loc $ ExpectedTypes args domains argsTy
     VarType _ -> throwEff #typeCheckError . L loc $ ExpectedFunction (unLId func)
 
@@ -370,11 +370,11 @@ typeCheckLet (decs, body) = do
 groupByDecType :: [T.LDec] -> [Decs]
 groupByDecType = foldr go []
   where
-    convertFunDec (L loc (T.FunDec id args rettype body)) = L loc . FunDec $ #id @= id <: #args @= args <: #rettype @= rettype <: #body @= body <: nil
+    convertFunDec (L loc (T.FunDec id args rettype body)) = L loc $ FunDec id args rettype body
     convertFunDec _ = undefined
-    convertVarDec (L loc (T.VarDec id escape ty init)) = L loc . VarDec $ #id @= id <: #escape @= escape <: #type @= ty <: #init @= init <: nil
+    convertVarDec (L loc (T.VarDec id escape ty init)) = L loc $ VarDec id escape ty init
     convertVarDec _ = undefined
-    convertTypeDec (L loc (T.TypeDec id ty)) = L loc . TypeDec $ #id @= id <: #type @= ty <: nil
+    convertTypeDec (L loc (T.TypeDec id ty)) = L loc $ TypeDec id ty
     convertTypeDec _ = undefined
 
     go d@(L _ T.FunDec {}) [] = [FunDecs [convertFunDec d]]
@@ -394,16 +394,16 @@ typeCheckVarDec ::
   ) =>
   RealLocated VarDec ->
   Coroutine '[(T.LExp, Type)] (Eff xs) ()
-typeCheckVarDec (L loc (VarDec r)) =
-  yield @'[] (r ^. #init) $ \initTy ->
-    case r ^. #type of
+typeCheckVarDec (L loc vardec@VarDec {}) =
+  yield @'[] vardec.init $ \initTy ->
+    case vardec.ty of
       Nothing | initTy == TNil -> throwEff #typeCheckError . L loc $ NotDeterminedNilType
-      Nothing -> insertVarType (unLId $ r ^. #id) $ VarType initTy
+      Nothing -> insertVarType (unLId vardec.id) $ VarType initTy
       Just typeid -> do
         declaredTy <- lookupSkipName typeid
         if declaredTy <= initTy -- opposite to subtyping
-          then insertVarType (unLId $ r ^. #id) $ VarType declaredTy
-          else throwEff #typeCheckError . L loc $ ExpectedType (r ^. #init) declaredTy initTy
+          then insertVarType (unLId vardec.id) $ VarType declaredTy
+          else throwEff #typeCheckError . L loc $ ExpectedType vardec.init declaredTy initTy
 
 typeCheckFunDecs ::
   forall xs.
@@ -417,12 +417,12 @@ typeCheckFunDecs ds = do
   checkSameNameDec $ fmap extractLId ds
   mapM_ insertFunType ds
   where
-    extractLId (L _ (FunDec r)) = r ^. #id
+    extractLId (L _ fundec@FunDec {}) = fundec.id
     insertFunType :: RealLocated FunDec -> Eff xs ()
-    insertFunType (L _ (FunDec dec)) = do
-      domains <- mapM (\(L _ (T.Field _ _ typeid)) -> lookupTypeIdEff typeid) $ dec ^. #args
-      codomain <- maybe (pure TUnit) lookupTypeIdEff $ dec ^. #rettype
-      insertVarType (unLId $ dec ^. #id) . FunType $ #domains @= domains <: #codomain @= codomain <: nil
+    insertFunType (L _ fundec@FunDec {}) = do
+      domains <- mapM (\(L _ (T.Field _ _ typeid)) -> lookupTypeIdEff typeid) fundec.args
+      codomain <- maybe (pure TUnit) lookupTypeIdEff fundec.rettype
+      insertVarType (unLId fundec.id) $ FunType domains codomain
 
 typeCheckFunDec ::
   forall xs.
@@ -432,14 +432,14 @@ typeCheckFunDec ::
   ) =>
   RealLocated FunDec ->
   Coroutine '[(T.LExp, Type)] (Eff xs) ()
-typeCheckFunDec (L loc (FunDec dec)) = do
+typeCheckFunDec (L loc fundec@FunDec {}) = do
   beginVTEnvScope
-  mapM_ insertParameterVarType $ dec ^. #args
-  yield @'[] (dec ^. #body) $ \bodyTy -> do
-    declaredTy <- maybe (pure TUnit) lookupSkipName $ dec ^. #rettype
+  mapM_ insertParameterVarType $ fundec.args
+  yield @'[] fundec.body $ \bodyTy -> do
+    declaredTy <- maybe (pure TUnit) lookupSkipName fundec.rettype
     if declaredTy <= bodyTy
       then endVTEnvScope
-      else throwEff #typeCheckError . L loc $ ExpectedType (dec ^. #body) declaredTy bodyTy
+      else throwEff #typeCheckError . L loc $ ExpectedType fundec.body declaredTy bodyTy
   where
     insertParameterVarType :: T.LField -> Eff xs ()
     insertParameterVarType (L _ (T.Field (L _ id) _ typeid)) = lookupTypeIdEff typeid >>= insertVarType id . VarType
@@ -457,10 +457,10 @@ typeCheckTypeDecs ds = do
   checkInvalidRecType ds
   types <- withTEnvScope $ do
     mapM_ (\lid -> insertType (unLId lid) (TName lid)) typeLIds
-    mapM (\(L _ (TypeDec r)) -> (unLId (r ^. #id),) <$> typeCheckType (r ^. #type)) ds
+    mapM (\(L _ typedec@TypeDec {}) -> (unLId typedec.id,) <$> typeCheckType typedec.ty) ds
   mapM_ (uncurry insertType) types
   where
-    extractLId (L _ (TypeDec r)) = r ^. #id
+    extractLId (L _ typedec@TypeDec {}) = typedec.id
 
 checkSameNameDec :: Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)) => [LId] -> Eff xs ()
 checkSameNameDec ids = case runCheckSameNameDec ids of
@@ -480,7 +480,7 @@ checkInvalidRecType decs =
     then throwEff #typeCheckError . L undefined $ InvalidRecTypeDeclaration decs
     else pure ()
   where
-    typeDecToNode (L _ (TypeDec r)) = (r ^. #id, unLId $ r ^. #id, typeToEdge (r ^. #type))
+    typeDecToNode (L _ typedec@TypeDec {}) = (typedec.id, unLId typedec.id, typeToEdge typedec.ty)
       where
         typeToEdge (L _ (T.TypeId (L _ id'))) = [id']
         typeToEdge _ = []
@@ -497,13 +497,13 @@ typeCheckType ::
   Eff xs Type
 typeCheckType (L _ (T.TypeId typeid)) = lookupTypeIdEff typeid
 typeCheckType (L _ (T.RecordType fields)) = do
-  fieldmap <- foldrM (\field e -> (\(id, ty) -> (:) (id, ty) e) <$> typeCheckField field) [] fields
+  fieldmap <- foldrM (\field e -> (flip (:) e) <$> typeCheckField field) [] fields
   id <- getUniqueEff #id
-  pure . TRecord $ #map @= fieldmap <: #id @= id <: nil
+  pure $ TRecord fieldmap id
 typeCheckType (L _ (T.ArrayType typeid)) = do
   ty <- lookupTypeIdEff typeid
   id <- getUniqueEff #id
-  pure . TArray $ #range @= ty <: #id @= id <: nil
+  pure $ TArray ty id
 
 typeCheckField ::
   ( Lookup xs "typeEnv" (State TEnv),

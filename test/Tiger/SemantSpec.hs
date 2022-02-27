@@ -155,8 +155,8 @@ translateVariableSpec = describe "translate variable test" $ do
   it "variable referes function" $ do
     let ast = T.expToLExp $ T.Var (T.Id "x")
         result = runEff $ do
-          insertVarType "x" $ FunType undefined
-          insertVarAccess "x" $ FunAccess undefined
+          insertVarType "x" $ FunType undefined undefined
+          insertVarAccess "x" $ FunAccess undefined undefined
           translateExp ast
     case result of
       Right ret -> expectationFailure $ "should return undefined variable error: " ++ show ret
@@ -168,7 +168,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
@@ -181,7 +181,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "y")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt), ("y", TString)] id
           allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
@@ -194,7 +194,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "x")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
               nameTy = TName (dummyRealLocated "record")
           insertType "record" recordTy
           allocateLocalVariableAndInsertType "object" True nameTy
@@ -218,7 +218,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
     let ast = T.expToLExp $ T.Var (T.RecField (T.Id "object") "z")
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt), ("y", TString)] id
           allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
@@ -231,7 +231,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -244,7 +244,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Op (T.Int 1) T.Plus (T.Int 1)))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -258,8 +258,8 @@ translateArrayIndexSpec = describe "translate array index test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TString <: #id @= id1 <: nil
-              recordTy = TRecord $ #map @= [("y", arrayTy)] <: #id @= id2 <: nil
+          let arrayTy = TArray TString id1
+              recordTy = TRecord [("y", arrayTy)] id2
           allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
@@ -272,7 +272,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.Int 0))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
               nameTy = TName (dummyRealLocated "array")
           insertType "array" arrayTy
           allocateLocalVariableAndInsertType "x" True nameTy
@@ -287,7 +287,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
     let ast = T.expToLExp $ T.Var (T.ArrayIndex (T.Id "x") (T.String "hoge"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -327,7 +327,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -338,7 +338,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op (T.Var (T.Id "x")) T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -361,7 +361,7 @@ translateBinOpSpec = describe "translate binop test" $ do
     let ast = T.expToLExp $ T.Op T.Nil T.Eq (T.Var (T.Id "x"))
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
@@ -407,8 +407,8 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id1 <: nil
-              arrayTy = TArray $ #range @= TInt <: #id @= id2 <: nil
+          let recordTy = TRecord [("x", TInt)] id1
+              arrayTy = TArray TInt id2
           allocateLocalVariableAndInsertType "x" True recordTy
           allocateLocalVariableAndInsertType "y" True arrayTy
           translateExp ast
@@ -546,7 +546,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) (Just (T.Assign (T.Id "x") (T.Int 1)))
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -603,7 +603,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
     let ast = T.expToLExp $ T.If (T.Var (T.Id "x")) (T.Assign (T.Id "x") (T.Int 0)) Nothing
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
@@ -625,7 +625,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
+          let recordTy = TRecord [] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -636,14 +636,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp _))) = True
           expP _ = False
-          tyP (TRecord r) = r ^. #map == []
+          tyP r@TRecord {} = r.map == []
           tyP _ = False
 
   it "type record = {x: int}; record {x = 1}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -654,14 +654,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1))) (IR.Temp _))) = n == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == [("x", TInt)]
+          tyP r@TRecord {} = r.map == [("x", TInt)]
           tyP _ = False
 
   it "type record = {x: int, y: string}; record {x = 1, y = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1), T.FieldAssign "y" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt), ("y", TString)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt), ("y", TString)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -672,14 +672,14 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const i))) (IR.Name _)))) (IR.Temp _))) = n == 2 * F.wordSize @FrameMock && i == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == [("x", TInt), ("y", TString)]
+          tyP r@TRecord {} = r.map == [("x", TInt), ("y", TString)]
           tyP _ = False
 
   it "type record = {y: int, x: string}; record {y = 1, x = 'hoge'}" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.Int 1), T.FieldAssign "x" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("y", TInt), ("x", TString)] <: #id @= id <: nil
+          let recordTy = TRecord [("y", TInt), ("x", TString)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -690,7 +690,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const i))) (IR.Name _)))) (IR.Temp _))) = n == 2 * F.wordSize @FrameMock && i == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == [("y", TInt), ("x", TString)]
+          tyP r@TRecord {} = r.map == [("y", TInt), ("x", TString)]
           tyP _ = False
 
   it "type record1 = {}; type record2 = {x: record1};  record2 {x: nil}" $ do
@@ -698,8 +698,8 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let record1Ty = TRecord $ #map @= [] <: #id @= id1 <: nil
-              record2Ty = TRecord $ #map @= [("x", record1Ty)] <: #id @= id2 <: nil
+          let record1Ty = TRecord [] id1
+              record2Ty = TRecord [("x", record1Ty)] id2
           insertType "record1" record1Ty
           insertType "record2" record2Ty
           translateExp ast
@@ -711,8 +711,8 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const n])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp _) (IR.Const 0))) (IR.Const 0))) (IR.Temp _))) = n == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = case List.lookup "x" (r ^. #map) of
-            Just (TRecord _) -> True
+          tyP r@TRecord {} = case List.lookup "x" (r.map) of
+            Just TRecord {} -> True
             _ -> False
           tyP _ = False
 
@@ -720,7 +720,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" []
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -731,7 +731,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.Int 1)]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
+          let recordTy = TRecord [] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -742,7 +742,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "y" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -753,7 +753,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
     let ast = T.expToLExp $ T.RecordCreate "record" [T.FieldAssign "x" (T.String "hoge")]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [("x", TInt)] <: #id @= id <: nil
+          let recordTy = TRecord [("x", TInt)] id
           insertType "record" recordTy
           translateExp ast
     case result of
@@ -775,7 +775,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.Int 1)
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           insertType "array" arrayTy
           translateExp ast
     case result of
@@ -786,7 +786,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 1])) (IR.Temp _))) = True
           expP _ = False
-          isIntArray (TArray r) = r ^. #range == TInt
+          isIntArray arr@TArray {} = arr.range == TInt
           isIntArray _ = False
 
   it "type record = {}; type array = array of record; array [0] of nil" $ do
@@ -794,8 +794,8 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
         result = runEff $ do
           id1 <- getUniqueEff #id
           id2 <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [] <: #id @= id1 <: nil
-              arrayTy = TArray $ #range @= recordTy <: #id @= id2 <: nil
+          let recordTy = TRecord [] id1
+              arrayTy = TArray recordTy id2
           insertType "record" recordTy
           insertType "array" arrayTy
           translateExp ast
@@ -807,8 +807,8 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Call (IR.Name _) [IR.Const 0, IR.Const 0])) (IR.Temp _))) = True
           expP _ = False
-          isRecordArray (TArray r) = case r ^. #range of
-            TRecord _ -> True
+          isRecordArray arr@TArray {} = case arr.range of
+            TRecord {} -> True
             _ -> False
           isRecordArray _ = False
 
@@ -825,7 +825,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.Int 0) (T.String "hoge")
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           insertType "array" arrayTy
           translateExp ast
     case result of
@@ -836,7 +836,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
     let ast = T.expToLExp $ T.ArrayCreate "array" (T.String "hoge") (T.Int 0)
         result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           insertType "array" arrayTy
           translateExp ast
     case result of
@@ -1046,7 +1046,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.Nil]
         result = runEff $ do
           id <- getUniqueEff #id
-          let recordTy = TRecord $ #map @= [] <: #id @= id <: nil
+          let recordTy = TRecord [] id
           insertType "record" recordTy
           label <- newLabel
           parent <- fetchCurrentLevelEff
@@ -1388,7 +1388,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp r'))) = r == r'
           expP _ = False
-          tyP (TRecord r) = r ^. #map == []
+          tyP r@TRecord {} = r.map == []
           tyP _ = False
 
   it "let type record = {y: int, x: string} in record {y: 0, x: 'hoge'}" $ do
@@ -1404,7 +1404,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r') (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r'') (IR.Const n'))) (IR.Name _)))) (IR.Temp r'''))) = r == r' && r == r'' && r == r''' && n == 2 * F.wordSize @FrameMock && n' == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == [("y", TInt), ("x", TString)]
+          tyP r@TRecord {} = r.map == [("y", TInt), ("x", TString)]
           tyP _ = False
           fragmentsP [F.String _ s] = s == "hoge"
           fragmentsP _ = False
@@ -1423,13 +1423,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.Temp (Temp _)) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0, InReg _] -> r ^. #numberOfLocals == 0
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0, InReg _] -> numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1447,13 +1447,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0, InReg _] -> r ^. #numberOfLocals == 1
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0, InReg _] -> numberOfLocals == 1
               _ -> False
           frameP _ = False
 
@@ -1471,13 +1471,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc r1, F.Proc r2] = case (r1 ^. #body, r2 ^. #body) of
+          bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
             (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0]), IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _)))) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r1, F.Proc r2] = case (r1 ^. #frame, r2 ^. #frame) of
-            (FrameMock r1, FrameMock r2) -> case (r1 ^. #formals, r2 ^. #formals) of
-              ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
+          frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of
+            (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
+              ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1495,15 +1495,15 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
-          tyP (TRecord r) = r ^. #map == []
+          tyP r@TRecord {} = r.map == []
           tyP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.Const 0) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0] -> r ^. #numberOfLocals == 0
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0] -> numberOfLocals == 0
               _ -> False
           frameP _ = True
 
@@ -1521,13 +1521,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp']))) = fp == F.fp @FrameMock && fp' == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0] -> r ^. #numberOfLocals == 0
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0] -> numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1545,13 +1545,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp]))) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0] -> r ^. #numberOfLocals == 0
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0] -> numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1569,13 +1569,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Temp r'))) = r == r'
           expP _ = False
-          bodyP [F.Proc r] = case r ^. #body of
+          bodyP [F.Proc {body}] = case body of
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r] = case r ^. #frame of
-            FrameMock r -> case r ^. #formals of
-              [InFrame 0] -> r ^. #numberOfLocals == 0
+          frameP [F.Proc {frame}] = case frame of
+            FrameMock {formals, numberOfLocals} -> case formals of
+              [InFrame 0] -> numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1593,13 +1593,13 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc r1, F.Proc r2] = case (r1 ^. #body, r2 ^. #body) of
+          bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
             (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp1))]), (IR.Move (IR.Temp rv2) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))]))) -> rv1 == F.rv @FrameMock && fp1 == F.fp @FrameMock && rv2 == F.rv @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc r1, F.Proc r2] = case (r1 ^. #frame, r2 ^. #frame) of
-            (FrameMock r1, FrameMock r2) -> case (r1 ^. #formals, r2 ^. #formals) of
-              ([InFrame 0], [InFrame 0]) -> r1 ^. #numberOfLocals == 0 && r2 ^. #numberOfLocals == 0
+          frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of
+            (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
+              ([InFrame 0], [InFrame 0]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1615,7 +1615,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
           expP _ = False
-          tyP (TRecord r) = case r ^. #map of
+          tyP r@TRecord {} = case r.map of
             [("a", TName b)] -> b == dummyRealLocated "b"
             _ -> False
           tyP _ = False
@@ -1632,7 +1632,7 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp x) (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r') (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r'') (IR.Const n'))) (IR.Const 0)))) (IR.Temp r'''))) (IR.Temp x'))) = x == x' && r == r' && r == r'' && r == r''' && n == 2 * F.wordSize @FrameMock && n' == F.wordSize @FrameMock
           expP _ = False
-          tyP (TRecord r) = case r ^. #map of
+          tyP r@TRecord {} = case r.map of
             [("hd", TInt), ("tl", TName intlist)] -> intlist == dummyRealLocated "intlist"
             _ -> False
           tyP _ = False
@@ -1768,5 +1768,5 @@ insertFun ::
   Type ->
   Eff xs ()
 insertFun name label parent domains codomain = do
-  insertVarAccess name . FunAccess $ #label @= label <: #parent @= parent <: nil
-  insertVarType name . FunType $ #domains @= domains <: #codomain @= codomain <: nil
+  insertVarAccess name $ FunAccess label parent
+  insertVarType name $ FunType domains codomain

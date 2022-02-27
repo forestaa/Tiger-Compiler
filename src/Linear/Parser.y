@@ -64,7 +64,7 @@ L :: { [LExp] }
 {
 
 parserError :: Lexeme -> P a
-parserError (L span tk) = failP $ concat [srcFile span, ":", show $ srcSRow span, ":", show $ srcSCol span, ": parser error: token = ", show tk]
+parserError (L span tk) = failP $ concat [span.srcFile, ":", show span.srcSRow, ":", show span.srcSCol, ": parser error: token = ", show tk]
 
 
 retrieveID :: Lexeme -> LId

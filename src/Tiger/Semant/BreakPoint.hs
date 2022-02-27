@@ -3,6 +3,7 @@ module Tiger.Semant.BreakPoint where
 import Data.Extensible
 import Data.Extensible.Effect
 import RIO
+import RIO.List (headMaybe)
 import RIO.List.Partial qualified as Partial
 import Unique
 
@@ -28,7 +29,4 @@ withBreakPoint body = do
     popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (Partial.tail breakpoints)
 
 fetchCurrentBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs (Maybe Label)
-fetchCurrentBreakPoint =
-  getEff #breakpoint >>= \case
-    BreakPointStack [] -> pure Nothing
-    BreakPointStack (breakpoint : _) -> pure $ Just breakpoint
+fetchCurrentBreakPoint = getsEff #breakpoint $ \(BreakPointStack breakpoints) -> headMaybe breakpoints

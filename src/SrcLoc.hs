@@ -42,9 +42,10 @@ mkRealSrcSpan (SrcLoc file row col) len = RealSrcSpan file row col row (col + le
 combineRealSrcSpan :: RealSrcSpan -> RealSrcSpan -> RealSrcSpan
 combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
   where
-    file = srcFile span1 -- assume those srcFiles are the same
-    (srow, scol) = min (srcSRow span1, srcSCol span1) (srcSRow span2, srcSCol span2)
-    (erow, ecol) = min (srcERow span1, srcECol span1) (srcERow span2, srcECol span2)
+    -- assume those srcFiles are the same
+    file = span1.srcFile
+    (srow, scol) = min (span1.srcSRow, span1.srcSCol) (span2.srcSRow, span2.srcSCol)
+    (erow, ecol) = min (span1.srcERow, span1.srcECol) (span2.srcERow, span2.srcECol)
 
 data RealLocated e = L RealSrcSpan e deriving (Eq, Functor)
 

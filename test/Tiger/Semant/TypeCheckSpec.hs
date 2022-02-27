@@ -33,7 +33,7 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
   it "var a: array int; a[0]" $ do
     let result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           insertType "a" arrayTy
           (_, cont) <- typeCheckArrayIndex (dummyRealLocated (T.valueToLValue $ T.Id "a", T.expToLExp $ T.Int 0))
           (_, cont) <- cont arrayTy
@@ -45,7 +45,7 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
   it "var a: array int; a['hoge']" $ do
     let result = runEff $ do
           id <- getUniqueEff #id
-          let arrayTy = TArray $ #range @= TInt <: #id @= id <: nil
+          let arrayTy = TArray TInt id
           insertType "a" arrayTy
           (_, cont) <- typeCheckArrayIndex (dummyRealLocated (T.valueToLValue $ T.Id "a", T.expToLExp $ T.String "hoge"))
           (_, cont) <- cont arrayTy

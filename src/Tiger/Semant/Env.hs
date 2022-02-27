@@ -10,15 +10,15 @@ import Tiger.Semant.Level
 import Tiger.Semant.Types
 import Unique
 
-newtype Access f = Access (Record '["level" >: Level f, "access" >: F.Access f])
+data Access f = Access {level :: Level f, access :: F.Access f}
 
 data VarAccess f
   = VarAccess (Access f)
-  | FunAccess (Record '["label" :> Label, "parent" >: Level f])
+  | FunAccess {label :: Label, parent :: Level f}
 
 data VarType
   = VarType Type
-  | FunType (Record '["domains" >: [Type], "codomain" >: Type])
+  | FunType {domains :: [Type], codomain :: Type}
 
 type TEnv = E.Env Type
 

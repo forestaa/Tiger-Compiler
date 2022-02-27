@@ -8,7 +8,7 @@ import IR qualified
 import RIO hiding (exp)
 import Unique as U
 
-newtype FrameMock = FrameMock {unFrameMock :: Record '["name" :> Label, "formals" :> [AccessMock], "numberOfLocals" :> Int]} deriving (Show, Eq)
+data FrameMock = FrameMock {name :: Label, formals :: [AccessMock], numberOfLocals :: Int} deriving (Show, Eq)
 
 data AccessMock = InFrame Int | InReg Temp deriving (Show, Eq)
 
@@ -25,19 +25,19 @@ allocateFormal True = do
 newFrame :: Lookup xs "temp" UniqueEff => Label -> [Bool] -> Eff xs FrameMock
 newFrame name bs = do
   formals <- flip evalStateT 0 $ traverse allocateFormal bs
-  pure . FrameMock $ #name @= name <: #formals @= formals <: #numberOfLocals @= 0 <: nil
+  pure $ FrameMock name formals 0
 
 name :: FrameMock -> Label
-name (FrameMock r) = r ^. #name
+name FrameMock {name} = name
 
 formals :: FrameMock -> [AccessMock]
-formals (FrameMock r) = r ^. #formals
+formals FrameMock {formals} = formals
 
 allocLocal :: (Lookup xs "temp" UniqueEff) => FrameMock -> Bool -> Eff xs (FrameMock, AccessMock)
 allocLocal frame False = (frame,) . InReg <$> U.newTemp
-allocLocal (FrameMock r) True = pure (FrameMock $ set #numberOfLocals numberOfLocals r, InFrame $ -numberOfLocals * wordSize)
+allocLocal frame@FrameMock {} True = pure (frame {numberOfLocals = numberOfLocals}, InFrame $ -numberOfLocals * wordSize)
   where
-    numberOfLocals = r ^. #numberOfLocals + 1
+    numberOfLocals = frame.numberOfLocals + 1
 
 exp :: AccessMock -> IR.Exp -> IR.Exp
 exp (InFrame k) e = IR.Mem (IR.BinOp IR.Plus (IR.Const k) e)

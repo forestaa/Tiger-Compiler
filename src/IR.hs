@@ -1,6 +1,6 @@
 module IR where
 
-import RIO
+import RIO hiding (Const)
 import Unique qualified as U
 
 data Exp
@@ -49,6 +49,6 @@ data RelOp
   deriving (Eq, Show)
 
 seqStm :: [Stm] -> Stm
-seqStm [] = undefined
+seqStm [] = Exp (Const 0)
 seqStm [s] = s
 seqStm (s : ss) = Seq s $ IR.seqStm ss

@@ -12,7 +12,7 @@ import RIO.List.Partial qualified as List
 import RIO.Partial qualified as Partial
 import Unique
 
-data Level f = TopLevel | Level (Record '["unique" >: Unique, "frame" >: f]) deriving (Show)
+data Level f = TopLevel | Level {unique :: Unique, frame :: f} deriving (Show)
 
 newtype NestingLevel f = NestingLevel [Level f]
 
@@ -30,20 +30,20 @@ pullInStaticLinks :: forall f. F.Frame f => Level f -> NestingLevel f -> Maybe I
 pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level) . (`evalStateDef` IR.Temp (F.fp @f)) $ pullInStaticLinksInternal current
   where
     pullInStaticLinksInternal level = case popNestingLevel level of
-      Just (Level current, levels) ->
+      Just (current@Level {}, levels) ->
         ask >>= \case
           TopLevel -> throwError ()
-          Level target ->
-            if target ^. #unique == current ^. #unique
+          target@Level {} ->
+            if target.unique == current.unique
               then get
               else do
-                modify $ F.exp (List.head $ F.formals (current ^. #frame))
+                modify . F.exp . List.head $ F.formals current.frame
                 pullInStaticLinksInternal levels
       _ -> throwError ()
 
 takeParametersAccess :: F.Frame f => Level f -> Maybe [F.Access f]
 takeParametersAccess TopLevel = Nothing
-takeParametersAccess (Level r) = Just . List.tail . F.formals $ r ^. #frame
+takeParametersAccess level@Level {} = Just . List.tail $ F.formals level.frame
 
 type NestingLevelEff f = State (Record '["unique" >: Unique, "level" >: NestingLevel f])
 
@@ -84,11 +84,8 @@ withNewLevelEff :: forall f xs a. (Lookup xs "temp" UniqueEff, Lookup xs "nestin
 withNewLevelEff label formals a = do
   u <- getUniqueEff #nestingLevel
   frame <- F.newFrame label (True : formals)
-  let level = Level $ #unique @= u <: #frame @= frame <: nil
-  pushLevelEff level
-  ret <- a
-  _ <- popLevelEff
-  pure ret
+  let level = Level u frame
+  withLevelEff level a
 
 withLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Level f -> Eff xs a -> Eff xs a
 withLevelEff level a = do
@@ -101,7 +98,7 @@ allocateLocalOnCurrentLevel :: (Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs
 allocateLocalOnCurrentLevel b =
   fetchCurrentLevelEff >>= \case
     TopLevel -> undefined
-    Level level -> do
-      (frame', access) <- F.allocLocal (level ^. #frame) b
-      modifyCurrentLevelEff (const . Level $ set #frame frame' level)
+    level@Level {} -> do
+      (frame', access) <- F.allocLocal level.frame b
+      modifyCurrentLevelEff $ const level {frame = frame'}
       pure access

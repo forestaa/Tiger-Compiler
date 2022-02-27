@@ -40,7 +40,22 @@ common deps
     , transformers
 
 common default
-  default-extensions: AllowAmbiguousTypes BlockArguments DataKinds GADTs LambdaCase MultiWayIf NoImplicitPrelude OverloadedLabels TupleSections TypeFamilies TypeFamilyDependencies
+  default-extensions:
+    AllowAmbiguousTypes
+    BlockArguments
+    DataKinds
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedLabels
+    TupleSections
+    TypeFamilies
+    TypeFamilyDependencies
+    OverloadedRecordDot
+    NoFieldSelectors
+    DuplicateRecordFields
+    RecordWildCards
   default-language: GHC2021
 
 library
