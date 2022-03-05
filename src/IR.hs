@@ -49,6 +49,9 @@ data RelOp
   deriving (Eq, Show)
 
 seqStm :: [Stm] -> Stm
-seqStm [] = Exp (Const 0)
+seqStm [] = noop
 seqStm [s] = s
 seqStm (s : ss) = Seq s $ IR.seqStm ss
+
+noop :: Stm
+noop = Exp (Const 0)

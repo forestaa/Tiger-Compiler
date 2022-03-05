@@ -70,6 +70,7 @@ library
   exposed-modules:
       AbstSyntax.TH
       Coroutine
+      Canonical
       Env
       Frame
       Id
@@ -122,6 +123,7 @@ test-suite compiler-test
       Tiger-Compiler
     , hspec
   other-modules:
+      CanonicalSpec
       FrameMock
       Linear.EvalSpec
       Linear.LexerSpec
