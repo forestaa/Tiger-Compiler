@@ -30,8 +30,7 @@ linearizeSpec = describe "linearize spec" $ do
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
                    Move (Mem (Const 4)) (Const 2),
-                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 4)))
+                   Exp (BinOp Plus (Mem (Const 0)) (Mem (Const 4)))
                  ]
 
   it "(s, e1) + e2 -> (s, e1 + e2)" $ do
@@ -39,8 +38,7 @@ linearizeSpec = describe "linearize spec" $ do
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Const 2))
+                   Exp (BinOp Plus (Mem (Const 0)) (Const 2))
                  ]
 
   it "mem (s, e) -> (s, mem e)" $ do
@@ -64,44 +62,41 @@ linearizeSpec = describe "linearize spec" $ do
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
-                   CJump Eq (Temp (U.Temp (U.Unique 0))) (Const 2) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
+                   CJump Eq (Mem (Const 0)) (Const 2) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
                  ]
 
   it "e1 + (s, e2) -> (move temp e1, (s, temp + e2))" $ do
+    let stm = Exp $ BinOp Plus (Mem (Const 0)) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0))
+        result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
+    result
+      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
+                   Move (Mem (Const 0)) (Const 2),
+                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)))
+                 ]
+
+  it "e1 + (s, e2) -> (s, e1 + e2) where s and e1 are commutative" $ do
     let stm = Exp $ BinOp Plus (Const 1) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0))
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Const 1),
-                   Move (Mem (Const 0)) (Const 2),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)))
+      `shouldBe` [ Move (Mem (Const 0)) (Const 2),
+                   Exp (BinOp Plus (Const 1) (Mem (Const 0)))
                  ]
 
   it "cjump (e1 == (s, e2)) true false -> move temp e1; s; cjump (temp == e2) true false" $ do
-    let stm = CJump Eq (Const 1) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
+    let stm = CJump Eq (Mem (Const 0)) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Const 1),
+      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
                    Move (Mem (Const 0)) (Const 2),
                    CJump Eq (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
                  ]
 
-  it "e1 + (s, e2) -> (s, e1+e2) where s and e1 are commutative" $ do
-    let stm = Exp $ BinOp Plus (Const 0) (Move (Mem (Const 0)) (Const 1) `ESeq` Mem (Const 0))
-        result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
-    result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Const 0),
-                   Move (Mem (Const 0)) (Const 1),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)))
-                 ]
-
   it "cjump (e1 == (s, e2)) true false -> s; cjump (e1 == e2) true false where s and e1 are commutative" $ do
-    let stm = CJump Eq (Const 0) (Move (Mem (Const 0)) (Const 1) `ESeq` Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
+    let stm = CJump Eq (Const 1) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Const 0),
-                   Move (Mem (Const 0)) (Const 1),
-                   CJump Eq (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
+      `shouldBe` [ Move (Mem (Const 0)) (Const 2),
+                   CJump Eq (Const 1) (Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
                  ]
 
   it "f(e1) + g(e2) -> move temp1 f(e1); move temp2 g(e2); temp1 + temp2" $ do
@@ -169,11 +164,9 @@ linearizeSpec = describe "linearize spec" $ do
         result = leaveEff . U.runUniqueEff @"temp" $ linearize stm
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 2))) (Mem (Const 0)),
+                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
                    Move (Mem (Const 4)) (Const 2),
-                   Move (Temp (U.Temp (U.Unique 1))) (Const 3),
-                   Move (Temp (U.Temp (U.Unique 0))) (Const 4),
-                   Exp (Call (Name (U.Label "f" (U.Unique 36))) [Temp (U.Temp (U.Unique 2)), Temp (U.Temp (U.Unique 1)), Temp (U.Temp (U.Unique 0))])
+                   Exp (Call (Name (U.Label "f" (U.Unique 36))) [Temp (U.Temp (U.Unique 0)), Const 3, Const 4])
                  ]
 
   it "let var a: int = 1; var b: int = 2 in a + b" $ do
@@ -182,6 +175,5 @@ linearizeSpec = describe "linearize spec" $ do
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
                    Move (Mem (Const 4)) (Const 2),
-                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 4)))
+                   Exp (BinOp Plus (Mem (Const 0)) (Mem (Const 4)))
                  ]

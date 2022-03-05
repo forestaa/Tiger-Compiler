@@ -23,8 +23,11 @@ linearizeStm (Jump e labels) = do
 linearizeStm (CJump op e1 e2 t f) = do
   (s1, e1') <- linearizeExp e1
   (s2, e2') <- linearizeExp e2
-  temp <- newTemp
-  pure $ s1 `Seq` (Move (Temp temp) e1' `Seq` (s2 `Seq` CJump op (Temp temp) e2' t f))
+  if s2 `isCommutative` e1'
+    then pure $ s1 `Seq` (s2 `Seq` CJump op e1' e2' t f)
+    else do
+      temp <- newTemp
+      pure $ s1 `Seq` (Move (Temp temp) e1' `Seq` (s2 `Seq` CJump op (Temp temp) e2' t f))
 linearizeStm (Move (Temp temp) (Call f es)) = do
   (s, f') <- linearizeExp f
   (s', es') <- linearizeExps es
@@ -50,8 +53,11 @@ linearizeExp :: Lookup xs "temp" UniqueEff => Exp -> Eff xs (Stm, Exp)
 linearizeExp (BinOp op e1 e2) = do
   (s1, e1') <- linearizeExp e1
   (s2, e2') <- linearizeExp e2
-  temp <- newTemp
-  pure (s1 `Seq` (Move (Temp temp) e1' `Seq` s2), BinOp op (Temp temp) e2')
+  if s2 `isCommutative` e1'
+    then pure (s1 `Seq` s2, BinOp op e1' e2')
+    else do
+      temp <- newTemp
+      pure (s1 `Seq` (Move (Temp temp) e1' `Seq` s2), BinOp op (Temp temp) e2')
 linearizeExp (Mem e) = do
   (s, e') <- linearizeExp e
   pure (s, Mem e')
@@ -72,8 +78,15 @@ linearizeExps = foldrM f (noop, [])
     f :: Lookup xs "temp" UniqueEff => Exp -> (Stm, [Exp]) -> Eff xs (Stm, [Exp])
     f e (s, es) = do
       (s', e') <- linearizeExp e
-      temp <- newTemp
-      pure (s' `Seq` (Move (Temp temp) e' `Seq` s), Temp temp : es)
+      if s `isCommutative` e'
+        then pure (s' `Seq` s, e' : es)
+        else do
+          temp <- newTemp
+          pure (s' `Seq` (Move (Temp temp) e' `Seq` s), Temp temp : es)
 
+-- TODO
 isCommutative :: Stm -> Exp -> Bool
+isCommutative (Exp (Const _)) _ = True
+isCommutative _ (Name _) = True
+isCommutative _ (Const _) = True
 isCommutative _ _ = False
