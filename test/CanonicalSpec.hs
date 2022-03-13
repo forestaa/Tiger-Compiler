@@ -1,6 +1,6 @@
 module CanonicalSpec (spec) where
 
-import Canonical (linearize)
+import Canonical (Block (..), basicBlocks, linearize, traceSchedule)
 import Data.Extensible.Effect (leaveEff)
 import IR
 import RIO hiding (Const)
@@ -11,6 +11,8 @@ import Unique qualified as U (Label (..), Temp (..), Unique (..), runUniqueEff)
 spec :: Spec
 spec = do
   linearizeSpec
+  basicBlocksSpec
+  traceScheduleSpec
 
 linearizeSpec :: Spec
 linearizeSpec = describe "linearize spec" $ do
@@ -176,4 +178,107 @@ linearizeSpec = describe "linearize spec" $ do
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
                    Move (Mem (Const 4)) (Const 2),
                    Exp (BinOp Plus (Mem (Const 0)) (Mem (Const 4)))
+                 ]
+
+basicBlocksSpec :: Spec
+basicBlocksSpec = describe "basicBlocks spec" $ do
+  it "empty" $ do
+    let stms = []
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result `shouldBe` []
+
+  it "1 block without Jump" $ do
+    let label1 = U.Label "l1" (U.Unique 0)
+        stms = [Label label1]
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result
+      `shouldBe` [ Block {lbl = label1, statements = [Jump (Name (U.Label "L" (U.Unique 0))) [U.Label "L" (U.Unique 0)]]}
+                 ]
+
+  it "1 block with Jump" $ do
+    let label1 = U.Label "l1" (U.Unique 0)
+        stms = [Label label1, Exp (Const 0), Jump (Name label1) [label1]]
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result
+      `shouldBe` [ Block {lbl = label1, statements = [Exp (Const 0), Jump (Name label1) [label1]]}
+                 ]
+
+  it "1 block with CJump" $ do
+    let label1 = U.Label "l1" (U.Unique 0)
+        label2 = U.Label "l2" (U.Unique 1)
+        stms = [Label label1, Exp (Const 0), CJump Eq (Const 0) (Const 0) label1 label2]
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result
+      `shouldBe` [ Block {lbl = label1, statements = [Exp (Const 0), CJump Eq (Const 0) (Const 0) label1 label2]}
+                 ]
+
+  it "2 block with label followed by label" $ do
+    let label1 = U.Label "l1" (U.Unique 0)
+        label2 = U.Label "l2" (U.Unique 1)
+        stms = [Label label1, Exp (Const 0), Label label2, CJump Eq (Const 0) (Const 0) label1 label2]
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result
+      `shouldBe` [ Block {lbl = label1, statements = [Exp (Const 0), Jump (Name label2) [label2]]},
+                   Block {lbl = label2, statements = [CJump Eq (Const 0) (Const 0) label1 label2]}
+                 ]
+
+  it "no label" $ do
+    let label1 = U.Label "l1" (U.Unique 0)
+        stms = [Exp (Const 0), Jump (Name label1) [label1]]
+        result = leaveEff . U.runUniqueEff @"label" $ basicBlocks stms
+    fst result
+      `shouldBe` [ Block {lbl = U.Label "L" (U.Unique 0), statements = [Exp (Const 0), Jump (Name label1) [label1]]}
+                 ]
+
+traceScheduleSpec :: Spec
+traceScheduleSpec = describe "traceSchedule spec" $ do
+  it "2 block" $ do
+    let label1 = U.Label "l1" (U.Unique 10)
+        label2 = U.Label "l2" (U.Unique 11)
+        done = U.Label "done" (U.Unique 0)
+        blocks =
+          [ Block {lbl = label1, statements = [Exp (Const 0), Jump (Name label2) [label2]]},
+            Block {lbl = label2, statements = [CJump Eq (Const 0) (Const 0) label1 label2]}
+          ]
+        result = leaveEff . U.runUniqueEff @"label" $ traceSchedule blocks done
+    result
+      `shouldBe` [ Label label1,
+                   Exp (Const 0),
+                   Label label2,
+                   CJump Eq (Const 0) (Const 0) label1 (U.Label "L" (U.Unique 0)),
+                   Label (U.Label "L" (U.Unique 0)),
+                   Jump (Name label2) [label2],
+                   Label done
+                 ]
+
+  it "5 block" $ do
+    let label1 = U.Label "l1" (U.Unique 10)
+        label2 = U.Label "l2" (U.Unique 11)
+        label3 = U.Label "l3" (U.Unique 12)
+        label4 = U.Label "l4" (U.Unique 13)
+        label5 = U.Label "l5" (U.Unique 14)
+        done = U.Label "done" (U.Unique 15)
+        blocks =
+          [ Block {lbl = label1, statements = [Exp (Const 0), Jump (Name label2) [label2]]},
+            Block {lbl = label2, statements = [CJump Eq (Const 0) (Const 0) label4 label3]},
+            Block {lbl = label3, statements = [Exp (Const 0), Jump (Name done) [done]]},
+            Block {lbl = label4, statements = [CJump Eq (Const 0) (Const 0) label2 label5]},
+            Block {lbl = label5, statements = [CJump Eq (Const 0) (Const 0) label3 label2]}
+          ]
+        result = leaveEff . U.runUniqueEff @"label" $ traceSchedule blocks done
+    result
+      `shouldBe` [ Label label1,
+                   Exp (Const 0),
+                   Label label2,
+                   CJump Eq (Const 0) (Const 0) label4 label3,
+                   Label label3,
+                   Exp (Const 0),
+                   Jump (Name done) [done],
+                   Label label4,
+                   CJump Eq (Const 0) (Const 0) label2 label5,
+                   Label label5,
+                   CJump Eq (Const 0) (Const 0) label3 (U.Label "L" (U.Unique 0)),
+                   Label (U.Label "L" (U.Unique 0)),
+                   Jump (Name label2) [label2],
+                   Label done
                  ]

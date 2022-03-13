@@ -43,8 +43,8 @@ data RelOp
   | Le
   | Ge
   | ULt
-  | ULe
   | UGt
+  | ULe
   | UGe
   deriving (Eq, Show)
 
@@ -55,3 +55,15 @@ seqStm (s : ss) = Seq s $ IR.seqStm ss
 
 noop :: Stm
 noop = Exp (Const 0)
+
+notRelOp :: RelOp -> RelOp
+notRelOp Eq = Ne
+notRelOp Ne = Eq
+notRelOp Lt = Ge
+notRelOp Gt = Le
+notRelOp Le = Gt
+notRelOp Ge = Lt
+notRelOp ULt = UGe
+notRelOp UGt = ULe
+notRelOp ULe = UGt
+notRelOp UGe = ULt
