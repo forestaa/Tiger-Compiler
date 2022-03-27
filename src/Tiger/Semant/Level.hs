@@ -33,10 +33,9 @@ pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level
       Just (current@Level {}, levels) ->
         ask >>= \case
           TopLevel -> throwError ()
-          target@Level {} ->
-            if target.unique == current.unique
-              then get
-              else do
+          target@Level {}
+            | target.unique == current.unique -> get
+            | otherwise -> do
                 modify . F.exp . List.head $ F.formals current.frame
                 pullInStaticLinksInternal levels
       _ -> throwError ()
@@ -90,8 +89,7 @@ withNewLevelEff :: forall f xs a. (Lookup xs "temp" UniqueEff, Lookup xs "nestin
 withNewLevelEff label formals a = do
   u <- getUniqueEff #nestingLevel
   frame <- F.newFrame label (True : formals)
-  let level = Level u frame
-  withLevelEff level a
+  withLevelEff (Level u frame) a
 
 withLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Level f -> Eff xs a -> Eff xs a
 withLevelEff level a = do
