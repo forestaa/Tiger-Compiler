@@ -1731,15 +1731,15 @@ runEff ::
        ("nestingLevel" >: NestingLevelEff FrameMock),
        ("breakpoint" >: BreakPointEff),
        ("fragment" >: FragmentEff FrameMock),
-       ("temp" >: UniqueEff),
-       ("label" >: UniqueEff),
        ("id" >: UniqueEff),
        ("typeCheckError" >: EitherEff (RealLocated TypeCheckError)),
-       ("translateError" >: EitherEff (RealLocated TranslateError))
+       ("translateError" >: EitherEff (RealLocated TranslateError)),
+       ("temp" >: UniqueEff),
+       ("label" >: UniqueEff)
      ]
     a ->
   Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment FrameMock])
-runEff = leaveEff . runTranslateEffWithNewLevel
+runEff = fmap (first fst) . leaveEff . evalTranslateEffWithNewLevel
 
 allocateLocalVariableAndInsertType ::
   ( F.Frame f,

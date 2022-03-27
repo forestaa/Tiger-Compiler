@@ -24,8 +24,11 @@ instance Lookup xs "unique" Unique => HasUnique (Record xs) where
 uniqueSeed :: Unique
 uniqueSeed = Unique 0
 
-runUniqueEff :: Eff ((k >: UniqueEff) ': xs) a -> Eff xs a
-runUniqueEff = flip evalStateEff uniqueSeed
+evalUniqueEff :: Eff ((k >: UniqueEff) ': xs) a -> Eff xs a
+evalUniqueEff = flip evalStateEff uniqueSeed
+
+runUniqueEff :: Unique -> Eff ((k >: UniqueEff) ': xs) a -> Eff xs (a, Unique)
+runUniqueEff u = flip runStateEff u
 
 getUniqueEff :: (HasUnique u, Lookup xs k (State u)) => Proxy k -> Eff xs Unique
 getUniqueEff k = do

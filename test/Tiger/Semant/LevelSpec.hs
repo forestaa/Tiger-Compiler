@@ -71,4 +71,4 @@ fetchCurrentLevelParametersAccessEffSpec = describe "fetch current level paramet
       _ -> False
 
 runEff :: Eff '["temp" >: UniqueEff, "label" >: UniqueEff, "nestingLevel" >: NestingLevelEff FrameMock] a -> a
-runEff = leaveEff . runNestingLevelEff . runUniqueEff @"label" . runUniqueEff @"temp"
+runEff = fst . leaveEff . runNestingLevelEff . evalUniqueEff @"label" . evalUniqueEff @"temp"

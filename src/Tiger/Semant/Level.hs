@@ -14,7 +14,7 @@ import Unique
 
 data Level f = TopLevel | Level {unique :: Unique, frame :: f} deriving (Show)
 
-newtype NestingLevel f = NestingLevel [Level f]
+newtype NestingLevel f = NestingLevel [Level f] deriving (Show)
 
 outermost :: NestingLevel f
 outermost = NestingLevel [TopLevel]
@@ -45,16 +45,22 @@ takeParametersAccess :: F.Frame f => Level f -> Maybe [F.Access f]
 takeParametersAccess TopLevel = Nothing
 takeParametersAccess level@Level {} = Just . List.tail $ F.formals level.frame
 
-type NestingLevelEff f = State (Record '["unique" >: Unique, "level" >: NestingLevel f])
+data NestingLevelState f = NestingLevelState {unique :: Unique, level :: NestingLevel f}
 
-runNestingLevelEff :: Eff (("nestingLevel" >: NestingLevelEff f) ': xs) a -> Eff xs a
-runNestingLevelEff = flip evalStateEff (#unique @= uniqueSeed <: #level @= outermost <: nil)
+instance HasUnique (NestingLevelState f) where
+  getUnique s = s.unique
+  putUnique u s = s {unique = u}
+
+type NestingLevelEff f = State (NestingLevelState f)
+
+runNestingLevelEff :: Eff (("nestingLevel" >: NestingLevelEff f) ': xs) a -> Eff xs (a, NestingLevel f)
+runNestingLevelEff eff = second (\s -> s.level) <$> flip runStateEff (NestingLevelState uniqueSeed outermost) eff
 
 getNestingLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (NestingLevel f)
-getNestingLevelEff = getsEff #nestingLevel (^. #level)
+getNestingLevelEff = getsEff #nestingLevel $ \s -> s.level
 
 pushLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Level f -> Eff xs ()
-pushLevelEff level = modifyEff #nestingLevel $ over #level (pushNestingLevel level)
+pushLevelEff newLevel = modifyEff #nestingLevel $ \s@NestingLevelState {level} -> s {level = (pushNestingLevel newLevel) level}
 
 popLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (Maybe (Level f))
 popLevelEff = do
@@ -62,7 +68,7 @@ popLevelEff = do
   case popNestingLevel levels of
     Nothing -> pure Nothing
     Just (level, levels) -> do
-      modifyEff #nestingLevel $ set #level levels
+      modifyEff #nestingLevel $ \s -> s {level = levels}
       pure $ Just level
 
 fetchCurrentLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (Level f)

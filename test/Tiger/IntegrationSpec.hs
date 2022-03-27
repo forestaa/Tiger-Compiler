@@ -14,6 +14,7 @@ import TestUtils
 import Tiger.Parser
 import Tiger.Semant
 import Tiger.Semant.Exp
+import Tiger.Semant.Level
 import Tiger.Semant.MarkEscape
 import Tiger.Semant.TypeCheck
 import Tiger.Semant.Types
@@ -133,11 +134,11 @@ integrationSpec = describe "integration test for translate" $ do
 
 data Error = ParseError String | SemantAnalysisError SemantAnalysisError deriving (Show)
 
-translateTest :: FilePath -> ExceptT Error IO ((Exp, Type), [ProgramFragment FrameMock])
+translateTest :: FilePath -> ExceptT Error IO (((Exp, Type), NestingLevel FrameMock), [ProgramFragment FrameMock])
 translateTest file = do
   bs <- liftIO $ B.readFile file
   e <- liftEither . mapLeft ParseError $ runP parser file bs
-  liftEither . mapLeft (SemantAnalysisError . unLoc) . leaveEff . runTranslateEffWithNewLevel $ do
+  liftEither . mapLeft (SemantAnalysisError . unLoc) . leaveEff . evalTranslateEffWithNewLevel $ do
     insertInitVAEnv
     insertInitVTEnv
     translateExp $ markEscape e

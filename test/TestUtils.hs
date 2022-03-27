@@ -9,7 +9,7 @@ import Tiger.Semant.TypeCheck
 import Unique
 
 fetchTwoLabel :: (Label, Label)
-fetchTwoLabel = leaveEff . runUniqueEff @"label" $ (,) <$> newLabel <*> newLabel
+fetchTwoLabel = leaveEff . evalUniqueEff @"label" $ (,) <$> newLabel <*> newLabel
 
 isExpectedVariable :: TypeCheckError -> Bool
 isExpectedVariable ExpectedVariable {} = True

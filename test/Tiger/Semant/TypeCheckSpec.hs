@@ -72,4 +72,4 @@ runEff ::
      ]
     a ->
   Either (RealLocated TypeCheckError) a
-runEff = leaveEff . runEitherEff @"typeCheckError" . runUniqueEff @"id" . evalTEnvEff initTEnv
+runEff = leaveEff . runEitherEff @"typeCheckError" . evalUniqueEff @"id" . evalTEnvEff initTEnv
