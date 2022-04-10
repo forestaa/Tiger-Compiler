@@ -54,8 +54,8 @@ fp = Temp . Unique $ -1
 rv :: U.Temp
 rv = Temp . Unique $ -2
 
-viewShift :: FrameMock -> IR.Stm -> IR.Stm
-viewShift _ = id
+procEntryExit1 :: FrameMock -> IR.Stm -> IR.Stm
+procEntryExit1 _ = id
 
 instance F.Frame FrameMock where
   type Access FrameMock = AccessMock
@@ -68,4 +68,4 @@ instance F.Frame FrameMock where
   externalCall = externalCall
   fp = fp
   rv = rv
-  viewShift = viewShift
+  procEntryExit1 = procEntryExit1

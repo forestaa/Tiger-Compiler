@@ -411,7 +411,7 @@ funDecExp exp =
   fetchCurrentLevelEff >>= \case
     TopLevel -> undefined
     level@Level {} -> do
-      let stm = F.viewShift level.frame $ addStoreRV exp
+      let stm = F.procEntryExit1 level.frame $ addStoreRV exp
       saveProcEntry level stm
   where
     addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e

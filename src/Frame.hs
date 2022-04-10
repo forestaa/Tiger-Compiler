@@ -17,7 +17,7 @@ class Frame f where
   exp :: Access f -> IR.Exp -> IR.Exp
   wordSize :: Int
   externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
-  viewShift :: f -> IR.Stm -> IR.Stm
+  procEntryExit1 :: f -> IR.Stm -> IR.Stm
 
 data ProgramFragment f where
   Proc :: Frame f => {body :: IR.Stm, frame :: f} -> ProgramFragment f
