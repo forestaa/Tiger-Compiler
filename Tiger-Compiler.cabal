@@ -96,6 +96,10 @@ library
       Tiger.Semant.Types
       Tiger.Syntax
       Unique
+      X86.Arch
+      X86.Codegen
+      X86.Frame
+      X86.Liveness
   other-modules:
       Paths_Tiger_Compiler
 
