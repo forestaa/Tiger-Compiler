@@ -49,10 +49,10 @@ externalCall s args = do
   pure $ IR.Call (IR.Name label) args
 
 fp :: U.Temp
-fp = Temp . Unique $ -1
+fp = newStringTemp "fp"
 
 rv :: U.Temp
-rv = Temp . Unique $ -2
+rv = newStringTemp "rv"
 
 procEntryExit1 :: FrameMock -> IR.Stm -> IR.Stm
 procEntryExit1 _ = id

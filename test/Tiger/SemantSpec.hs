@@ -1023,7 +1023,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
         where
-          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _))])) = True
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp _ (Unique _))])) = True
           expP _ = False
 
   it "f(1)" $ do
@@ -1039,7 +1039,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
         where
-          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _)), IR.Const 0])) = True
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp _ (Unique _)), IR.Const 0])) = True
           expP _ = False
 
   it "type record = {}; f: record -> (); f(nil)" $ do
@@ -1058,7 +1058,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
         where
-          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp (Unique _)), IR.Const 0])) = True
+          expP (Ex (IR.Call (IR.Name _) [IR.Temp (Temp _ (Unique _)), IR.Const 0])) = True
           expP _ = False
 
   it "f: int -> (); f('hoge')" $ do
@@ -1424,7 +1424,7 @@ translateLetSpec = describe "translate let test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
           bodyP [F.Proc {body}] = case body of
-            IR.Move (IR.Temp rv) (IR.Temp (Temp _)) -> rv == F.rv @FrameMock
+            IR.Move (IR.Temp rv) (IR.Temp (Temp _ _)) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc {frame}] = case frame of
@@ -1448,7 +1448,7 @@ translateLetSpec = describe "translate let test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
           bodyP [F.Proc {body}] = case body of
-            IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
+            IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _ _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc {frame}] = case frame of
@@ -1472,7 +1472,7 @@ translateLetSpec = describe "translate let test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
           expP _ = False
           bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
-            (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0]), IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _)))) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
+            (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0]), IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _)))) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of

@@ -5,7 +5,10 @@ import Data.Extensible
 import Data.Extensible.Effect
 import RIO hiding ((.~))
 
-newtype Unique = Unique Int deriving (Eq, Ord, Show)
+newtype Unique = Unique Int deriving (Eq, Ord)
+
+instance Show Unique where
+  show (Unique i) = 'u' : show i
 
 type UniqueEff = State Unique
 
@@ -39,18 +42,24 @@ getUniqueEff k = do
 putUniqueEff :: Lookup xs k UniqueEff => Proxy k -> Unique -> Eff xs ()
 putUniqueEff = putEff
 
-newtype Temp = Temp Unique deriving (Eq, Show)
+data Temp = Temp String Unique deriving (Eq, Show)
 
 newTemp :: Lookup xs "temp" UniqueEff => Eff xs Temp
-newTemp = Temp <$> getUniqueEff #temp
+newTemp = Temp "t" <$> getUniqueEff #temp
+
+newStringTemp :: String -> Temp
+newStringTemp s = Temp s (Unique 0)
 
 makeString :: Temp -> String
-makeString (Temp (Unique n)) = "t" ++ show n
+makeString (Temp str (Unique n)) = str ++ show n
 
-data Label = Label String Unique deriving (Eq, Ord, Show)
+data Label = Label String Unique deriving (Eq, Ord)
 
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
 
 namedLabel :: Lookup xs "label" UniqueEff => String -> Eff xs Label
 namedLabel l = Label l <$> getUniqueEff #label
+
+instance Show Label where
+  show (Label s u) = s ++ show u

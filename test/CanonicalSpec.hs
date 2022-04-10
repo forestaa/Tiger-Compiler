@@ -71,9 +71,9 @@ linearizeSpec = describe "linearize spec" $ do
     let stm = Exp $ BinOp Plus (Mem (Const 0)) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0))
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
+      `shouldBe` [ Move (Temp (U.Temp "t" (U.Unique 0))) (Mem (Const 0)),
                    Move (Mem (Const 0)) (Const 2),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)))
+                   Exp (BinOp Plus (Temp (U.Temp "t" (U.Unique 0))) (Mem (Const 0)))
                  ]
 
   it "e1 + (s, e2) -> (s, e1 + e2) where s and e1 are commutative" $ do
@@ -88,9 +88,9 @@ linearizeSpec = describe "linearize spec" $ do
     let stm = CJump Eq (Mem (Const 0)) (Move (Mem (Const 0)) (Const 2) `ESeq` Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
+      `shouldBe` [ Move (Temp (U.Temp "t" (U.Unique 0))) (Mem (Const 0)),
                    Move (Mem (Const 0)) (Const 2),
-                   CJump Eq (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
+                   CJump Eq (Temp (U.Temp "t" (U.Unique 0))) (Mem (Const 0)) (U.Label "true" (U.Unique 0)) (U.Label "false" (U.Unique 1))
                  ]
 
   it "cjump (e1 == (s, e2)) true false -> s; cjump (e1 == e2) true false where s and e1 are commutative" $ do
@@ -105,10 +105,10 @@ linearizeSpec = describe "linearize spec" $ do
     let stm = Exp $ BinOp Plus (Call (Name (U.Label "f" (U.Unique 32))) []) (Call (Name (U.Label "g" (U.Unique 36))) [])
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 0))) (Call (Name (U.Label "f" (U.Unique 32))) []),
-                   Move (Temp (U.Temp (U.Unique 2))) (Temp (U.Temp (U.Unique 0))),
-                   Move (Temp (U.Temp (U.Unique 1))) (Call (Name (U.Label "g" (U.Unique 36))) []),
-                   Exp (BinOp Plus (Temp (U.Temp (U.Unique 2))) (Temp (U.Temp (U.Unique 1))))
+      `shouldBe` [ Move (Temp (U.Temp "t" (U.Unique 0))) (Call (Name (U.Label "f" (U.Unique 32))) []),
+                   Move (Temp (U.Temp "t" (U.Unique 2))) (Temp (U.Temp "t" (U.Unique 0))),
+                   Move (Temp (U.Temp "t" (U.Unique 1))) (Call (Name (U.Label "g" (U.Unique 36))) []),
+                   Exp (BinOp Plus (Temp (U.Temp "t" (U.Unique 2))) (Temp (U.Temp "t" (U.Unique 1))))
                  ]
 
   it "(s1; s2); (s3; s4) -> s1; s2; s3; s4" $ do
@@ -122,11 +122,11 @@ linearizeSpec = describe "linearize spec" $ do
                  ]
 
   it "move temp (s, e) -> s; move temp e" $ do
-    let stm = Move (Temp (U.Temp (U.Unique 32))) (Move (Temp (U.Temp (U.Unique 32))) (Const 1) `ESeq` Temp (U.Temp (U.Unique 32)))
+    let stm = Move (Temp (U.Temp "t" (U.Unique 32))) (Move (Temp (U.Temp "t" (U.Unique 32))) (Const 1) `ESeq` Temp (U.Temp "t" (U.Unique 32)))
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
-      `shouldBe` [ Move (Temp (U.Temp (U.Unique 32))) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 32))) (Temp (U.Temp (U.Unique 32)))
+      `shouldBe` [ Move (Temp (U.Temp "t" (U.Unique 32))) (Const 1),
+                   Move (Temp (U.Temp "t" (U.Unique 32))) (Temp (U.Temp "t" (U.Unique 32)))
                  ]
 
   it "move (mem (s, e1)) e2 -> s; move (mem e1) e2" $ do
@@ -154,11 +154,11 @@ linearizeSpec = describe "linearize spec" $ do
                  ]
 
   it "move temp (s, f)(es) -> s; move temp f(es)" $ do
-    let stm = Move (Temp (U.Temp (U.Unique 32))) (Call (Move (Mem (Const 0)) (Const 1) `ESeq` Name (U.Label "f" (U.Unique 36))) [])
+    let stm = Move (Temp (U.Temp "t" (U.Unique 32))) (Call (Move (Mem (Const 0)) (Const 1) `ESeq` Name (U.Label "f" (U.Unique 36))) [])
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 32))) (Call (Name (U.Label "f" (U.Unique 36))) [])
+                   Move (Temp (U.Temp "t" (U.Unique 32))) (Call (Name (U.Label "f" (U.Unique 36))) [])
                  ]
 
   it "f(e1, (s,e2), e3) -> f(move temp e1; s, temp), e2, e3)" $ do
@@ -166,9 +166,9 @@ linearizeSpec = describe "linearize spec" $ do
         result = leaveEff . U.evalUniqueEff @"temp" $ linearize stm
     result
       `shouldBe` [ Move (Mem (Const 0)) (Const 1),
-                   Move (Temp (U.Temp (U.Unique 0))) (Mem (Const 0)),
+                   Move (Temp (U.Temp "t" (U.Unique 0))) (Mem (Const 0)),
                    Move (Mem (Const 4)) (Const 2),
-                   Exp (Call (Name (U.Label "f" (U.Unique 36))) [Temp (U.Temp (U.Unique 0)), Const 3, Const 4])
+                   Exp (Call (Name (U.Label "f" (U.Unique 36))) [Temp (U.Temp "t" (U.Unique 0)), Const 3, Const 4])
                  ]
 
   it "let var a: int = 1; var b: int = 2 in a + b" $ do
