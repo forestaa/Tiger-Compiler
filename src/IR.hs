@@ -27,12 +27,6 @@ data BinOp
   | Minus
   | Mul
   | Div
-  | And
-  | Or
-  | LShift
-  | RShift
-  | ARShift
-  | XOr
   deriving (Eq, Show)
 
 data RelOp
@@ -42,10 +36,6 @@ data RelOp
   | Gt
   | Le
   | Ge
-  | ULt
-  | UGt
-  | ULe
-  | UGe
   deriving (Eq, Show)
 
 seqStm :: [Stm] -> Stm
@@ -63,7 +53,3 @@ notRelOp Lt = Ge
 notRelOp Gt = Le
 notRelOp Le = Gt
 notRelOp Ge = Lt
-notRelOp ULt = UGe
-notRelOp UGt = ULe
-notRelOp ULe = UGt
-notRelOp UGe = ULt
