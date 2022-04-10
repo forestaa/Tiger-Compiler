@@ -245,9 +245,9 @@ codegenSpec = describe "codegen spec" $ do
 
         result = leaveEff . U.evalUniqueEff @"temp" $ codegen stms
     result
-      `shouldBe` [ L.Instruction {src = [], dst = [t'], val = MovImmediate 2 t'},
+      `shouldBe` [ L.Instruction {src = [], dst = [t'], val = MovImmediate 3 t'},
                    L.Instruction {src = [t'], dst = [t''], val = MovRegister t' t''},
-                   L.Instruction {src = [t''], dst = [t''], val = AddImmediate 3 t''},
+                   L.Instruction {src = [t''], dst = [t''], val = AddImmediate 2 t''},
                    L.Instruction {src = [t''], dst = [t], val = MovRegister t'' t},
                    L.Instruction {src = [t], dst = [U.newStringTemp "RDI"], val = MovRegister t (U.newStringTemp "RDI")},
                    L.Instruction {src = [t], dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}

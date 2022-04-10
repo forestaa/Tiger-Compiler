@@ -61,7 +61,7 @@ codegenExp (IR.Name label) = do
   t <- newTemp
   pure ([L.Instruction {src = [], dst = [t], val = MovImmediateLabel (fromUniqueLabel label) t}], t)
 codegenExp (IR.Temp t) = pure ([], t)
-codegenExp (IR.BinOp op (IR.Const i) e) = do
+codegenExp (IR.BinOp op e (IR.Const i)) = do
   (flows, t) <- codegenExp e
   t' <- newTemp
   let flows' =
@@ -70,7 +70,7 @@ codegenExp (IR.BinOp op (IR.Const i) e) = do
                L.Instruction {src = [t'], dst = [t'], val = (binOpImmediateInstr op) i t'}
              ]
   pure (flows', t')
-codegenExp (IR.BinOp op e (IR.Const i)) = codegenExp (IR.BinOp op (IR.Const i) e)
+-- codegenExp (IR.BinOp op (IR.Const i) e) = codegenExp (IR.BinOp op e (IR.Const i)) -- TODO: not for uncommutative binary operator
 codegenExp (IR.BinOp op e1 e2) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
