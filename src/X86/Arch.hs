@@ -3,9 +3,9 @@ module X86.Arch where
 import RIO
 import Unique qualified as U
 
-newtype Memory = Memory Int
+newtype Memory = Memory Int deriving (Show, Eq)
 
-newtype Label = Label' String
+newtype Label = Label' String deriving (Show, Eq)
 
 fromUniqueLabel :: U.Label -> Label
 fromUniqueLabel = Label' . show
@@ -29,6 +29,7 @@ data Register
   | R15
   | RIP
   | EFLAGS
+  deriving (Show, Eq)
 
 data Assembly register
   = MovImmediate Int register
@@ -36,7 +37,7 @@ data Assembly register
   | MovRegister register register
   | MovLoad Memory register
   | MovLoadIndirect Int register register
-  | MoveLoadDisplacement Int register register Integer register
+  | MovLoadDisplacement Int register register Integer register
   | MovStore register Memory
   | MovStoreIndirect register Int register
   | AddImmediate Int register
@@ -48,8 +49,8 @@ data Assembly register
   | Jump Label
   | JumpIfEqual Label
   | JumpIfNotEqual Label
-  | JumpIFLessThan Label
-  | JumpIFGreaterThan Label
+  | JumpIfLessThan Label
+  | JumpIfGreaterThan Label
   | JumpIfEqualOrLessThan Label
   | JumpIfEqualOrGreaterThan Label
   | Call Label
@@ -58,3 +59,4 @@ data Assembly register
   | PushRegister register
   | Pop register
   | Label Label
+  deriving (Show, Eq)

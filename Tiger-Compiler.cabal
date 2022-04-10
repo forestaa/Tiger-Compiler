@@ -140,4 +140,5 @@ test-suite compiler-test
       Tiger.Semant.MarkEscapeSpec
       Tiger.Semant.TypeCheckSpec
       Tiger.SemantSpec
+      X86.CodegenSpec
       Paths_Tiger_Compiler
