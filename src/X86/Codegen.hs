@@ -1,4 +1,4 @@
-module X86.Codegen where
+module X86.Codegen (codegen) where
 
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
@@ -64,20 +64,38 @@ codegenExp (IR.Temp t) = pure ([], t)
 codegenExp (IR.BinOp op (IR.Const i) e) = do
   (flows, t) <- codegenExp e
   t' <- newTemp
-  pure (flows ++ [L.Instruction {src = [t], dst = [t'], val = (binOpImmediateInstr op) i t'}], t')
+  let flows' =
+        flows
+          ++ [ L.Instruction {src = [t], dst = [t'], val = MovRegister t t'},
+               L.Instruction {src = [t'], dst = [t'], val = (binOpImmediateInstr op) i t'}
+             ]
+  pure (flows', t')
+codegenExp (IR.BinOp op e (IR.Const i)) = codegenExp (IR.BinOp op (IR.Const i) e)
 codegenExp (IR.BinOp op e1 e2) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
-  pure (flows1 ++ flows2 ++ [L.Instruction {src = [t1, t2], dst = [t1], val = (binOpInstr op) t2 t1}], t1)
+  t <- newTemp
+  let flows =
+        flows1 ++ flows2
+          ++ [ L.Instruction {src = [t1], dst = [t], val = MovRegister t1 t},
+               L.Instruction {src = [t, t2], dst = [t], val = (binOpInstr op) t2 t}
+             ]
+  pure (flows, t)
+codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2))) = do
+  (flows1, t1) <- codegenExp e1
+  (flows2, t2) <- codegenExp e2
+  t <- newTemp
+  pure (flows1 ++ flows2 ++ [L.Instruction {src = [t1, t2], dst = [t], val = MovLoadDisplacement i t1 t2 1 t}], t2)
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.BinOp IR.Plus e1 (IR.Const i)) e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus e1 (IR.BinOp IR.Plus (IR.Const i) e2))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.BinOp IR.Plus e1 e2) (IR.Const i))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus e1 (IR.BinOp IR.Plus e2 (IR.Const i)))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.BinOp IR.Plus (IR.Const i) e1) e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
-codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2))) = do
-  (flows1, t1) <- codegenExp e1
-  (flows2, t2) <- codegenExp e2
-  pure (flows1 ++ flows2 ++ [L.Instruction {src = [t1], dst = [t2], val = MovLoadIndirect i t1 t2}], t2)
+codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e)) = do
+  (flows, t) <- codegenExp e
+  t' <- newTemp
+  pure (flows ++ [L.Instruction {src = [t], dst = [t'], val = MovLoadIndirect i t t'}], t')
+codegenExp (IR.Mem (IR.BinOp IR.Plus e (IR.Const i))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e))
 codegenExp (IR.Mem (IR.BinOp IR.Plus e1 e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.Const i)) = do
   t <- newTemp
@@ -96,7 +114,7 @@ codegenExp (IR.ESeq _ _) = undefined
 codegenParameters :: Lookup xs "temp" UniqueEff => [IR.Exp] -> Eff xs ([L.ControlFlow Temp (Assembly Temp)], [Temp])
 codegenParameters es = do
   (flows, dsts) <- foldM (\(flows, dsts) -> fmap (((++) flows) *** ((++) dsts . singleton)) . codegenExp) ([], []) es
-  let parameterPassingInstrs = (parameterPassingByRegisters ++ parameterPassingByMemory) <*> dsts
+  let parameterPassingInstrs = zipWith ($) (parameterPassingByRegisters ++ parameterPassingByMemory) dsts
   pure (flows ++ parameterPassingInstrs, dsts)
   where
     parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> [newStringTemp "RDI", newStringTemp "RSI", newStringTemp "RDX", newStringTemp "RCX", newStringTemp "R8", newStringTemp "R9"]
@@ -105,8 +123,8 @@ codegenParameters es = do
 jumpInstr :: forall register. IR.RelOp -> Label -> Assembly register
 jumpInstr IR.Eq = JumpIfEqual
 jumpInstr IR.Ne = JumpIfNotEqual
-jumpInstr IR.Lt = JumpIFLessThan
-jumpInstr IR.Gt = JumpIFGreaterThan
+jumpInstr IR.Lt = JumpIfLessThan
+jumpInstr IR.Gt = JumpIfGreaterThan
 jumpInstr IR.Le = JumpIfEqualOrLessThan
 jumpInstr IR.Ge = JumpIfEqualOrGreaterThan
 
