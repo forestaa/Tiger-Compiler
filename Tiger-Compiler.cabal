@@ -1,11 +1,5 @@
 cabal-version: 2.4
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
---
--- see: https://github.com/sol/hpack
---
--- hash: a43931afe8663033017fe0008d4c4e8082e9c6348c53c443c87362c65190f9c2
-
 name:           Tiger-Compiler
 version:        0.1.0.0
 synopsis:       Short description of your package
@@ -68,38 +62,38 @@ library
     , template-haskell
   build-tool-depends: alex:alex, happy:happy
   exposed-modules:
-      AbstSyntax.TH
-      Coroutine
-      Canonical
-      Env
-      Frame
-      Id
-      IR
-      Lexer.Monad
-      Linear.Eval
-      Linear.Lexer
-      Linear.LSyntax
-      Linear.Parser
-      Linear.Syntax
-      SrcLoc
-      Tiger.Lexer
-      Tiger.LSyntax
-      Tiger.Parser
-      Tiger.Semant
-      Tiger.Semant.BreakPoint
-      Tiger.Semant.Env
-      Tiger.Semant.Exp
-      Tiger.Semant.Level
-      Tiger.Semant.MarkEscape
-      Tiger.Semant.Translate
-      Tiger.Semant.TypeCheck
-      Tiger.Semant.Types
-      Tiger.Syntax
-      Unique
-      X86.Arch
-      X86.Codegen
-      X86.Frame
-      X86.Liveness
+      Backend.X86.Arch
+      Backend.X86.Codegen
+      Backend.X86.Frame
+      Backend.X86.Liveness
+      Frontend.AbstSyntax
+      Frontend.Coroutine
+      Frontend.Env
+      Frontend.Id
+      Frontend.Language.Linear.Eval
+      Frontend.Language.Linear.Lexer
+      Frontend.Language.Linear.LSyntax
+      Frontend.Language.Linear.Parser
+      Frontend.Language.Linear.Syntax
+      Frontend.Lexer
+      Frontend.SrcLoc
+      Frontend.Language.Tiger.Lexer
+      Frontend.Language.Tiger.LSyntax
+      Frontend.Language.Tiger.Parser
+      Frontend.Language.Tiger.Semant
+      Frontend.Language.Tiger.Semant.BreakPoint
+      Frontend.Language.Tiger.Semant.Env
+      Frontend.Language.Tiger.Semant.Exp
+      Frontend.Language.Tiger.Semant.Level
+      Frontend.Language.Tiger.Semant.MarkEscape
+      Frontend.Language.Tiger.Semant.Translate
+      Frontend.Language.Tiger.Semant.TypeCheck
+      Frontend.Language.Tiger.Semant.Types
+      Frontend.Language.Tiger.Syntax
+      Intermediate.Canonical
+      Intermediate.Frame
+      Intermediate.IR
+      Intermediate.Unique
   other-modules:
       Paths_Tiger_Compiler
 
@@ -127,18 +121,18 @@ test-suite compiler-test
       Tiger-Compiler
     , hspec
   other-modules:
-      CanonicalSpec
-      FrameMock
-      Linear.EvalSpec
-      Linear.LexerSpec
-      Linear.ParserSpec
-      TestUtils
-      Tiger.IntegrationSpec
-      Tiger.LexerSpec
-      Tiger.ParserSpec
-      Tiger.Semant.LevelSpec
-      Tiger.Semant.MarkEscapeSpec
-      Tiger.Semant.TypeCheckSpec
-      Tiger.SemantSpec
-      X86.CodegenSpec
+      Backend.X86.CodegenSpec
+      Frontend.FrameMock
+      Frontend.Language.Linear.EvalSpec
+      Frontend.Language.Linear.LexerSpec
+      Frontend.Language.Linear.ParserSpec
+      Frontend.Language.Tiger.IntegrationSpec
+      Frontend.Language.Tiger.LexerSpec
+      Frontend.Language.Tiger.ParserSpec
+      Frontend.Language.Tiger.Semant.LevelSpec
+      Frontend.Language.Tiger.Semant.MarkEscapeSpec
+      Frontend.Language.Tiger.Semant.TypeCheckSpec
+      Frontend.Language.Tiger.SemantSpec
+      Frontend.Language.Tiger.TestUtils
+      Intermediate.CanonicalSpec
       Paths_Tiger_Compiler

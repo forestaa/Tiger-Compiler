@@ -1,0 +1,27 @@
+module Frontend.Language.Tiger.ParserSpec (spec) where
+
+import Control.Monad.Except
+import Data.ByteString.Lazy qualified as B
+import Frontend.Language.Tiger.LSyntax
+import Frontend.Language.Tiger.Parser
+import Frontend.Lexer
+import RIO
+import Test.Hspec
+
+spec :: Spec
+spec =
+  describe "parser test" $ do
+    it "samples/test**.tig" $ do
+      let cases = ((:) '0' . show <$> [1 .. 9]) ++ (map show [10 .. 48])
+          testcases = (++) <$> (("test/Frontend/Language/Tiger/samples/test" ++) <$> cases) <*> [".tig"]
+      res <- runExceptT (traverse parserTest testcases)
+      res `shouldSatisfy` isRight
+    it "samples/test49.tig" $ do
+      let testcase = "test/Frontend/Language/Tiger/samples/test49.tig"
+      res <- runExceptT (parserTest testcase)
+      res `shouldSatisfy` isLeft
+
+parserTest :: FilePath -> ExceptT String IO LExp
+parserTest file = do
+  bs <- liftIO $ B.readFile file
+  liftEither $ runP parser file bs
