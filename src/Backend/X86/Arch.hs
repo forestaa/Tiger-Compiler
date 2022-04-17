@@ -29,7 +29,7 @@ data Register
   | R15
   | RIP
   | EFLAGS
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data Assembly register
   = MovImmediate Int register

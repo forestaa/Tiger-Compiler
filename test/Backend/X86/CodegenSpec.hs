@@ -229,10 +229,10 @@ codegenSpec = describe "codegen spec" $ do
                    L.Instruction {src = [temps !! 3], dst = [U.newStringTemp "RCX"], val = MovRegister (temps !! 3) (U.newStringTemp "RCX")},
                    L.Instruction {src = [temps !! 4], dst = [U.newStringTemp "R8"], val = MovRegister (temps !! 4) (U.newStringTemp "R8")},
                    L.Instruction {src = [temps !! 5], dst = [U.newStringTemp "R9"], val = MovRegister (temps !! 5) (U.newStringTemp "R9")},
-                   L.Instruction {src = [temps !! 6], dst = [], val = MovStoreIndirect (temps !! 6) 8 (U.newStringTemp "fp")},
-                   L.Instruction {src = [temps !! 7], dst = [], val = MovStoreIndirect (temps !! 7) 16 (U.newStringTemp "fp")},
-                   L.Instruction {src = [temps !! 8], dst = [], val = MovStoreIndirect (temps !! 8) 24 (U.newStringTemp "fp")},
-                   L.Instruction {src = [temps !! 9], dst = [], val = MovStoreIndirect (temps !! 9) 32 (U.newStringTemp "fp")},
+                   L.Instruction {src = [temps !! 6], dst = [], val = MovStoreIndirect (temps !! 6) 8 (U.newStringTemp "RBP")},
+                   L.Instruction {src = [temps !! 7], dst = [], val = MovStoreIndirect (temps !! 7) 16 (U.newStringTemp "RBP")},
+                   L.Instruction {src = [temps !! 8], dst = [], val = MovStoreIndirect (temps !! 8) 24 (U.newStringTemp "RBP")},
+                   L.Instruction {src = [temps !! 9], dst = [], val = MovStoreIndirect (temps !! 9) 32 (U.newStringTemp "RBP")},
                    L.Instruction {src = take 10 temps, dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}
                  ]
 

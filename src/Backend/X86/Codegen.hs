@@ -117,8 +117,8 @@ codegenParameters es = do
   let parameterPassingInstrs = zipWith ($) (parameterPassingByRegisters ++ parameterPassingByMemory) dsts
   pure (flows ++ parameterPassingInstrs, dsts)
   where
-    parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> [newStringTemp "RDI", newStringTemp "RSI", newStringTemp "RDX", newStringTemp "RCX", newStringTemp "R8", newStringTemp "R9"]
-    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) fp}) <$> [7 ..]
+    parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> parameterTempRegisters
+    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) bp}) <$> [7 ..] -- TODO: use pushq
 
 jumpInstr :: forall register. IR.RelOp -> Label -> Assembly register
 jumpInstr IR.Eq = JumpIfEqual
