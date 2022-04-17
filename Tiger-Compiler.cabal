@@ -62,38 +62,38 @@ library
     , template-haskell
   build-tool-depends: alex:alex, happy:happy
   exposed-modules:
-      Backend.X86.Arch
-      Backend.X86.Codegen
-      Backend.X86.Frame
-      Backend.X86.Liveness
-      Frontend.AbstSyntax
-      Frontend.Coroutine
-      Frontend.Env
-      Frontend.Id
-      Frontend.Language.Linear.Eval
-      Frontend.Language.Linear.Lexer
-      Frontend.Language.Linear.LSyntax
-      Frontend.Language.Linear.Parser
-      Frontend.Language.Linear.Syntax
-      Frontend.Lexer
-      Frontend.SrcLoc
-      Frontend.Language.Tiger.Lexer
-      Frontend.Language.Tiger.LSyntax
-      Frontend.Language.Tiger.Parser
-      Frontend.Language.Tiger.Semant
-      Frontend.Language.Tiger.Semant.BreakPoint
-      Frontend.Language.Tiger.Semant.Env
-      Frontend.Language.Tiger.Semant.Exp
-      Frontend.Language.Tiger.Semant.Level
-      Frontend.Language.Tiger.Semant.MarkEscape
-      Frontend.Language.Tiger.Semant.Translate
-      Frontend.Language.Tiger.Semant.TypeCheck
-      Frontend.Language.Tiger.Semant.Types
-      Frontend.Language.Tiger.Syntax
-      Intermediate.Canonical
-      Intermediate.Frame
-      Intermediate.IR
-      Intermediate.Unique
+      Compiler.Backend.X86.Arch
+      Compiler.Backend.X86.Codegen
+      Compiler.Backend.X86.Frame
+      Compiler.Backend.X86.Liveness
+      Compiler.Frontend.AbstSyntax
+      Compiler.Frontend.Coroutine
+      Compiler.Frontend.Env
+      Compiler.Frontend.Id
+      Compiler.Frontend.Language.Linear.Eval
+      Compiler.Frontend.Language.Linear.Lexer
+      Compiler.Frontend.Language.Linear.LSyntax
+      Compiler.Frontend.Language.Linear.Parser
+      Compiler.Frontend.Language.Linear.Syntax
+      Compiler.Frontend.Lexer
+      Compiler.Frontend.SrcLoc
+      Compiler.Frontend.Language.Tiger.Lexer
+      Compiler.Frontend.Language.Tiger.LSyntax
+      Compiler.Frontend.Language.Tiger.Parser
+      Compiler.Frontend.Language.Tiger.Semant
+      Compiler.Frontend.Language.Tiger.Semant.BreakPoint
+      Compiler.Frontend.Language.Tiger.Semant.Env
+      Compiler.Frontend.Language.Tiger.Semant.Exp
+      Compiler.Frontend.Language.Tiger.Semant.Level
+      Compiler.Frontend.Language.Tiger.Semant.MarkEscape
+      Compiler.Frontend.Language.Tiger.Semant.Translate
+      Compiler.Frontend.Language.Tiger.Semant.TypeCheck
+      Compiler.Frontend.Language.Tiger.Semant.Types
+      Compiler.Frontend.Language.Tiger.Syntax
+      Compiler.Intermediate.Canonical
+      Compiler.Intermediate.Frame
+      Compiler.Intermediate.IR
+      Compiler.Intermediate.Unique
   other-modules:
       Paths_Tiger_Compiler
 
@@ -121,18 +121,18 @@ test-suite compiler-test
       Tiger-Compiler
     , hspec
   other-modules:
-      Backend.X86.CodegenSpec
-      Frontend.FrameMock
-      Frontend.Language.Linear.EvalSpec
-      Frontend.Language.Linear.LexerSpec
-      Frontend.Language.Linear.ParserSpec
-      Frontend.Language.Tiger.IntegrationSpec
-      Frontend.Language.Tiger.LexerSpec
-      Frontend.Language.Tiger.ParserSpec
-      Frontend.Language.Tiger.Semant.LevelSpec
-      Frontend.Language.Tiger.Semant.MarkEscapeSpec
-      Frontend.Language.Tiger.Semant.TypeCheckSpec
-      Frontend.Language.Tiger.SemantSpec
-      Frontend.Language.Tiger.TestUtils
-      Intermediate.CanonicalSpec
+      Compiler.Backend.X86.CodegenSpec
+      Compiler.Frontend.FrameMock
+      Compiler.Frontend.Language.Linear.EvalSpec
+      Compiler.Frontend.Language.Linear.LexerSpec
+      Compiler.Frontend.Language.Linear.ParserSpec
+      Compiler.Frontend.Language.Tiger.IntegrationSpec
+      Compiler.Frontend.Language.Tiger.LexerSpec
+      Compiler.Frontend.Language.Tiger.ParserSpec
+      Compiler.Frontend.Language.Tiger.Semant.LevelSpec
+      Compiler.Frontend.Language.Tiger.Semant.MarkEscapeSpec
+      Compiler.Frontend.Language.Tiger.Semant.TypeCheckSpec
+      Compiler.Frontend.Language.Tiger.SemantSpec
+      Compiler.Frontend.Language.Tiger.TestUtils
+      Compiler.Intermediate.CanonicalSpec
       Paths_Tiger_Compiler
