@@ -1,6 +1,8 @@
 module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 
+import Compiler.Frontend (Frontend (processFrontend), FrontendException (fromFrontendException), SomeFrontendException (SomeFrontendException))
 import Compiler.Frontend.FrameMock
+import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Parser
 import Compiler.Frontend.Language.Tiger.Semant
 import Compiler.Frontend.Language.Tiger.Semant.Exp
@@ -12,10 +14,17 @@ import Compiler.Frontend.Language.Tiger.TestUtils
 import Compiler.Frontend.Lexer
 import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame
+import Compiler.Intermediate.Unique qualified as U
+import Control.Exception.Safe (Exception (toException))
+import Control.Monad (when)
 import Control.Monad.Except
 import Data.ByteString.Lazy qualified as B
+import Data.Data (Proxy (Proxy))
 import Data.Extensible
 import Data.Extensible.Effect
+import Data.Extensible.Effect.Default
+import Data.Maybe (isJust)
+import GHC.Base (undefined)
 import RIO
 import Test.Hspec
 
@@ -116,36 +125,37 @@ integrationSpec = describe "integration test for translate" $ do
 
   it "valid test cases" $ do
     let testcases = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
-    res <- runExceptT (traverse translateTest testcases)
+    res <- runExceptT (traverse (ExceptT . translateTest) testcases)
     res `shouldSatisfy` isRight
 
   it "merge.tig" $ do
     let merge = "test/Compiler/Frontend/Language/Tiger/samples/merge.tig"
-    res <- runExceptT (translateTest merge)
+    res <- translateTest merge
     res `shouldSatisfy` isRight
 
   it "queens.tig" $ do
     let merge = "test/Compiler/Frontend/Language/Tiger/samples/queens.tig"
-    res <- runExceptT (translateTest merge)
+    res <- translateTest merge
     res `shouldSatisfy` isRight
   where
     testcase s = "test/Compiler/Frontend/Language/Tiger/samples/" ++ s
     validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1 .. 8], [12], [27], [30], [37], [41 .. 42], [44], [46 .. 48]]
 
-data Error = ParseError String | SemantAnalysisError SemantAnalysisError deriving (Show)
-
-translateTest :: FilePath -> ExceptT Error IO (((Exp, Type), NestingLevel FrameMock), [ProgramFragment FrameMock])
-translateTest file = do
-  bs <- liftIO $ B.readFile file
-  e <- liftEither . mapLeft ParseError $ runP parser file bs
-  liftEither . mapLeft (SemantAnalysisError . unLoc) . leaveEff . evalTranslateEffWithNewLevel $ do
-    insertInitVAEnv
-    insertInitVTEnv
-    translateExp $ markEscape e
+translateTest :: FilePath -> IO (Either SomeFrontendException [ProgramFragment FrameMock])
+translateTest file = runIODef . runEitherEff @"exception" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
+  bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
+  processFrontend @Tiger file bs
 
 runErrorTranslateTest :: FilePath -> (SemantAnalysisError -> IO ()) -> IO ()
-runErrorTranslateTest file assert =
-  runExceptT (translateTest file) >>= \case
-    Right _ -> pure ()
-    Left (ParseError msg) -> expectationFailure $ "parse error: " ++ msg
-    Left (SemantAnalysisError e) -> assert e
+runErrorTranslateTest file assert = do
+  result <- translateTest file
+  (either (throwM . toException) (const (pure ())) result) `catch` frontendExceptionHandler
+  where
+    frontendExceptionHandler :: SomeFrontendException -> IO ()
+    frontendExceptionHandler e = do
+      e `catch` (\(ParserException msg) -> expectationFailure $ "parse error: " ++ msg)
+      e `catch` (\(L _ e :: RealLocated SemantAnalysisError) -> assert e)
+      where
+        catch e f = case fromFrontendException e of
+          Just e -> f e
+          Nothing -> pure ()

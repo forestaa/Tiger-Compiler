@@ -1,6 +1,7 @@
 module Compiler.Frontend.Language.Tiger.LexerSpec (spec) where
 
 import Compiler.Frontend.Language.Tiger.Lexer
+import Compiler.Frontend.Lexer (ParserException)
 import Control.Monad.Except
 import Data.ByteString.Lazy qualified as B
 import RIO
@@ -15,7 +16,7 @@ spec =
       res <- runExceptT (traverse scannerTest testcases)
       res `shouldSatisfy` isRight
 
-scannerTest :: FilePath -> ExceptT String IO [Lexeme]
+scannerTest :: FilePath -> ExceptT ParserException IO [Lexeme]
 scannerTest file = do
   bs <- liftIO $ B.readFile file
   liftEither $ scanner file bs

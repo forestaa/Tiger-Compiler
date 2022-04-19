@@ -32,6 +32,7 @@ common deps
     , mtl
     , rio
     , transformers
+    , safe-exceptions
 
 common default
   default-extensions:
@@ -66,6 +67,7 @@ library
       Compiler.Backend.X86.Codegen
       Compiler.Backend.X86.Frame
       Compiler.Backend.X86.Liveness
+      Compiler.Frontend
       Compiler.Frontend.AbstSyntax
       Compiler.Frontend.Coroutine
       Compiler.Frontend.Env
@@ -90,6 +92,8 @@ library
       Compiler.Frontend.Language.Tiger.Semant.TypeCheck
       Compiler.Frontend.Language.Tiger.Semant.Types
       Compiler.Frontend.Language.Tiger.Syntax
+      Compiler.Frontend.Language.Tiger
+      Compiler.Exception
       Compiler.Intermediate.Canonical
       Compiler.Intermediate.Frame
       Compiler.Intermediate.IR

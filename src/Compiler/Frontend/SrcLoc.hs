@@ -12,6 +12,7 @@ module Compiler.Frontend.SrcLoc
   )
 where
 
+import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), frontendExceptionFromException, frontendExceptionToException)
 import RIO
 import RIO.List
 
@@ -66,3 +67,8 @@ locatedMessage loc message = concat [show loc, ": ", message]
 
 dummyRealLocated :: e -> RealLocated e
 dummyRealLocated = L (mkRealSrcSpan (mkSrcLoc "dummy") 0)
+
+-- TODO: e should be passed to toFrontendException for more hierarchical exception
+instance FrontendException e => FrontendException (RealLocated e) where
+  toFrontendException = frontendExceptionToException
+  fromFrontendException = frontendExceptionFromException

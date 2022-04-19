@@ -3,6 +3,7 @@ module Compiler.Frontend.Language.Tiger.ParserSpec (spec) where
 import Compiler.Frontend.Language.Tiger.LSyntax
 import Compiler.Frontend.Language.Tiger.Parser
 import Compiler.Frontend.Lexer
+import Compiler.Frontend.Lexer (ParserException)
 import Control.Monad.Except
 import Data.ByteString.Lazy qualified as B
 import RIO
@@ -21,7 +22,7 @@ spec =
       res <- runExceptT (parserTest testcase)
       res `shouldSatisfy` isLeft
 
-parserTest :: FilePath -> ExceptT String IO LExp
+parserTest :: FilePath -> ExceptT ParserException IO LExp
 parserTest file = do
   bs <- liftIO $ B.readFile file
   liftEither $ runP parser file bs

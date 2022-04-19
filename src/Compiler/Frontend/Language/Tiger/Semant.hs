@@ -1,11 +1,13 @@
 module Compiler.Frontend.Language.Tiger.Semant where
 
+import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), frontendExceptionFromException, frontendExceptionToException)
 import Compiler.Frontend.Id
 import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
 import Compiler.Frontend.Language.Tiger.Semant.BreakPoint
 import Compiler.Frontend.Language.Tiger.Semant.Env
 import Compiler.Frontend.Language.Tiger.Semant.Exp
 import Compiler.Frontend.Language.Tiger.Semant.Level
+import Compiler.Frontend.Language.Tiger.Semant.MarkEscape (markEscape)
 import Compiler.Frontend.Language.Tiger.Semant.Translate
 import Compiler.Frontend.Language.Tiger.Semant.TypeCheck
 import Compiler.Frontend.Language.Tiger.Semant.Types
@@ -24,6 +26,10 @@ data SemantAnalysisError
   = TranslateError TranslateError
   | TypeCheckError TypeCheckError
   deriving (Show)
+
+instance FrontendException SemantAnalysisError where
+  toFrontendException = frontendExceptionToException
+  fromFrontendException = frontendExceptionFromException
 
 insertInitVAEnv :: forall xs f. (Lookup xs "varAccessEnv" (State (VAEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
 insertInitVAEnv = mapM_ insertFunAccess initVEnv
@@ -76,7 +82,7 @@ translateProgram ast = do
   let ((result, newTempUnique), newLabelUnique) = leaveEff . runTranslateEff @f tempUnique labelUnique $ do
         label <- newLabel
         insertInitVAEnv
-        withNewLevelEff label [] $ translateExp ast
+        withNewLevelEff label [] . translateExp $ markEscape ast
   putUniqueEff #label newLabelUnique
   putUniqueEff #temp newTempUnique
   case result of

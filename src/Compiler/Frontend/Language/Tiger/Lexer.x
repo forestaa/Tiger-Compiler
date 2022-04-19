@@ -129,7 +129,7 @@ type Lexeme = RealLocated Token
 lexer :: (Lexeme -> P a) -> P a
 lexer = (>>=) lexToken
 
-scanner :: FilePath -> B.ByteString -> Either String [Lexeme]
+scanner :: FilePath -> B.ByteString -> Either ParserException [Lexeme]
 scanner = runP loop
   where
     loop :: P [Lexeme]

@@ -2,6 +2,7 @@
 
 module Compiler.Frontend.Lexer where
 
+import Compiler.Frontend (FrontendException, fromFrontendException, frontendExceptionFromException, frontendExceptionToException, toFrontendException)
 import Compiler.Frontend.SrcLoc
 import Control.Monad.Except
 import Control.Monad.State.Strict
@@ -37,8 +38,14 @@ newtype P a = P {unP :: Eff '[StateDef PState, EitherDef String] a} deriving (Fu
 
 type Action a = AlexInput -> Int -> P a
 
-runP :: P a -> FilePath -> B.ByteString -> Either String a
-runP p file bs = leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file bs
+data ParserException = ParserException String deriving (Show)
+
+instance FrontendException ParserException where
+  toFrontendException = frontendExceptionToException
+  fromFrontendException = frontendExceptionFromException
+
+runP :: P a -> FilePath -> B.ByteString -> Either ParserException a
+runP p file bs = mapLeft ParserException . leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file bs
 
 failP :: String -> P a
 failP = throwError
