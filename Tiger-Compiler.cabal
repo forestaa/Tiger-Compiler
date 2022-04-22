@@ -138,5 +138,6 @@ test-suite compiler-test
       Compiler.Frontend.Language.Tiger.Semant.TypeCheckSpec
       Compiler.Frontend.Language.Tiger.SemantSpec
       Compiler.Frontend.Language.Tiger.TestUtils
+      Compiler.Frontend.SrcLocSpec
       Compiler.Intermediate.CanonicalSpec
       Paths_Tiger_Compiler

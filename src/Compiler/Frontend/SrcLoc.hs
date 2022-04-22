@@ -12,7 +12,8 @@ module Compiler.Frontend.SrcLoc
   )
 where
 
-import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), frontendExceptionFromException, frontendExceptionToException)
+import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException, frontendExceptionFromException, frontendExceptionToException)
+import Data.Data (cast)
 import RIO
 import RIO.List
 
@@ -68,7 +69,23 @@ locatedMessage loc message = concat [show loc, ": ", message]
 dummyRealLocated :: e -> RealLocated e
 dummyRealLocated = L (mkRealSrcSpan (mkSrcLoc "dummy") 0)
 
--- TODO: e should be passed to toFrontendException for more hierarchical exception
 instance FrontendException e => FrontendException (RealLocated e) where
+  toFrontendException = realLocatedExceptionToException . fmap toFrontendException
+  fromFrontendException = realLocatedExceptionFromException >=> \(L loc e') -> L loc <$> fromFrontendException e'
+
+data SomeRealLocatedException = SomeRealLocaltedException (RealLocated SomeFrontendException)
+
+instance Show SomeRealLocatedException where
+  show (SomeRealLocaltedException le) = show le
+
+instance FrontendException SomeRealLocatedException where
   toFrontendException = frontendExceptionToException
   fromFrontendException = frontendExceptionFromException
+
+realLocatedExceptionToException :: RealLocated SomeFrontendException -> SomeFrontendException
+realLocatedExceptionToException = toFrontendException . SomeRealLocaltedException
+
+realLocatedExceptionFromException :: SomeFrontendException -> Maybe (RealLocated SomeFrontendException)
+realLocatedExceptionFromException x = do
+  SomeRealLocaltedException lx <- fromFrontendException x
+  cast lx
