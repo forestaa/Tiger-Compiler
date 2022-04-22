@@ -12,7 +12,7 @@ module Compiler.Frontend.SrcLoc
   )
 where
 
-import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException, frontendExceptionFromException, frontendExceptionToException)
+import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException, frontendExceptionFromException, frontendExceptionToException)
 import Data.Data (cast)
 import RIO
 import RIO.List

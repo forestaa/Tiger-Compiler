@@ -67,18 +67,18 @@ library
       Compiler.Backend.X86.Codegen
       Compiler.Backend.X86.Frame
       Compiler.Backend.X86.Liveness
+      Compiler.Exception
       Compiler.Frontend
       Compiler.Frontend.AbstSyntax
       Compiler.Frontend.Coroutine
       Compiler.Frontend.Env
+      Compiler.Frontend.Exception
       Compiler.Frontend.Id
       Compiler.Frontend.Language.Linear.Eval
       Compiler.Frontend.Language.Linear.Lexer
       Compiler.Frontend.Language.Linear.LSyntax
       Compiler.Frontend.Language.Linear.Parser
       Compiler.Frontend.Language.Linear.Syntax
-      Compiler.Frontend.Lexer
-      Compiler.Frontend.SrcLoc
       Compiler.Frontend.Language.Tiger.Lexer
       Compiler.Frontend.Language.Tiger.LSyntax
       Compiler.Frontend.Language.Tiger.Parser
@@ -93,7 +93,8 @@ library
       Compiler.Frontend.Language.Tiger.Semant.Types
       Compiler.Frontend.Language.Tiger.Syntax
       Compiler.Frontend.Language.Tiger
-      Compiler.Exception
+      Compiler.Frontend.Lexer
+      Compiler.Frontend.SrcLoc
       Compiler.Intermediate.Canonical
       Compiler.Intermediate.Frame
       Compiler.Intermediate.IR

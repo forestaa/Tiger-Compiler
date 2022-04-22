@@ -1,6 +1,7 @@
 module Compiler.Frontend.Language.Tiger where
 
-import Compiler.Frontend (Frontend (processFrontend), FrontendException (toFrontendException), SomeFrontendException)
+import Compiler.Frontend (Frontend (processFrontend))
+import Compiler.Frontend.Exception (FrontendException (toFrontendException), SomeFrontendException)
 import Compiler.Frontend.Language.Tiger.Parser (parser)
 import Compiler.Frontend.Language.Tiger.Semant (translateProgram)
 import Compiler.Frontend.Lexer (runP)

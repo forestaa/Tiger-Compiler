@@ -2,7 +2,7 @@
 
 module Compiler.Frontend.Lexer where
 
-import Compiler.Frontend (FrontendException, fromFrontendException, frontendExceptionFromException, frontendExceptionToException, toFrontendException)
+import Compiler.Frontend.Exception (FrontendException, fromFrontendException, frontendExceptionFromException, frontendExceptionToException, toFrontendException)
 import Compiler.Frontend.SrcLoc
 import Control.Monad.Except
 import Control.Monad.State.Strict

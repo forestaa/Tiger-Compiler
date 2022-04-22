@@ -1,6 +1,6 @@
 module Compiler.Frontend.Language.Tiger.Semant where
 
-import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), frontendExceptionFromException, frontendExceptionToException)
+import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), frontendExceptionFromException, frontendExceptionToException)
 import Compiler.Frontend.Id
 import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
 import Compiler.Frontend.Language.Tiger.Semant.BreakPoint

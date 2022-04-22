@@ -1,6 +1,6 @@
 module Compiler.Frontend.SrcLocSpec where
 
-import Compiler.Frontend (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (..), frontendExceptionFromException, frontendExceptionToException)
+import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (..), frontendExceptionFromException, frontendExceptionToException)
 import Compiler.Frontend.SrcLoc
 import Control.Exception.Safe (MonadCatch, catch)
 import Data.Data (cast)
