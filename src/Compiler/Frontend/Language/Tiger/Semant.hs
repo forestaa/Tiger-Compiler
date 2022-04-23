@@ -82,14 +82,17 @@ translateProgram ast = do
   let ((result, newTempUnique), newLabelUnique) = leaveEff . runTranslateEff @f tempUnique labelUnique $ do
         label <- newLabel
         insertInitVAEnv
-        withNewLevelEff label [] . translateExp $ markEscape ast
+        insertInitVTEnv
+        withNewLevelEff label [] $ do
+          (exp, _) <- translateExp $ markEscape ast
+          stm <- unNx exp
+          level <- fetchCurrentLevelEff
+          saveProcEntry level stm
   putUniqueEff #label newLabelUnique
   putUniqueEff #temp newTempUnique
   case result of
     Left e -> pure $ Left e
-    Right (((exp, _), NestingLevel [level@Level {}, TopLevel]), fragments) -> do
-      stm <- unNx exp
-      pure . Right $ (F.Proc stm level.frame) : fragments
+    Right (((), NestingLevel [TopLevel]), fragments) -> pure $ Right fragments
     _ -> undefined
 
 evalTranslateEffWithNewLevel a = fmap (fst . fst) . runTranslateEff uniqueSeed uniqueSeed $ do
