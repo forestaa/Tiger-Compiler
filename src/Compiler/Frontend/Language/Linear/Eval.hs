@@ -8,11 +8,6 @@ import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 import RIO
 
-type IODef = "IO" >: IO
-
-runIODef :: Eff '[IODef] r -> IO r
-runIODef = retractEff
-
 type EnvL = E.Env Int
 
 type Output = [String]
