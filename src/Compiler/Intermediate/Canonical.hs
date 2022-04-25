@@ -10,6 +10,9 @@ import Data.List (init, last)
 import RIO hiding (Const)
 import RIO.List (headMaybe)
 
+processIntermediate :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Stm -> Eff xs [Stm]
+processIntermediate = linearize >=> basicBlocks >=> uncurry traceSchedule
+
 linearize :: Lookup xs "temp" UniqueEff => Stm -> Eff xs [Stm]
 linearize = fmap seqToList . linearizeStm
   where
