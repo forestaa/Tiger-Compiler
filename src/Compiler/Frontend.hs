@@ -9,4 +9,4 @@ import Data.Extensible.Effect (Eff, EitherEff)
 import RIO
 
 class Frontend language where
-  processFrontend :: forall language f xs. (Lookup xs "temp" U.UniqueEff, Lookup xs "label" U.UniqueEff, Lookup xs "exception" (EitherEff SomeFrontendException), Frame f) => FilePath -> B.ByteString -> Eff xs [ProgramFragment f]
+  processFrontend :: forall f xs. (Lookup xs "temp" U.UniqueEff, Lookup xs "label" U.UniqueEff, Lookup xs "exception" (EitherEff SomeFrontendException), Frame f) => FilePath -> B.ByteString -> Eff xs [ProgramFragment f]
