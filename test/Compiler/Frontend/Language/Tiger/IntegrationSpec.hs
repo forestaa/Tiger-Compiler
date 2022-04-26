@@ -30,117 +30,126 @@ import RIO
 import Test.Hspec
 
 spec :: Spec
-spec = integrationSpec
+spec = do
+  validTestSpec
+  invalidTestSpec
+  complexTestSpec
 
-integrationSpec :: Spec
-integrationSpec = describe "integration test for translate" $ do
+validTestSpec :: Spec
+validTestSpec = describe "valid integration test for tiger to translate" $ do
+  it "valid test cases" $ do
+    let tigerTests = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
+    res <- runExceptT (traverse (ExceptT . translateTest) tigerTests)
+    res `shouldSatisfy` isRight
+  where
+    validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1 .. 8], [12], [27], [30], [37], [41 .. 42], [44], [46 .. 48]]
+
+invalidTestSpec :: Spec
+invalidTestSpec = describe "invalid integration test cases for tiger to translate" $ do
   it "then and else type differ" $
-    runErrorTranslateTest (testcase "test09.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test09.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "body of while isTypeCheckErrorAnd not unit" $
-    runErrorTranslateTest (testcase "test10.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedUnitType)
+    runErrorTranslateTest (tigerTest "test10.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedUnitType)
 
   it "hi in for is not int" $
-    runErrorTranslateTest (testcase "test11.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
+    runErrorTranslateTest (tigerTest "test11.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
 
   it "incompatible comparison: lt" $
-    runErrorTranslateTest (testcase "test13.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
+    runErrorTranslateTest (tigerTest "test13.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
 
   it "incompatible comparison: eq" $
-    runErrorTranslateTest (testcase "test14.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test14.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "if-then returns non unit" $
-    runErrorTranslateTest (testcase "test15.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedUnitType)
+    runErrorTranslateTest (tigerTest "test15.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedUnitType)
 
   it "invalid recursive type" $
-    runErrorTranslateTest (testcase "test16.tig") (`shouldSatisfy` isTypeCheckErrorAndInvalidRecTypeDeclaration)
+    runErrorTranslateTest (tigerTest "test16.tig") (`shouldSatisfy` isTypeCheckErrorAndInvalidRecTypeDeclaration)
 
   it "invalid recursive type: interrupted" $
-    runErrorTranslateTest (testcase "test17.tig") (`shouldSatisfy` isTypeCheckErrorAndUnknownType)
+    runErrorTranslateTest (tigerTest "test17.tig") (`shouldSatisfy` isTypeCheckErrorAndUnknownType)
 
   it "invalid recursive function: interrupted" $
-    runErrorTranslateTest (testcase "test18.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
+    runErrorTranslateTest (tigerTest "test18.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
 
   it "undefined variable" $
-    runErrorTranslateTest (testcase "test19.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
+    runErrorTranslateTest (tigerTest "test19.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
 
   it "undefined variable" $
-    runErrorTranslateTest (testcase "test20.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
+    runErrorTranslateTest (tigerTest "test20.tig") (`shouldSatisfy` isTypeCheckErrorAndUndefinedVariable)
 
   it "procedure returns value" $
-    runErrorTranslateTest (testcase "test21.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
+    runErrorTranslateTest (tigerTest "test21.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
 
   it "missing field in record" $
-    runErrorTranslateTest (testcase "test22.tig") (`shouldSatisfy` isTypeCheckErrorAndMissingRecordField)
+    runErrorTranslateTest (tigerTest "test22.tig") (`shouldSatisfy` isTypeCheckErrorAndMissingRecordField)
 
   it "type mismatch" $
-    runErrorTranslateTest (testcase "test23.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test23.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "not array variable" $
-    runErrorTranslateTest (testcase "test24.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedArrayType)
+    runErrorTranslateTest (tigerTest "test24.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedArrayType)
 
   it "not record variable" $
-    runErrorTranslateTest (testcase "test25.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedRecordType)
+    runErrorTranslateTest (tigerTest "test25.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedRecordType)
 
   it "integer required" $
-    runErrorTranslateTest (testcase "test26.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
+    runErrorTranslateTest (tigerTest "test26.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
 
   it "different record type" $
-    runErrorTranslateTest (testcase "test28.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test28.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "different array type" $
-    runErrorTranslateTest (testcase "test29.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test29.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "init type differs from declared" $
-    runErrorTranslateTest (testcase "test31.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test31.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "init type of array differed from declared" $
-    runErrorTranslateTest (testcase "test32.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test32.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "unknown type" $
-    runErrorTranslateTest (testcase "test33.tig") (`shouldSatisfy` isTypeCheckErrorAndUnknownType)
+    runErrorTranslateTest (tigerTest "test33.tig") (`shouldSatisfy` isTypeCheckErrorAndUnknownType)
 
   it "type mismatched in function call" $
-    runErrorTranslateTest (testcase "test34.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
+    runErrorTranslateTest (tigerTest "test34.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
 
   it "less argument" $
-    runErrorTranslateTest (testcase "test35.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
+    runErrorTranslateTest (tigerTest "test35.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
 
   it "more argument" $
-    runErrorTranslateTest (testcase "test36.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
+    runErrorTranslateTest (tigerTest "test36.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedTypes)
 
   it "type already declared" $
-    runErrorTranslateTest (testcase "test38.tig") (`shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName)
+    runErrorTranslateTest (tigerTest "test38.tig") (`shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName)
 
   it "function already declared" $
-    runErrorTranslateTest (testcase "test39.tig") (`shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName)
+    runErrorTranslateTest (tigerTest "test39.tig") (`shouldSatisfy` isTypeCheckErrorAndMultiDeclaredName)
 
   it "procedure returns value" $
-    runErrorTranslateTest (testcase "test40.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
+    runErrorTranslateTest (tigerTest "test40.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedType)
 
   it "type mismatch in addition" $
-    runErrorTranslateTest (testcase "test43.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
+    runErrorTranslateTest (tigerTest "test43.tig") (`shouldSatisfy` isTypeCheckErrorAndExpectedIntType)
 
   it "mismatch initialization by nil" $
-    runErrorTranslateTest (testcase "test45.tig") (`shouldSatisfy` isTypeCheckErrorAndNotDeterminedNilType)
+    runErrorTranslateTest (tigerTest "test45.tig") (`shouldSatisfy` isTypeCheckErrorAndNotDeterminedNilType)
 
-  it "valid test cases" $ do
-    let testcases = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
-    res <- runExceptT (traverse (ExceptT . translateTest) testcases)
-    res `shouldSatisfy` isRight
-
+complexTestSpec :: Spec
+complexTestSpec = describe "complex integration test for tiger to translate" $ do
   it "merge.tig" $ do
-    let merge = "test/Compiler/Frontend/Language/Tiger/samples/merge.tig"
+    let merge = tigerTest "merge.tig"
     res <- translateTest merge
     res `shouldSatisfy` isRight
 
   it "queens.tig" $ do
-    let merge = "test/Compiler/Frontend/Language/Tiger/samples/queens.tig"
+    let merge = tigerTest "queens.tig"
     res <- translateTest merge
     res `shouldSatisfy` isRight
-  where
-    testcase s = "test/Compiler/Frontend/Language/Tiger/samples/" ++ s
-    validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1 .. 8], [12], [27], [30], [37], [41 .. 42], [44], [46 .. 48]]
+
+translateTest' :: FilePath -> IO [ProgramFragment FrameMock]
+translateTest' = translateTest >=> either throwM pure
 
 translateTest :: FilePath -> IO (Either SomeFrontendException [ProgramFragment FrameMock])
 translateTest file = runIODef . runEitherEff @"exception" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
@@ -149,8 +158,7 @@ translateTest file = runIODef . runEitherEff @"exception" . U.evalUniqueEff @"la
 
 runErrorTranslateTest :: FilePath -> (SemantAnalysisError -> IO ()) -> IO ()
 runErrorTranslateTest file assert = do
-  result <- translateTest file
-  (either (throwM . toException) (const (pure ())) result) `catch` frontendExceptionHandler
+  (translateTest' file >> pure ()) `catch` frontendExceptionHandler
   where
     frontendExceptionHandler :: SomeFrontendException -> IO ()
     frontendExceptionHandler e = do
@@ -160,3 +168,6 @@ runErrorTranslateTest file assert = do
         catch e f = case fromFrontendException e of
           Just e -> f e
           Nothing -> pure ()
+
+tigerTest :: String -> FilePath
+tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file
