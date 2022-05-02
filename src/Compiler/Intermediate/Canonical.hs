@@ -221,4 +221,4 @@ traceSchedule blocks done = do
       treeToList (Node block blocks) = block : (maybe [] treeToList $ headMaybe blocks)
       traces = newTrace <$> (fmap (\(a, _, _) -> a) . fmap vertex) <$> treeToList <$> dff graph
   body <- concat <$> mapM statements traces
-  pure $ body ++ [Label done]
+  pure $ body ++ [Label done] -- TODO: done should call popq, ret

@@ -1,14 +1,6 @@
 module Compiler.Frontend.Language.Tiger.Semant.Translate where
 
-import Data.Extensible
-import Data.Extensible.Effect
 import Compiler.Frontend.Id
-import Compiler.Frontend.SrcLoc
-import Compiler.Intermediate.Frame qualified as F
-import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique
-import RIO
-import RIO.List qualified as List
 import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
 import Compiler.Frontend.Language.Tiger.Semant.BreakPoint
 import Compiler.Frontend.Language.Tiger.Semant.Env
@@ -16,6 +8,14 @@ import Compiler.Frontend.Language.Tiger.Semant.Exp
 import Compiler.Frontend.Language.Tiger.Semant.Level
 import Compiler.Frontend.Language.Tiger.Semant.TypeCheck qualified as TC
 import Compiler.Frontend.Language.Tiger.Semant.Types
+import Compiler.Frontend.SrcLoc
+import Compiler.Intermediate.Frame qualified as F
+import Compiler.Intermediate.IR qualified as IR
+import Compiler.Intermediate.Unique
+import Data.Extensible
+import Data.Extensible.Effect
+import RIO
+import RIO.List qualified as List
 
 data TranslateError
   = VariableUndefined Id
@@ -79,6 +79,7 @@ insertFunAccess name = do
 intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
 
+-- TODO: use Frame.string
 stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => String -> Eff xs Exp
 stringExp s = do
   label <- newLabel
