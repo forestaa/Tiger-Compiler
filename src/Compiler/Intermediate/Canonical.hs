@@ -1,5 +1,6 @@
 module Compiler.Intermediate.Canonical where
 
+import Compiler.Intermediate (Intermediate (..))
 import Compiler.Intermediate.IR
 import Compiler.Intermediate.Unique (Label, UniqueEff, getUniqueEff, newLabel, newTemp, putUniqueEff)
 import Data.Extensible (Lookup, type (>:))
@@ -10,8 +11,10 @@ import Data.List (init, last)
 import RIO hiding (Const)
 import RIO.List (headMaybe)
 
-processIntermediate :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Stm -> Eff xs [Stm]
-processIntermediate = linearize >=> basicBlocks >=> uncurry traceSchedule
+data Canonical = Canonical
+
+instance Intermediate Canonical where
+  processIntermediate = linearize >=> basicBlocks >=> uncurry traceSchedule
 
 linearize :: Lookup xs "temp" UniqueEff => Stm -> Eff xs [Stm]
 linearize = fmap seqToList . linearizeStm

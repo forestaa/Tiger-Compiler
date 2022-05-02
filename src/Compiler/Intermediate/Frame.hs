@@ -21,7 +21,7 @@ class Frame f where
 
 data ProgramFragment f where
   Proc :: Frame f => {body :: IR.Stm, frame :: f} -> ProgramFragment f
-  String :: U.Label -> String -> ProgramFragment f
+  String :: {label :: U.Label, string :: String} -> ProgramFragment f
 
 deriving instance Eq f => Eq (ProgramFragment f)
 

@@ -95,6 +95,7 @@ library
       Compiler.Frontend.Language.Tiger
       Compiler.Frontend.Lexer
       Compiler.Frontend.SrcLoc
+      Compiler.Intermediate
       Compiler.Intermediate.Canonical
       Compiler.Intermediate.Frame
       Compiler.Intermediate.IR
@@ -128,6 +129,7 @@ test-suite compiler-test
   other-modules:
       Compiler.Backend.X86.CodegenSpec
       Compiler.Backend.X86.IntegratoinTigerSpec
+      Compiler.Backend.X86.IntermediateMock
       Compiler.Frontend.FrameMock
       Compiler.Frontend.Language.Linear.EvalSpec
       Compiler.Frontend.Language.Linear.LexerSpec

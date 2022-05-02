@@ -6,7 +6,7 @@ import Compiler.Backend.X86.Frame (Frame)
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
-import Compiler.Intermediate.Canonical (processIntermediate)
+import Compiler.Intermediate.Canonical (Canonical (Canonical))
 import Compiler.Intermediate.Frame qualified as F (ProgramFragment (..))
 import Compiler.Intermediate.Unique qualified as U
 import Control.Exception.Safe (throwM)
@@ -135,13 +135,7 @@ compileTest :: FilePath -> IO ([[L.ControlFlow U.Temp (Assembly U.Temp)]])
 compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" . runEitherEff @"exception" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   fragments <- mapLeftEff toException $ processFrontend @Tiger @Frame file bs
-  mapM process fragments
-  where
-    process (F.Proc stm frame) = processIntermediate stm >>= codegen
-    process (F.String label string) =
-      pure
-        [ L.Instruction {src = [], dst = [], val = String string}
-        ]
+  mapM (codegen @Canonical) fragments
 
 tigerTest :: String -> FilePath
 tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file
