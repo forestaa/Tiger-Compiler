@@ -59,4 +59,5 @@ data Assembly register
   | PushRegister register
   | Pop register
   | Label Label
+  | String Label String
   deriving (Show, Eq)

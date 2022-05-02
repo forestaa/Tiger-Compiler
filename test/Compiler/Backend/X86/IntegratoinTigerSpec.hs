@@ -90,7 +90,6 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         temp4 = U.Temp "t" (U.Unique 4)
         temp5 = U.Temp "t" (U.Unique 5)
         tempRdi = U.Temp "RDI" (U.Unique 0)
-        tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
       `shouldBe` [ [ L.Label {label = label14, val = Label label14},
@@ -108,9 +107,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Jump {jumps = [label15], val = Jump label15},
                      L.Label {label = label15, val = Label label15}
                    ],
-                   [ L.Instruction {src = [], dst = [], val = Label (Label' "Lu13")}
+                   [ L.Instruction {src = [], dst = [], val = String label13 "\"Somebody\""}
                    ],
-                   [ L.Instruction {src = [], dst = [], val = Label (Label' "Lu11")}
+                   [ L.Instruction {src = [], dst = [], val = String label11 "\"Nobody\""}
                    ]
                  ]
 
@@ -121,7 +120,10 @@ compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"lab
   mapM process fragments
   where
     process (F.Proc stm frame) = processIntermediate stm >>= codegen
-    process (F.String label string) = pure [L.Instruction {src = [], dst = [], val = Label (fromUniqueLabel label)}]
+    process (F.String label string) =
+      pure
+        [ L.Instruction {src = [], dst = [], val = String (fromUniqueLabel label) string}
+        ]
 
 tigerTest :: String -> FilePath
 tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file
