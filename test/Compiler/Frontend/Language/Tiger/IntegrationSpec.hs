@@ -1,7 +1,7 @@
 module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 
 import Compiler.Frontend (Frontend (processFrontend))
-import Compiler.Frontend.Exception (FrontendException (fromFrontendException), SomeFrontendException (SomeFrontendException))
+import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
 import Compiler.Frontend.FrameMock
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Parser
@@ -14,9 +14,10 @@ import Compiler.Frontend.Language.Tiger.Semant.Types
 import Compiler.Frontend.Language.Tiger.TestUtils
 import Compiler.Frontend.Lexer
 import Compiler.Frontend.SrcLoc
-import Compiler.Intermediate.Frame
+import Compiler.Intermediate.Frame qualified as F
+import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
-import Control.Exception.Safe (Exception (toException))
+import Control.Exception.Safe (Exception (toException), MonadCatch, MonadThrow, catch)
 import Control.Monad (when)
 import Control.Monad.Except
 import Data.ByteString.Lazy qualified as B
@@ -26,7 +27,7 @@ import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 import Data.Maybe (isJust)
 import GHC.Base (undefined)
-import RIO
+import RIO hiding (catch)
 import Test.Hspec
 
 spec :: Spec
@@ -37,6 +38,121 @@ spec = do
 
 validTestSpec :: Spec
 validTestSpec = describe "valid integration test for tiger to translate" $ do
+  it "test01.tig" $ do
+    let testcase = tigerTest "test01.tig"
+    res <- translateTest' testcase
+    let temp0 = U.Temp "t" (U.Unique 0)
+        temp1 = U.Temp "t" (U.Unique 1)
+    res
+      `shouldBe` [ F.Proc
+                     { body =
+                         IR.Exp
+                           ( ( IR.Move
+                                 (IR.Temp temp1)
+                                 ( ( IR.Move
+                                       (IR.Temp temp0)
+                                       ( IR.Call
+                                           (IR.Name (U.Label "initArray" (U.Unique 11)))
+                                           [IR.Const 10, IR.Const 0]
+                                       )
+                                   )
+                                     `IR.ESeq` (IR.Temp temp0)
+                                 )
+                             )
+                               `IR.ESeq` (IR.Temp temp1)
+                           ),
+                       frame =
+                         FrameMock
+                           { name = U.Label "L" (U.Unique 0),
+                             formals = [InFrame 0],
+                             numberOfLocals = 0
+                           }
+                     }
+                 ]
+
+  it "test02.tig" $ do
+    let testcase = tigerTest "test02.tig"
+    res <- translateTest' testcase
+    let temp0 = U.Temp "t" (U.Unique 0)
+        temp1 = U.Temp "t" (U.Unique 1)
+    res
+      `shouldBe` [ F.Proc
+                     { body =
+                         IR.Exp
+                           ( ( IR.Move
+                                 (IR.Temp temp1)
+                                 ( ( IR.Move
+                                       (IR.Temp temp0)
+                                       ( IR.Call
+                                           (IR.Name (U.Label "initArray" (U.Unique 11)))
+                                           [IR.Const 10, IR.Const 0]
+                                       )
+                                   )
+                                     `IR.ESeq` (IR.Temp temp0)
+                                 )
+                             )
+                               `IR.ESeq` (IR.Temp temp1)
+                           ),
+                       frame =
+                         FrameMock
+                           { name = U.Label "L" (U.Unique 0),
+                             formals = [InFrame 0],
+                             numberOfLocals = 0
+                           }
+                     }
+                 ]
+
+  it "test03.tig" $ do
+    let testcase = tigerTest "test03.tig"
+    res <- translateTest' testcase
+    let temp0 = U.Temp "t" (U.Unique 0)
+        temp1 = U.Temp "t" (U.Unique 1)
+        nobody = U.Label "L" (U.Unique 11)
+        somebody = U.Label "L" (U.Unique 13)
+    res
+      `shouldBe` [ F.Proc
+                     { body =
+                         IR.Exp
+                           ( ( IR.Move
+                                 (IR.Temp temp1)
+                                 ( ( ( IR.Move
+                                         (IR.Temp temp0)
+                                         ( IR.Call
+                                             (IR.Name (U.Label "malloc" (U.Unique 12)))
+                                             [IR.Const 8]
+                                         )
+                                     )
+                                       `IR.Seq` ( ( IR.Move
+                                                      (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 0)))
+                                                      (IR.Name nobody)
+                                                  )
+                                                    `IR.Seq` ( IR.Move
+                                                                 (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
+                                                                 (IR.Const 1000)
+                                                             )
+                                                )
+                                   )
+                                     `IR.ESeq` (IR.Temp temp0)
+                                 )
+                             )
+                               `IR.ESeq` ( ( IR.Move
+                                               (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
+                                               (IR.Name somebody)
+                                           )
+                                             `IR.ESeq` (IR.Temp temp1)
+                                         )
+                           ),
+                       frame =
+                         FrameMock
+                           { name = U.Label "L" (U.Unique 0),
+                             formals = [InFrame 0],
+                             numberOfLocals = 0
+                           }
+                     },
+                   F.String somebody "\"Somebody\"",
+                   F.String nobody "\"Nobody\""
+                 ]
+
   it "valid test cases" $ do
     let tigerTests = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
     res <- runExceptT (traverse (ExceptT . translateTest) tigerTests)
@@ -148,26 +264,25 @@ complexTestSpec = describe "complex integration test for tiger to translate" $ d
     res <- translateTest merge
     res `shouldSatisfy` isRight
 
-translateTest' :: FilePath -> IO [ProgramFragment FrameMock]
+translateTest' :: FilePath -> IO [F.ProgramFragment FrameMock]
 translateTest' = translateTest >=> either throwM pure
 
-translateTest :: FilePath -> IO (Either SomeFrontendException [ProgramFragment FrameMock])
+translateTest :: FilePath -> IO (Either SomeFrontendException [F.ProgramFragment FrameMock])
 translateTest file = runIODef . runEitherEff @"exception" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   processFrontend @Tiger file bs
 
 runErrorTranslateTest :: FilePath -> (SemantAnalysisError -> IO ()) -> IO ()
 runErrorTranslateTest file assert = do
-  (translateTest' file >> pure ()) `catch` frontendExceptionHandler
+  (translateTest' file >> pure ())
+    `frontendCatch` (\(ParserException msg) -> expectationFailure $ "parse error: " ++ msg)
+    `frontendCatch` (\(L _ e) -> assert e)
   where
-    frontendExceptionHandler :: SomeFrontendException -> IO ()
-    frontendExceptionHandler e = do
-      e `catch` (\(ParserException msg) -> expectationFailure $ "parse error: " ++ msg)
-      e `catch` (\(L _ e :: RealLocated SemantAnalysisError) -> assert e)
-      where
-        catch e f = case fromFrontendException e of
-          Just e -> f e
-          Nothing -> pure ()
+    frontendCatch :: (MonadThrow m, MonadCatch m, FrontendException e) => m a -> (e -> m a) -> m a
+    frontendCatch m f =
+      m `catch` \e@(SomeFrontendException _) -> case fromFrontendException e of
+        Nothing -> throwM e
+        Just e -> f e
 
 tigerTest :: String -> FilePath
 tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file
