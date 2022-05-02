@@ -112,22 +112,22 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Instruction {src = [], dst = [], val = Data},
                      L.Instruction {src = [], dst = [], val = Align 16},
                      L.Instruction {src = [], dst = [], val = Type label13},
-                     L.Instruction {src = [], dst = [], val = Size label13 16},
+                     L.Instruction {src = [], dst = [], val = Size label13 24},
                      L.Label {label = label13, val = Label label13},
-                     L.Instruction {src = [], dst = [], val = Long 8},
+                     L.Instruction {src = [], dst = [], val = Long 10},
                      L.Instruction {src = [], dst = [], val = String "\"Somebody\""},
-                     L.Instruction {src = [], dst = [], val = Zero 3}
+                     L.Instruction {src = [], dst = [], val = Zero 5}
                    ],
                    [ L.Instruction {src = [], dst = [], val = Text},
                      L.Instruction {src = [], dst = [], val = Global label11},
                      L.Instruction {src = [], dst = [], val = Data},
                      L.Instruction {src = [], dst = [], val = Align 16},
                      L.Instruction {src = [], dst = [], val = Type label11},
-                     L.Instruction {src = [], dst = [], val = Size label11 16},
+                     L.Instruction {src = [], dst = [], val = Size label11 24},
                      L.Label {label = label11, val = Label label11},
-                     L.Instruction {src = [], dst = [], val = Long 6},
+                     L.Instruction {src = [], dst = [], val = Long 8},
                      L.Instruction {src = [], dst = [], val = String "\"Nobody\""},
-                     L.Instruction {src = [], dst = [], val = Zero 5}
+                     L.Instruction {src = [], dst = [], val = Zero 7}
                    ]
                  ]
 

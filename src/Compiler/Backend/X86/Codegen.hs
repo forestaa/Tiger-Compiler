@@ -14,6 +14,7 @@ import RIO
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegen (F.Proc {body}) = processIntermediate @im body >>= fmap concat . mapM codegenStm
+codegen (F.String {label, string}) = codegenString label string
 
 codegenStm :: Lookup xs "temp" U.UniqueEff => IR.Stm -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus e1 (IR.Const i))) e2) = codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e1)) e2)
@@ -139,3 +140,22 @@ binOpInstr :: forall register. IR.BinOp -> register -> register -> Assembly regi
 binOpInstr IR.Plus = AddRegister
 binOpInstr IR.Minus = SubRegister
 binOpInstr _ = undefined
+
+codegenString :: U.Label -> String -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegenString label string =
+  pure
+    [ L.Instruction {src = [], dst = [], val = Text},
+      L.Instruction {src = [], dst = [], val = Global (fromUniqueLabel label)},
+      L.Instruction {src = [], dst = [], val = Data},
+      L.Instruction {src = [], dst = [], val = Align 16},
+      L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label)},
+      L.Instruction {src = [], dst = [], val = Size (fromUniqueLabel label) size},
+      L.Label {label = (fromUniqueLabel label), val = Label (fromUniqueLabel label)},
+      L.Instruction {src = [], dst = [], val = Long (length string)},
+      L.Instruction {src = [], dst = [], val = String string},
+      L.Instruction {src = [], dst = [], val = Zero padding}
+    ]
+  where
+    realSize = wordSize + length string + 1
+    size = (realSize `div` wordSize + 1) * wordSize
+    padding = size - realSize
