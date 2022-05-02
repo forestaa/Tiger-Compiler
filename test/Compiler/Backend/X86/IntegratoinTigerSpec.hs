@@ -107,9 +107,27 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Jump {jumps = [label15], val = Jump label15},
                      L.Label {label = label15, val = Label label15}
                    ],
-                   [ L.Instruction {src = [], dst = [], val = String label13 "\"Somebody\""}
+                   [ L.Instruction {src = [], dst = [], val = Text},
+                     L.Instruction {src = [], dst = [], val = Global label13},
+                     L.Instruction {src = [], dst = [], val = Data},
+                     L.Instruction {src = [], dst = [], val = Align 16},
+                     L.Instruction {src = [], dst = [], val = Type label13},
+                     L.Instruction {src = [], dst = [], val = Size label13 16},
+                     L.Label {label = label13, val = Label label13},
+                     L.Instruction {src = [], dst = [], val = Long 8},
+                     L.Instruction {src = [], dst = [], val = String "\"Somebody\""},
+                     L.Instruction {src = [], dst = [], val = Zero 3}
                    ],
-                   [ L.Instruction {src = [], dst = [], val = String label11 "\"Nobody\""}
+                   [ L.Instruction {src = [], dst = [], val = Text},
+                     L.Instruction {src = [], dst = [], val = Global label11},
+                     L.Instruction {src = [], dst = [], val = Data},
+                     L.Instruction {src = [], dst = [], val = Align 16},
+                     L.Instruction {src = [], dst = [], val = Type label11},
+                     L.Instruction {src = [], dst = [], val = Size label11 16},
+                     L.Label {label = label11, val = Label label11},
+                     L.Instruction {src = [], dst = [], val = Long 6},
+                     L.Instruction {src = [], dst = [], val = String "\"Nobody\""},
+                     L.Instruction {src = [], dst = [], val = Zero 5}
                    ]
                  ]
 
@@ -122,7 +140,7 @@ compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"lab
     process (F.Proc stm frame) = processIntermediate stm >>= codegen
     process (F.String label string) =
       pure
-        [ L.Instruction {src = [], dst = [], val = String (fromUniqueLabel label) string}
+        [ L.Instruction {src = [], dst = [], val = String string}
         ]
 
 tigerTest :: String -> FilePath

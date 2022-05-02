@@ -59,5 +59,13 @@ data Assembly register
   | PushRegister register
   | Pop register
   | Label Label
-  | String Label String
+  | Global Label
+  | Data
+  | Text
+  | Align Int
+  | Type Label -- TODO:
+  | Size Label Int
+  | String String
+  | Zero Int
+  | Long Int
   deriving (Show, Eq)
