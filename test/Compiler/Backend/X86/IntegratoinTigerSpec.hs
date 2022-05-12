@@ -91,18 +91,19 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         temp5 = U.Temp "t" (U.Unique 5)
         tempRdi = U.Temp "RDI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
+        tempRip = U.Temp "RIP" (U.Unique 0)
     result
       `shouldBe` [ [ L.Label {label = label14, val = Label label14},
                      L.Instruction {src = [], dst = [temp2], val = MovImmediate 16 temp2},
                      L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
                      L.Instruction {src = [temp2], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12)))},
                      L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
-                     L.Instruction {src = [], dst = [temp3], val = MovImmediateLabel label11 temp3},
+                     L.Instruction {src = [], dst = [temp3], val = Lea label11 tempRip temp3},
                      L.Instruction {src = [temp0, temp3], dst = [], val = MovStoreIndirect temp3 0 temp0},
                      L.Instruction {src = [], dst = [temp4], val = MovImmediate 1000 temp4},
                      L.Instruction {src = [temp0, temp4], dst = [], val = MovStoreIndirect temp4 8 temp0},
                      L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Instruction {src = [], dst = [temp5], val = MovImmediateLabel label13 temp5},
+                     L.Instruction {src = [], dst = [temp5], val = Lea label13 tempRip temp5},
                      L.Instruction {src = [temp1, temp5], dst = [], val = MovStoreIndirect temp5 0 temp1},
                      L.Jump {jumps = [label15], val = Jump label15},
                      L.Label {label = label15, val = Label label15}

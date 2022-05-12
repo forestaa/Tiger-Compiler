@@ -61,8 +61,9 @@ codegenExp (IR.Const i) = do
   t <- U.newTemp
   pure ([L.Instruction {src = [], dst = [t], val = MovImmediate i t}], t)
 codegenExp (IR.Name label) = do
+  let rip = U.newStringTemp "RIP"
   t <- U.newTemp
-  pure ([L.Instruction {src = [], dst = [t], val = MovImmediateLabel (fromUniqueLabel label) t}], t)
+  pure ([L.Instruction {src = [], dst = [t], val = Lea (fromUniqueLabel label) rip t}], t)
 codegenExp (IR.Temp t) = pure ([], t)
 codegenExp (IR.BinOp op e (IR.Const i)) = do
   (flows, t) <- codegenExp e
