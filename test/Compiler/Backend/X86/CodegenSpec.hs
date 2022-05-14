@@ -31,6 +31,18 @@ codegenSpec = describe "codegen spec" $ do
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     result `shouldBe` [L.Instruction {src = [t'], dst = [t], val = MovRegister t' t}]
 
+  it "Move Temp Name -> lea label %rip %rax" $ do
+    let t = U.Temp "t" (U.Unique 0)
+        t' = U.Temp "t" (U.Unique 10)
+        rip = U.Temp "RIP" (U.Unique 0)
+        label = U.Label "label" (U.Unique 1)
+        fragment = F.Proc (IR.Move (IR.Temp t') (IR.Name label)) undefined
+        result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
+    result
+      `shouldBe` [ L.Instruction {src = [], dst = [t], val = Lea (fromUniqueLabel label) rip t},
+                   L.Instruction {src = [t], dst = [t'], val = MovRegister t t'}
+                 ]
+
   it "Move Temp (Temp + Temp) -> mov %rbx %rax; add %rcx %rax; mov %rax %rdx" $ do
     let t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
