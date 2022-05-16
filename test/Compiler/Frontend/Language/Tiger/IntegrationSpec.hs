@@ -79,19 +79,17 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
       `shouldBe` [ F.Proc
                      { body =
                          IR.Exp
-                           ( ( IR.Move
-                                 (IR.Temp temp1)
-                                 ( ( IR.Move
-                                       (IR.Temp temp0)
-                                       ( IR.Call
-                                           (IR.Name (U.Label "initArray" (U.Unique 11)))
-                                           [IR.Const 10, IR.Const 0]
-                                       )
+                           ( IR.Move
+                               (IR.Temp temp1)
+                               ( IR.Move
+                                   (IR.Temp temp0)
+                                   ( IR.Call
+                                       (IR.Name (U.Label "initArray" (U.Unique 11)))
+                                       [IR.Const 10, IR.Const 0]
                                    )
-                                     `IR.ESeq` (IR.Temp temp0)
-                                 )
-                             )
-                               `IR.ESeq` (IR.Temp temp1)
+                                   IR.>>& IR.Temp temp0
+                               )
+                               IR.>>& IR.Temp temp1
                            ),
                        frame =
                          FrameMock
@@ -113,34 +111,26 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
       `shouldBe` [ F.Proc
                      { body =
                          IR.Exp
-                           ( ( IR.Move
-                                 (IR.Temp temp1)
-                                 ( ( ( IR.Move
-                                         (IR.Temp temp0)
-                                         ( IR.Call
-                                             (IR.Name (U.Label "malloc" (U.Unique 12)))
-                                             [IR.Const 8]
-                                         )
-                                     )
-                                       `IR.Seq` ( ( IR.Move
-                                                      (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 0)))
-                                                      (IR.Name nobody)
-                                                  )
-                                                    `IR.Seq` ( IR.Move
-                                                                 (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
-                                                                 (IR.Const 1000)
-                                                             )
-                                                )
+                           ( IR.Move
+                               (IR.Temp temp1)
+                               ( IR.Move
+                                   (IR.Temp temp0)
+                                   ( IR.Call
+                                       (IR.Name (U.Label "malloc" (U.Unique 12)))
+                                       [IR.Const 8]
                                    )
-                                     `IR.ESeq` (IR.Temp temp0)
-                                 )
-                             )
-                               `IR.ESeq` ( ( IR.Move
-                                               (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
-                                               (IR.Name somebody)
-                                           )
-                                             `IR.ESeq` (IR.Temp temp1)
-                                         )
+                                   IR.>> IR.Move
+                                     (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 0)))
+                                     (IR.Name nobody)
+                                   IR.>> IR.Move
+                                     (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
+                                     (IR.Const 1000)
+                                   IR.>>& IR.Temp temp0
+                               )
+                               IR.>>& IR.Move
+                                 (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
+                                 (IR.Name somebody)
+                               IR.>>& IR.Temp temp1
                            ),
                        frame =
                          FrameMock

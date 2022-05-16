@@ -53,3 +53,13 @@ notRelOp Lt = Ge
 notRelOp Gt = Le
 notRelOp Le = Gt
 notRelOp Ge = Lt
+
+(>>) :: Stm -> Stm -> Stm
+(>>) = Seq
+
+infixr 3 >>
+
+(>>&) :: Stm -> Exp -> Exp
+(>>&) = ESeq
+
+infixr 2 >>&
