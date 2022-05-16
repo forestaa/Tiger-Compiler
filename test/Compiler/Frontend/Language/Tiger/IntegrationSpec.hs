@@ -143,6 +143,61 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                    F.String nobody "\"Nobody\""
                  ]
 
+  it "test04.tig" $ do
+    let testcase = tigerTest "test04.tig"
+    res <- translateTest' testcase
+    let temp0 = U.Temp "t" (U.Unique 0)
+        temp1 = U.Temp "t" (U.Unique 1)
+        fp = U.Temp "fp" (U.Unique 0)
+        rv = U.Temp "rv" (U.Unique 0)
+        label12 = U.Label "L" (U.Unique 12)
+        label13 = U.Label "L" (U.Unique 13)
+        label14 = U.Label "L" (U.Unique 14)
+        nfactor = U.Label "nfactor" (U.Unique 11)
+    res
+      `shouldBe` [ F.Proc
+                     { body = IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10]),
+                       frame =
+                         FrameMock
+                           { name = U.Label "L" (U.Unique 0),
+                             formals = [InFrame 0],
+                             numberOfLocals = 0
+                           }
+                     },
+                   F.Proc
+                     { body =
+                         IR.Move
+                           (IR.Temp rv)
+                           ( IR.CJump IR.Eq (IR.Temp temp0) (IR.Const 0) label12 label13
+                               IR.>> IR.Label label12
+                               IR.>> IR.Move (IR.Temp temp1) (IR.Const 1)
+                               IR.>> IR.Jump (IR.Name label14) [label14]
+                               IR.>> IR.Label label13
+                               IR.>> IR.Move
+                                 (IR.Temp temp1)
+                                 ( IR.BinOp
+                                     IR.Mul
+                                     (IR.Temp temp0)
+                                     ( IR.Call
+                                         (IR.Name nfactor)
+                                         [ IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp)),
+                                           IR.BinOp IR.Minus (IR.Temp temp0) (IR.Const 1)
+                                         ]
+                                     )
+                                 )
+                               IR.>> IR.Jump (IR.Name label14) [label14]
+                               IR.>> IR.Label label14
+                               IR.>>& (IR.Temp temp1)
+                           ),
+                       frame =
+                         FrameMock
+                           { name = U.Label "nfactor" (U.Unique 11),
+                             formals = [InFrame 0, InReg temp0],
+                             numberOfLocals = 0
+                           }
+                     }
+                 ]
+
   it "valid test cases" $ do
     let tigerTests = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
     res <- runExceptT (traverse (ExceptT . translateTest) tigerTests)
