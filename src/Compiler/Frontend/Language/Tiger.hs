@@ -16,5 +16,5 @@ instance Frontend Tiger where
     exp <- either throw pure $ runP parser file bs
     either throw pure =<< translateProgram exp
     where
-      throw :: (Lookup xs "exception" (EitherEff SomeFrontendException), FrontendException e) => e -> Eff xs a
-      throw = (throwEff #exception) . toFrontendException
+      throw :: (Lookup xs "frontendException" (EitherEff SomeFrontendException), FrontendException e) => e -> Eff xs a
+      throw = (throwEff #frontendException) . toFrontendException

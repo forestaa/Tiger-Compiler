@@ -313,7 +313,7 @@ translateTest' :: FilePath -> IO [F.ProgramFragment FrameMock]
 translateTest' = translateTest >=> either throwM pure
 
 translateTest :: FilePath -> IO (Either SomeFrontendException [F.ProgramFragment FrameMock])
-translateTest file = runIODef . runEitherEff @"exception" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
+translateTest file = runIODef . runEitherEff @"frontendException" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   processFrontend @Tiger file bs
 

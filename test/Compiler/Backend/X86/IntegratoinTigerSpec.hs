@@ -135,7 +135,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
 compileTest :: FilePath -> IO ([[L.ControlFlow U.Temp (Assembly U.Temp)]])
 compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" . runEitherEff @"exception" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
-  fragments <- mapLeftEff toException $ processFrontend @Tiger @Frame file bs
+  fragments <- (=<<) (either (throwEff #exception . toException) pure) . runEitherEff @"frontendException" $ processFrontend @Tiger @Frame file bs
   mapM (codegen @Canonical) fragments
 
 tigerTest :: String -> FilePath
