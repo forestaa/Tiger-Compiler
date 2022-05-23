@@ -4,7 +4,7 @@ import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Frame
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
-import Compiler.Intermediate.Frame qualified as F (ProgramFragment (..))
+import Compiler.Intermediate.Frame qualified as F (Frame, ProgramFragment (..), name)
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U (Label, Temp, UniqueEff, newStringTemp, newTemp)
 import Data.Extensible (Lookup)
@@ -12,8 +12,8 @@ import Data.Extensible.Effect (Eff)
 import Data.List (singleton)
 import RIO
 
-codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-codegen (F.Proc {body}) = processIntermediate @im body >>= fmap concat . mapM codegenStm
+codegen :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegen (F.Proc {body, frame}) = processIntermediate @im (IR.Label (F.name frame) `IR.Seq` body) >>= fmap concat . mapM codegenStm
 codegen (F.String {label, string}) = codegenString label string
 
 codegenStm :: Lookup xs "temp" U.UniqueEff => IR.Stm -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]

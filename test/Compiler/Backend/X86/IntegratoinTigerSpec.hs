@@ -26,8 +26,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test01.tig" $ do
     let testcase = tigerTest "test01.tig"
     result <- compileTest testcase
-    let label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
+    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
         temp2 = U.Temp "t" (U.Unique 2)
@@ -36,7 +36,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label12, val = Label label12},
+      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
                      L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
                      L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
                      L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
@@ -44,16 +44,16 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
                      L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
                      L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Jump {jumps = [label13], val = Jump label13},
-                     L.Label {label = label13, val = Label label13}
+                     L.Jump {jumps = [label12], val = Jump label12},
+                     L.Label {label = label12, val = Label label12}
                    ]
                  ]
 
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     result <- compileTest testcase
-    let label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
+    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
         temp2 = U.Temp "t" (U.Unique 2)
@@ -62,7 +62,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label12, val = Label label12},
+      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
                      L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
                      L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
                      L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
@@ -70,19 +70,19 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
                      L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
                      L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Jump {jumps = [label13], val = Jump label13},
-                     L.Label {label = label13, val = Label label13}
+                     L.Jump {jumps = [label12], val = Jump label12},
+                     L.Label {label = label12, val = Label label12}
                    ]
                  ]
 
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
     result <- compileTest testcase
-    let label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
+    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+        label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
         label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
-        label15 = fromUniqueLabel $ U.Label "L" (U.Unique 15)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
         temp2 = U.Temp "t" (U.Unique 2)
@@ -93,7 +93,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRax = U.Temp "RAX" (U.Unique 0)
         tempRip = U.Temp "RIP" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label14, val = Label label14},
+      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
                      L.Instruction {src = [], dst = [temp2], val = MovImmediate 16 temp2},
                      L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
                      L.Instruction {src = [temp2], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12)))},
@@ -105,8 +105,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
                      L.Instruction {src = [], dst = [temp5], val = Lea label13 tempRip temp5},
                      L.Instruction {src = [temp1, temp5], dst = [], val = MovStoreIndirect temp5 0 temp1},
-                     L.Jump {jumps = [label15], val = Jump label15},
-                     L.Label {label = label15, val = Label label15}
+                     L.Jump {jumps = [label14], val = Jump label14},
+                     L.Label {label = label14, val = Label label14}
                    ],
                    [ L.Instruction {src = [], dst = [], val = Text},
                      L.Instruction {src = [], dst = [], val = Global label13},
@@ -135,15 +135,13 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"
     result <- compileTest testcase
-    let label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
+    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
         label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
         label15 = fromUniqueLabel $ U.Label "L" (U.Unique 15)
         label16 = fromUniqueLabel $ U.Label "L" (U.Unique 16)
         label17 = fromUniqueLabel $ U.Label "L" (U.Unique 17)
-        label18 = fromUniqueLabel $ U.Label "L" (U.Unique 18)
-        label19 = fromUniqueLabel $ U.Label "L" (U.Unique 19)
         nfactor = fromUniqueLabel $ U.Label "nfactor" (U.Unique 11)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
@@ -161,21 +159,21 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRip = U.Temp "RIP" (U.Unique 0)
         tempRbp = U.Temp "RBP" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label15, val = Label label15},
+      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
                      L.Instruction {src = [tempRbp], dst = [temp2], val = MovRegister tempRbp temp2},
                      L.Instruction {src = [], dst = [temp3], val = MovImmediate 10 temp3},
                      L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
                      L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
                      L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call nfactor},
-                     L.Jump {jumps = [label16], val = Jump label16},
-                     L.Label {label = label16, val = Label label16}
+                     L.Jump {jumps = [label15], val = Jump label15},
+                     L.Label {label = label15, val = Label label15}
                    ],
                    -- TODO: reverse this list order because the last label of main should be at the last, and use ret
                    [ L.Label {label = label12, val = Label label12},
                      L.Instruction {src = [], dst = [temp1], val = MovImmediate 1 temp1},
                      L.Label {label = label14, val = Label label14},
                      L.Instruction {src = [temp1], dst = [tempRax], val = MovRegister temp1 tempRax},
-                     L.Jump {jumps = [label18], val = Jump label18},
+                     L.Jump {jumps = [label16], val = Jump label16},
                      L.Label {label = label13, val = Label label13},
                      L.Instruction {src = [temp0], dst = [temp6], val = MovRegister temp0 temp6},
                      L.Instruction {src = [tempRbp], dst = [temp7], val = MovLoadIndirect 0 tempRbp temp7},
@@ -190,14 +188,14 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                      L.Instruction {src = [temp9, temp5], dst = [temp9], val = MulRegister temp5 temp9},
                      L.Instruction {src = [temp9], dst = [temp1], val = MovRegister temp9 temp1},
                      L.Jump {jumps = [label14], val = Jump label14},
-                     L.Label {label = label17, val = Label label17},
+                     L.Label {label = nfactor, val = Label nfactor},
                      L.Instruction {src = [tempRbp, tempRdi], dst = [], val = MovStoreIndirect tempRdi 0 tempRbp},
                      L.Instruction {src = [tempRsi], dst = [temp0], val = MovRegister tempRsi temp0},
                      L.Instruction {src = [temp0], dst = [], val = CmpImmediate temp0 0},
                      L.CJump {jumps = [label12], val = JumpIfEqual label12},
-                     L.Label {label = label19, val = Label label19},
+                     L.Label {label = label17, val = Label label17},
                      L.Jump {jumps = [label13], val = Jump label13},
-                     L.Label {label = label18, val = Label label18}
+                     L.Label {label = label16, val = Label label16}
                    ]
                  ]
 
