@@ -135,11 +135,13 @@ jumpInstr IR.Ge = JumpIfEqualOrGreaterThan
 binOpImmediateInstr :: forall register. IR.BinOp -> Int -> register -> Assembly register
 binOpImmediateInstr IR.Plus = AddImmediate
 binOpImmediateInstr IR.Minus = SubImmediate
+binOpImmediateInstr IR.Mul = MulImmediate
 binOpImmediateInstr _ = undefined
 
 binOpInstr :: forall register. IR.BinOp -> register -> register -> Assembly register
 binOpInstr IR.Plus = AddRegister
 binOpInstr IR.Minus = SubRegister
+binOpInstr IR.Mul = MulRegister
 binOpInstr _ = undefined
 
 codegenString :: U.Label -> String -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]

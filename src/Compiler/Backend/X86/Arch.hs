@@ -45,6 +45,8 @@ data Assembly register
   | AddRegister register register
   | SubImmediate Int register
   | SubRegister register register
+  | MulImmediate Int register
+  | MulRegister register register
   | CmpImmediate register Int
   | CmpRegister register register
   | Jump Label
