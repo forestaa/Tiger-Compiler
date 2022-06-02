@@ -26,7 +26,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test01.tig" $ do
     let testcase = tigerTest "test01.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
@@ -36,23 +36,22 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
-                     L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
-                     L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
-                     L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
-                     L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
-                     L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
-                     L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
-                     L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Jump {jumps = [label12], val = Jump label12},
-                     L.Label {label = label12, val = Label label12}
-                   ]
+      `shouldBe` [ L.Label {label = label0, val = Label label0},
+                   L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
+                   L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
+                   L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
+                   L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
+                   L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
+                   L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
+                   L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
+                   L.Jump {jumps = [label12], val = Jump label12},
+                   L.Label {label = label12, val = Label label12}
                  ]
 
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
@@ -62,23 +61,22 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
-                     L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
-                     L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
-                     L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
-                     L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
-                     L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
-                     L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
-                     L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Jump {jumps = [label12], val = Jump label12},
-                     L.Label {label = label12, val = Label label12}
-                   ]
+      `shouldBe` [ L.Label {label = label0, val = Label label0},
+                   L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
+                   L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
+                   L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
+                   L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
+                   L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11)))},
+                   L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
+                   L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
+                   L.Jump {jumps = [label12], val = Jump label12},
+                   L.Label {label = label12, val = Label label12}
                  ]
 
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
@@ -93,49 +91,46 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRax = U.Temp "RAX" (U.Unique 0)
         tempRip = U.Temp "RIP" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
-                     L.Instruction {src = [], dst = [temp2], val = MovImmediate 16 temp2},
-                     L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
-                     L.Instruction {src = [temp2], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12)))},
-                     L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
-                     L.Instruction {src = [], dst = [temp3], val = Lea label11 tempRip temp3},
-                     L.Instruction {src = [temp0, temp3], dst = [], val = MovStoreIndirect temp3 0 temp0},
-                     L.Instruction {src = [], dst = [temp4], val = MovImmediate 1000 temp4},
-                     L.Instruction {src = [temp0, temp4], dst = [], val = MovStoreIndirect temp4 8 temp0},
-                     L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
-                     L.Instruction {src = [], dst = [temp5], val = Lea label13 tempRip temp5},
-                     L.Instruction {src = [temp1, temp5], dst = [], val = MovStoreIndirect temp5 0 temp1},
-                     L.Jump {jumps = [label14], val = Jump label14},
-                     L.Label {label = label14, val = Label label14}
-                   ],
-                   [ L.Instruction {src = [], dst = [], val = Text},
-                     L.Instruction {src = [], dst = [], val = Global label13},
-                     L.Instruction {src = [], dst = [], val = Data},
-                     L.Instruction {src = [], dst = [], val = Align 16},
-                     L.Instruction {src = [], dst = [], val = Type label13},
-                     L.Instruction {src = [], dst = [], val = Size label13 24},
-                     L.Label {label = label13, val = Label label13},
-                     L.Instruction {src = [], dst = [], val = Long 10},
-                     L.Instruction {src = [], dst = [], val = String "\"Somebody\""},
-                     L.Instruction {src = [], dst = [], val = Zero 5}
-                   ],
-                   [ L.Instruction {src = [], dst = [], val = Text},
-                     L.Instruction {src = [], dst = [], val = Global label11},
-                     L.Instruction {src = [], dst = [], val = Data},
-                     L.Instruction {src = [], dst = [], val = Align 16},
-                     L.Instruction {src = [], dst = [], val = Type label11},
-                     L.Instruction {src = [], dst = [], val = Size label11 24},
-                     L.Label {label = label11, val = Label label11},
-                     L.Instruction {src = [], dst = [], val = Long 8},
-                     L.Instruction {src = [], dst = [], val = String "\"Nobody\""},
-                     L.Instruction {src = [], dst = [], val = Zero 7}
-                   ]
+      `shouldBe` [ L.Instruction {src = [], dst = [], val = Text},
+                   L.Instruction {src = [], dst = [], val = Global label11},
+                   L.Instruction {src = [], dst = [], val = Data},
+                   L.Instruction {src = [], dst = [], val = Align 16},
+                   L.Instruction {src = [], dst = [], val = Type label11},
+                   L.Instruction {src = [], dst = [], val = Size label11 24},
+                   L.Label {label = label11, val = Label label11},
+                   L.Instruction {src = [], dst = [], val = Long 8},
+                   L.Instruction {src = [], dst = [], val = String "\"Nobody\""},
+                   L.Instruction {src = [], dst = [], val = Zero 7},
+                   L.Instruction {src = [], dst = [], val = Text},
+                   L.Instruction {src = [], dst = [], val = Global label13},
+                   L.Instruction {src = [], dst = [], val = Data},
+                   L.Instruction {src = [], dst = [], val = Align 16},
+                   L.Instruction {src = [], dst = [], val = Type label13},
+                   L.Instruction {src = [], dst = [], val = Size label13 24},
+                   L.Label {label = label13, val = Label label13},
+                   L.Instruction {src = [], dst = [], val = Long 10},
+                   L.Instruction {src = [], dst = [], val = String "\"Somebody\""},
+                   L.Instruction {src = [], dst = [], val = Zero 5},
+                   L.Label {label = label0, val = Label label0},
+                   L.Instruction {src = [], dst = [temp2], val = MovImmediate 16 temp2},
+                   L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
+                   L.Instruction {src = [temp2], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12)))},
+                   L.Instruction {src = [tempRax], dst = [temp0], val = MovRegister tempRax temp0},
+                   L.Instruction {src = [], dst = [temp3], val = Lea label11 tempRip temp3},
+                   L.Instruction {src = [temp0, temp3], dst = [], val = MovStoreIndirect temp3 0 temp0},
+                   L.Instruction {src = [], dst = [temp4], val = MovImmediate 1000 temp4},
+                   L.Instruction {src = [temp0, temp4], dst = [], val = MovStoreIndirect temp4 8 temp0},
+                   L.Instruction {src = [temp0], dst = [temp1], val = MovRegister temp0 temp1},
+                   L.Instruction {src = [], dst = [temp5], val = Lea label13 tempRip temp5},
+                   L.Instruction {src = [temp1, temp5], dst = [], val = MovStoreIndirect temp5 0 temp1},
+                   L.Jump {jumps = [label14], val = Jump label14},
+                   L.Label {label = label14, val = Label label14}
                  ]
 
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "L" (U.Unique 0)
+    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
         label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
@@ -159,51 +154,50 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRip = U.Temp "RIP" (U.Unique 0)
         tempRbp = U.Temp "RBP" (U.Unique 0)
     result
-      `shouldBe` [ [ L.Label {label = label0, val = Label label0},
-                     L.Instruction {src = [tempRbp], dst = [temp2], val = MovRegister tempRbp temp2},
-                     L.Instruction {src = [], dst = [temp3], val = MovImmediate 10 temp3},
-                     L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
-                     L.Instruction {src = [temp3], dst = [tempRsi], val = MovRegister temp3 tempRsi},
-                     L.Instruction {src = [temp2, temp3], dst = [tempRax], val = Call nfactor},
-                     L.Jump {jumps = [label15], val = Jump label15},
-                     L.Label {label = label15, val = Label label15}
-                   ],
+      `shouldBe` [
                    -- TODO: reverse this list order because the last label of main should be at the last, and use ret
-                   [ L.Label {label = label12, val = Label label12},
-                     L.Instruction {src = [], dst = [temp1], val = MovImmediate 1 temp1},
-                     L.Label {label = label14, val = Label label14},
-                     L.Instruction {src = [temp1], dst = [tempRax], val = MovRegister temp1 tempRax},
-                     L.Jump {jumps = [label16], val = Jump label16},
-                     L.Label {label = label13, val = Label label13},
-                     L.Instruction {src = [temp0], dst = [temp6], val = MovRegister temp0 temp6},
-                     L.Instruction {src = [tempRbp], dst = [temp7], val = MovLoadIndirect 0 tempRbp temp7},
-                     L.Instruction {src = [temp7], dst = [temp4], val = MovRegister temp7 temp4},
-                     L.Instruction {src = [temp0], dst = [temp8], val = MovRegister temp0 temp8},
-                     L.Instruction {src = [temp8], dst = [temp8], val = SubImmediate 1 temp8},
-                     L.Instruction {src = [temp4], dst = [tempRdi], val = MovRegister temp4 tempRdi},
-                     L.Instruction {src = [temp8], dst = [tempRsi], val = MovRegister temp8 tempRsi},
-                     L.Instruction {src = [temp4, temp8], dst = [tempRax], val = Call nfactor},
-                     L.Instruction {src = [tempRax], dst = [temp5], val = MovRegister tempRax temp5},
-                     L.Instruction {src = [temp6], dst = [temp9], val = MovRegister temp6 temp9},
-                     L.Instruction {src = [temp9, temp5], dst = [temp9], val = MulRegister temp5 temp9},
-                     L.Instruction {src = [temp9], dst = [temp1], val = MovRegister temp9 temp1},
-                     L.Jump {jumps = [label14], val = Jump label14},
-                     L.Label {label = nfactor, val = Label nfactor},
-                     L.Instruction {src = [tempRbp, tempRdi], dst = [], val = MovStoreIndirect tempRdi 0 tempRbp},
-                     L.Instruction {src = [tempRsi], dst = [temp0], val = MovRegister tempRsi temp0},
-                     L.Instruction {src = [temp0], dst = [], val = CmpImmediate temp0 0},
-                     L.CJump {jumps = [label12], val = JumpIfEqual label12},
-                     L.Label {label = label17, val = Label label17},
-                     L.Jump {jumps = [label13], val = Jump label13},
-                     L.Label {label = label16, val = Label label16}
-                   ]
+                   L.Label {label = label12, val = Label label12},
+                   L.Instruction {src = [], dst = [temp1], val = MovImmediate 1 temp1},
+                   L.Label {label = label14, val = Label label14},
+                   L.Instruction {src = [temp1], dst = [tempRax], val = MovRegister temp1 tempRax},
+                   L.Jump {jumps = [label15], val = Jump label15},
+                   L.Label {label = label13, val = Label label13},
+                   L.Instruction {src = [temp0], dst = [temp4], val = MovRegister temp0 temp4},
+                   L.Instruction {src = [tempRbp], dst = [temp5], val = MovLoadIndirect 0 tempRbp temp5},
+                   L.Instruction {src = [temp5], dst = [temp2], val = MovRegister temp5 temp2},
+                   L.Instruction {src = [temp0], dst = [temp6], val = MovRegister temp0 temp6},
+                   L.Instruction {src = [temp6], dst = [temp6], val = SubImmediate 1 temp6},
+                   L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
+                   L.Instruction {src = [temp6], dst = [tempRsi], val = MovRegister temp6 tempRsi},
+                   L.Instruction {src = [temp2, temp6], dst = [tempRax], val = Call nfactor},
+                   L.Instruction {src = [tempRax], dst = [temp3], val = MovRegister tempRax temp3},
+                   L.Instruction {src = [temp4], dst = [temp7], val = MovRegister temp4 temp7},
+                   L.Instruction {src = [temp7, temp3], dst = [temp7], val = MulRegister temp3 temp7},
+                   L.Instruction {src = [temp7], dst = [temp1], val = MovRegister temp7 temp1},
+                   L.Jump {jumps = [label14], val = Jump label14},
+                   L.Label {label = nfactor, val = Label nfactor},
+                   L.Instruction {src = [tempRbp, tempRdi], dst = [], val = MovStoreIndirect tempRdi 0 tempRbp},
+                   L.Instruction {src = [tempRsi], dst = [temp0], val = MovRegister tempRsi temp0},
+                   L.Instruction {src = [temp0], dst = [], val = CmpImmediate temp0 0},
+                   L.CJump {jumps = [label12], val = JumpIfEqual label12},
+                   L.Label {label = label16, val = Label label16},
+                   L.Jump {jumps = [label13], val = Jump label13},
+                   L.Label {label = label15, val = Label label15},
+                   L.Label {label = label0, val = Label label0},
+                   L.Instruction {src = [tempRbp], dst = [temp8], val = MovRegister tempRbp temp8},
+                   L.Instruction {src = [], dst = [temp9], val = MovImmediate 10 temp9},
+                   L.Instruction {src = [temp8], dst = [tempRdi], val = MovRegister temp8 tempRdi},
+                   L.Instruction {src = [temp9], dst = [tempRsi], val = MovRegister temp9 tempRsi},
+                   L.Instruction {src = [temp8, temp9], dst = [tempRax], val = Call nfactor},
+                   L.Jump {jumps = [label17], val = Jump label17},
+                   L.Label {label = label17, val = Label label17}
                  ]
 
-compileTest :: FilePath -> IO ([[L.ControlFlow U.Temp (Assembly U.Temp)]])
+compileTest :: FilePath -> IO ([L.ControlFlow U.Temp (Assembly U.Temp)])
 compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" . runEitherEff @"exception" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   fragments <- (=<<) (either (throwEff #exception . toException) pure) . runEitherEff @"frontendException" $ processFrontend @Tiger @Frame file bs
-  mapM (codegen @Canonical) fragments
+  codegen @Canonical fragments
 
 tigerTest :: String -> FilePath
 tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file

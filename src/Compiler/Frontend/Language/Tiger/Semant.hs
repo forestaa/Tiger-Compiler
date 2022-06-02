@@ -51,7 +51,7 @@ insertInitVAEnv = mapM_ insertFunAccess initVEnv
         "exit"
       ]
 
-type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)), Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (FragmentEff f))
+type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)), Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (F.ProgramEff f))
 
 runTranslateEff ::
   forall f xs a.
@@ -63,7 +63,7 @@ runTranslateEff ::
           ': ("varAccessEnv" >: State (VAEnv f))
             ': ("nestingLevel" >: NestingLevelEff f)
               ': ("breakpoint" >: BreakPointEff)
-                ': ("fragment" >: FragmentEff f)
+                ': ("fragment" >: F.ProgramEff f)
                   ': ("id" >: UniqueEff)
                     ': ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
                       ': ("translateError" >: EitherEff (RealLocated TranslateError))
@@ -72,22 +72,22 @@ runTranslateEff ::
                             ': xs
     )
     a ->
-  Eff xs ((Either (RealLocated SemantAnalysisError) ((a, NestingLevel f), [F.ProgramFragment f]), Unique), Unique)
-runTranslateEff tempUnique labelUnique = runUniqueEff @"label" labelUnique . runUniqueEff @"temp" tempUnique . fmap join . (fmap (Bi.first (fmap TranslateError)) . runEitherEff @"translateError") . (fmap (Bi.first (fmap TypeCheckError)) . runEitherEff @"typeCheckError") . evalUniqueEff @"id" . runFragmentEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
+  Eff xs ((Either (RealLocated SemantAnalysisError) ((a, NestingLevel f), F.ProgramFragments f), Unique), Unique)
+runTranslateEff tempUnique labelUnique = runUniqueEff @"label" labelUnique . runUniqueEff @"temp" tempUnique . fmap join . (fmap (Bi.first (fmap TranslateError)) . runEitherEff @"translateError") . (fmap (Bi.first (fmap TypeCheckError)) . runEitherEff @"typeCheckError") . evalUniqueEff @"id" . F.runProgramEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
 
-translateProgram :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => T.LExp -> Eff xs (Either (RealLocated SemantAnalysisError) [F.ProgramFragment f])
+translateProgram :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => T.LExp -> Eff xs (Either (RealLocated SemantAnalysisError) (F.ProgramFragments f))
 translateProgram ast = do
   tempUnique <- getUniqueEff #temp
   labelUnique <- getUniqueEff #label
   let ((result, newTempUnique), newLabelUnique) = leaveEff . runTranslateEff @f tempUnique labelUnique $ do
-        label <- newLabel
+        label <- namedLabel "tiger"
         insertInitVAEnv
         insertInitVTEnv
         withNewLevelEff label [] $ do
           (exp, _) <- translateExp $ markEscape ast
           stm <- unNx exp
           level <- fetchCurrentLevelEff
-          saveProcEntry level stm
+          F.saveMainFragmentEff level.frame stm
   putUniqueEff #label newLabelUnique
   putUniqueEff #temp newTempUnique
   case result of
@@ -120,7 +120,7 @@ translateExp (L _ (T.Let decs body)) = translateLet decs body
 translateInt :: Int -> (Exp, Type)
 translateInt i = (intExp i, typeCheckInt)
 
-translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => String -> Eff xs (Exp, Type)
+translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => String -> Eff xs (Exp, Type)
 translateString s = (,typeCheckString) <$> stringExp s
 
 translateNil :: (Exp, Type)

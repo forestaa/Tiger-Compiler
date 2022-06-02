@@ -4,17 +4,28 @@ import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Frame
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
-import Compiler.Intermediate.Frame qualified as F (Frame, ProgramFragment (..), name)
+import Compiler.Intermediate.Frame qualified as F (Frame, ProgramFragment (..), ProgramFragments (..), name)
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique qualified as U (Label, Temp, UniqueEff, newStringTemp, newTemp)
+import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, Unique (Unique), UniqueEff, newStringTemp, newTemp)
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
 import Data.List (singleton)
 import RIO
 
-codegen :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-codegen (F.Proc {body, frame}) = processIntermediate @im (IR.Label (F.name frame) `IR.Seq` body) >>= fmap concat . mapM codegenStm
-codegen (F.String {label, string}) = codegenString label string
+codegen :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragments f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegen fragments = do
+  flows1 <- concat <$> mapM (codegenFragment @im @f @xs) fragments.fragments
+  flows2 <- codegenMain @im @f @xs fragments.main
+  pure $ flows1 ++ flows2
+
+-- TODO: pre stack extension, and ret
+codegenMain :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegenMain (F.Proc {body}) = processIntermediate @im (IR.Label (U.Label "tigerMain" (U.Unique 0)) `IR.Seq` body) >>= fmap concat . mapM codegenStm
+codegenMain _ = undefined
+
+codegenFragment :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegenFragment (F.Proc {body, frame}) = processIntermediate @im (IR.Label (F.name frame) `IR.Seq` body) >>= fmap concat . mapM codegenStm
+codegenFragment (F.String {label, string}) = codegenString label string
 
 codegenStm :: Lookup xs "temp" U.UniqueEff => IR.Stm -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus e1 (IR.Const i))) e2) = codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e1)) e2)

@@ -25,18 +25,6 @@ instance Show TranslateError where
   show (VariableUndefined id) = "undefined variable: " ++ show id
   show BreakOutsideLoop = "break should be inside while or for loop"
 
-type FragmentEff f = State [F.ProgramFragment f]
-
-runFragmentEff :: Eff (("fragment" >: FragmentEff f) ': xs) a -> Eff xs (a, [F.ProgramFragment f])
-runFragmentEff = flip (runStateEff @"fragment") []
-
-saveProcEntry :: (F.Frame f, Lookup xs "fragment" (FragmentEff f)) => Level f -> IR.Stm -> Eff xs ()
-saveProcEntry TopLevel _ = undefined
-saveProcEntry level@Level {} stm = modifyEff #fragment . (:) $ F.Proc stm level.frame
-
-saveStringEntry :: Lookup xs "fragment" (FragmentEff f) => Label -> String -> Eff xs ()
-saveStringEntry label s = modifyEff #fragment . (:) $ F.String label s
-
 lookupVarAccessEff ::
   ( Lookup xs "varAccessEnv" (State (VAEnv f)),
     Lookup xs "translateError" (EitherEff (RealLocated TranslateError))
@@ -80,10 +68,10 @@ intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
 
 -- TODO: use Frame.string
-stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (FragmentEff f)) => String -> Eff xs Exp
+stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => String -> Eff xs Exp
 stringExp s = do
   label <- newLabel
-  saveStringEntry label s
+  F.saveStringFragmentEff label s
   pure . Ex $ IR.Name label
 
 nilExp :: Exp
@@ -407,13 +395,13 @@ seqExp es = case List.splitAt (length es - 1) es of
       _ -> Ex . IR.ESeq (IR.seqStm stms) <$> unEx e
   _ -> undefined
 
-funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "fragment" (FragmentEff f)) => Exp -> Eff xs ()
+funDecExp :: forall f xs. (F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "fragment" (F.ProgramEff f)) => Exp -> Eff xs ()
 funDecExp exp =
   fetchCurrentLevelEff >>= \case
     TopLevel -> undefined
     level@Level {} -> do
       let stm = F.procEntryExit1 level.frame $ addStoreRV exp
-      saveProcEntry level stm
+      F.saveFragmentEff level.frame stm
   where
     addStoreRV (Ex e) = IR.Move (IR.Temp (F.rv @f)) e
     addStoreRV (Nx s) = s

@@ -43,62 +43,62 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res <- translateTest' testcase
     let temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
-    res
-      `shouldBe` [ F.Proc
-                     { body =
-                         IR.Exp
-                           ( ( IR.Move
-                                 (IR.Temp temp1)
-                                 ( ( IR.Move
-                                       (IR.Temp temp0)
-                                       ( IR.Call
-                                           (IR.Name (U.Label "initArray" (U.Unique 11)))
-                                           [IR.Const 10, IR.Const 0]
-                                       )
-                                   )
-                                     `IR.ESeq` (IR.Temp temp0)
-                                 )
-                             )
-                               `IR.ESeq` (IR.Temp temp1)
-                           ),
-                       frame =
-                         FrameMock
-                           { name = U.Label "L" (U.Unique 0),
-                             formals = [InFrame 0],
-                             numberOfLocals = 0
-                           }
-                     }
-                 ]
+    res.main
+      `shouldBe` F.Proc
+        { body =
+            IR.Exp
+              ( ( IR.Move
+                    (IR.Temp temp1)
+                    ( ( IR.Move
+                          (IR.Temp temp0)
+                          ( IR.Call
+                              (IR.Name (U.Label "initArray" (U.Unique 11)))
+                              [IR.Const 10, IR.Const 0]
+                          )
+                      )
+                        `IR.ESeq` (IR.Temp temp0)
+                    )
+                )
+                  `IR.ESeq` (IR.Temp temp1)
+              ),
+          frame =
+            FrameMock
+              { name = U.Label "tiger" (U.Unique 0),
+                formals = [InFrame 0],
+                numberOfLocals = 0
+              }
+        }
+    res.fragments `shouldBe` []
 
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     res <- translateTest' testcase
     let temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
-    res
-      `shouldBe` [ F.Proc
-                     { body =
-                         IR.Exp
-                           ( IR.Move
-                               (IR.Temp temp1)
-                               ( IR.Move
-                                   (IR.Temp temp0)
-                                   ( IR.Call
-                                       (IR.Name (U.Label "initArray" (U.Unique 11)))
-                                       [IR.Const 10, IR.Const 0]
-                                   )
-                                   IR.>>& IR.Temp temp0
-                               )
-                               IR.>>& IR.Temp temp1
-                           ),
-                       frame =
-                         FrameMock
-                           { name = U.Label "L" (U.Unique 0),
-                             formals = [InFrame 0],
-                             numberOfLocals = 0
-                           }
-                     }
-                 ]
+    res.main
+      `shouldBe` F.Proc
+        { body =
+            IR.Exp
+              ( IR.Move
+                  (IR.Temp temp1)
+                  ( IR.Move
+                      (IR.Temp temp0)
+                      ( IR.Call
+                          (IR.Name (U.Label "initArray" (U.Unique 11)))
+                          [IR.Const 10, IR.Const 0]
+                      )
+                      IR.>>& IR.Temp temp0
+                  )
+                  IR.>>& IR.Temp temp1
+              ),
+          frame =
+            FrameMock
+              { name = U.Label "tiger" (U.Unique 0),
+                formals = [InFrame 0],
+                numberOfLocals = 0
+              }
+        }
+    res.fragments `shouldBe` []
 
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
@@ -107,40 +107,41 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
         temp1 = U.Temp "t" (U.Unique 1)
         nobody = U.Label "L" (U.Unique 11)
         somebody = U.Label "L" (U.Unique 13)
-    res
-      `shouldBe` [ F.Proc
-                     { body =
-                         IR.Exp
-                           ( IR.Move
-                               (IR.Temp temp1)
-                               ( IR.Move
-                                   (IR.Temp temp0)
-                                   ( IR.Call
-                                       (IR.Name (U.Label "malloc" (U.Unique 12)))
-                                       [IR.Const 8]
-                                   )
-                                   IR.>> IR.Move
-                                     (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 0)))
-                                     (IR.Name nobody)
-                                   IR.>> IR.Move
-                                     (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
-                                     (IR.Const 1000)
-                                   IR.>>& IR.Temp temp0
-                               )
-                               IR.>>& IR.Move
-                                 (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
-                                 (IR.Name somebody)
-                               IR.>>& IR.Temp temp1
-                           ),
-                       frame =
-                         FrameMock
-                           { name = U.Label "L" (U.Unique 0),
-                             formals = [InFrame 0],
-                             numberOfLocals = 0
-                           }
-                     },
-                   F.String somebody "\"Somebody\"",
-                   F.String nobody "\"Nobody\""
+    res.main
+      `shouldBe` F.Proc
+        { body =
+            IR.Exp
+              ( IR.Move
+                  (IR.Temp temp1)
+                  ( IR.Move
+                      (IR.Temp temp0)
+                      ( IR.Call
+                          (IR.Name (U.Label "malloc" (U.Unique 12)))
+                          [IR.Const 8]
+                      )
+                      IR.>> IR.Move
+                        (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 0)))
+                        (IR.Name nobody)
+                      IR.>> IR.Move
+                        (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
+                        (IR.Const 1000)
+                      IR.>>& IR.Temp temp0
+                  )
+                  IR.>>& IR.Move
+                    (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
+                    (IR.Name somebody)
+                  IR.>>& IR.Temp temp1
+              ),
+          frame =
+            FrameMock
+              { name = U.Label "tiger" (U.Unique 0),
+                formals = [InFrame 0],
+                numberOfLocals = 0
+              }
+        }
+    res.fragments
+      `shouldBe` [ F.String nobody "\"Nobody\"",
+                   F.String somebody "\"Somebody\""
                  ]
 
   it "test04.tig" $ do
@@ -154,17 +155,19 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
         label13 = U.Label "L" (U.Unique 13)
         label14 = U.Label "L" (U.Unique 14)
         nfactor = U.Label "nfactor" (U.Unique 11)
-    res
+    res.main
+      `shouldBe` F.Proc
+        { body =
+            IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10]),
+          frame =
+            FrameMock
+              { name = U.Label "tiger" (U.Unique 0),
+                formals = [InFrame 0],
+                numberOfLocals = 0
+              }
+        }
+    res.fragments
       `shouldBe` [ F.Proc
-                     { body = IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10]),
-                       frame =
-                         FrameMock
-                           { name = U.Label "L" (U.Unique 0),
-                             formals = [InFrame 0],
-                             numberOfLocals = 0
-                           }
-                     },
-                   F.Proc
                      { body =
                          IR.Move
                            (IR.Temp rv)
@@ -309,10 +312,10 @@ complexTestSpec = describe "complex integration test for tiger to translate" $ d
     res <- translateTest merge
     res `shouldSatisfy` isRight
 
-translateTest' :: FilePath -> IO [F.ProgramFragment FrameMock]
+translateTest' :: FilePath -> IO (F.ProgramFragments FrameMock)
 translateTest' = translateTest >=> either throwM pure
 
-translateTest :: FilePath -> IO (Either SomeFrontendException [F.ProgramFragment FrameMock])
+translateTest :: FilePath -> IO (Either SomeFrontendException (F.ProgramFragments FrameMock))
 translateTest file = runIODef . runEitherEff @"frontendException" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   processFrontend @Tiger file bs

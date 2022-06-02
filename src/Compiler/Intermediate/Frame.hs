@@ -1,4 +1,14 @@
-module Compiler.Intermediate.Frame where
+module Compiler.Intermediate.Frame
+  ( Frame (..),
+    ProgramFragment (..),
+    ProgramFragments (..),
+    ProgramEff,
+    runProgramEff,
+    saveFragmentEff,
+    saveMainFragmentEff,
+    saveStringFragmentEff,
+  )
+where
 
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
@@ -26,3 +36,32 @@ data ProgramFragment f where
 deriving instance Eq f => Eq (ProgramFragment f)
 
 deriving instance Show f => Show (ProgramFragment f)
+
+data ProgramFragments f = ProgramFragments {main :: ProgramFragment f, fragments :: [ProgramFragment f]}
+
+deriving instance Eq f => Eq (ProgramFragments f)
+
+deriving instance Show f => Show (ProgramFragments f)
+
+emptyFragments :: ProgramFragments f
+emptyFragments = ProgramFragments {main = undefined, fragments = []}
+
+putMainFragment :: ProgramFragment f -> ProgramFragments f -> ProgramFragments f
+putMainFragment fragment fragments = fragments {main = fragment}
+
+addFragment :: ProgramFragment f -> ProgramFragments f -> ProgramFragments f
+addFragment fragment fragments = fragments {fragments = fragments.fragments ++ [fragment]}
+
+type ProgramEff f = State (ProgramFragments f)
+
+runProgramEff :: Eff ((k >: (ProgramEff f)) ': xs) a -> Eff xs (a, ProgramFragments f)
+runProgramEff = flip runStateEff emptyFragments
+
+saveFragmentEff :: (Frame f, Lookup xs "fragment" (ProgramEff f)) => f -> IR.Stm -> Eff xs ()
+saveFragmentEff frame stm = modifyEff #fragment . addFragment $ Proc {body = stm, frame = frame}
+
+saveMainFragmentEff :: (Frame f, Lookup xs "fragment" (ProgramEff f)) => f -> IR.Stm -> Eff xs ()
+saveMainFragmentEff frame stm = modifyEff #fragment . putMainFragment $ Proc {body = stm, frame = frame}
+
+saveStringFragmentEff :: Lookup xs "fragment" (ProgramEff f) => U.Label -> String -> Eff xs ()
+saveStringFragmentEff label string = modifyEff #fragment . addFragment $ String label string

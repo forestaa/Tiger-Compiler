@@ -64,8 +64,8 @@ translateStringSpec = describe "translate string test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TString
-        length fragments `shouldBe` 1
-        Partial.head fragments `shouldSatisfy` fragmentP
+        length fragments.fragments `shouldBe` 1
+        Partial.head fragments.fragments `shouldSatisfy` fragmentP
   where
     expP (Ex (IR.Name _)) = True
     expP _ = False
@@ -1228,7 +1228,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldBe` Ex (IR.Const 0)
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
 
   it "let in ()" $ do
     let ast = T.expToLExp $ T.Let [] (T.Seq [])
@@ -1239,7 +1239,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldBe` Nx (IR.Exp (IR.Const 0))
         ty `shouldBe` TUnit
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
 
   it "let in 1 == 2" $ do
     let ast = T.expToLExp $ T.Let [] (T.Op (T.Int 1) T.Eq (T.Int 2))
@@ -1250,7 +1250,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Cx genstm) =
             let (true, false) = fetchTwoLabel
@@ -1268,7 +1268,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1282,7 +1282,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1296,7 +1296,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1310,7 +1310,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Cx genstm) =
             let (true, false) = fetchTwoLabel
@@ -1328,7 +1328,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Nx (IR.Seq (IR.Move (IR.Temp r) (IR.Const 0)) (IR.Move (IR.Temp r') (IR.Const 1)))) = r == r'
           expP _ = False
@@ -1342,7 +1342,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.ESeq (IR.Move (IR.Temp r') (IR.Const 0)) (IR.Temp r''))) (IR.Temp r'''))) = r' == r'' && r == r'''
           expP _ = False
@@ -1356,7 +1356,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Move (IR.Temp r) (IR.Const 2))) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1370,7 +1370,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Move (IR.Temp _) (IR.ESeq (IR.Move (IR.Temp r') (IR.Const 2)) (IR.Temp r'')))) (IR.Temp r'''))) = r == r''' && r' == r''
           expP _ = False
@@ -1384,7 +1384,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
-        fragments `shouldBe` []
+        fragments.fragments `shouldBe` []
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const 0])) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1400,7 +1400,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
-        fragments `shouldSatisfy` fragmentsP
+        fragments.fragments `shouldSatisfy` fragmentsP
         where
           expP (Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp r) (IR.Call (IR.Name _) [IR.Const n])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r') (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp r'') (IR.Const n'))) (IR.Name _)))) (IR.Temp r'''))) = r == r' && r == r'' && r == r''' && n == 2 * F.wordSize @FrameMock && n' == F.wordSize @FrameMock
           expP _ = False
@@ -1418,8 +1418,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
@@ -1442,8 +1442,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
@@ -1466,18 +1466,18 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
           expP _ = False
           bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
-            (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0]), IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _)))) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
+            (IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _))), IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0])) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of
             (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
-              ([InFrame 0, InFrame 4], [InFrame 0, InReg _]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
+              ([InFrame 0, InReg _], [InFrame 0, InFrame 4]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1490,8 +1490,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
@@ -1516,8 +1516,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp']))) = fp == F.fp @FrameMock && fp' == F.fp @FrameMock
           expP _ = False
@@ -1540,8 +1540,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp]))) = fp == F.fp @FrameMock
           expP _ = False
@@ -1564,8 +1564,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Temp r'))) = r == r'
           expP _ = False
@@ -1588,8 +1588,8 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
-        fragments `shouldSatisfy` bodyP
-        fragments `shouldSatisfy` frameP
+        fragments.fragments `shouldSatisfy` bodyP
+        fragments.fragments `shouldSatisfy` frameP
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
@@ -1730,7 +1730,7 @@ runEff ::
        ("varAccessEnv" >: State (VAEnv FrameMock)),
        ("nestingLevel" >: NestingLevelEff FrameMock),
        ("breakpoint" >: BreakPointEff),
-       ("fragment" >: FragmentEff FrameMock),
+       ("fragment" >: F.ProgramEff FrameMock),
        ("id" >: UniqueEff),
        ("typeCheckError" >: EitherEff (RealLocated TypeCheckError)),
        ("translateError" >: EitherEff (RealLocated TranslateError)),
@@ -1738,9 +1738,7 @@ runEff ::
        ("label" >: UniqueEff)
      ]
     a ->
-  -- Either (RealLocated SemantAnalysisError) (a, [F.ProgramFragment FrameMock])
-  Either (RealLocated SemantAnalysisError) ((a, NestingLevel FrameMock), [F.ProgramFragment FrameMock])
--- runEff = fmap (first fst) . leaveEff . evalTranslateEffWithNewLevel
+  Either (RealLocated SemantAnalysisError) ((a, NestingLevel FrameMock), F.ProgramFragments FrameMock)
 runEff = leaveEff . evalTranslateEffWithNewLevel
 
 allocateLocalVariableAndInsertType ::
