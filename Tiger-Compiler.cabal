@@ -128,7 +128,7 @@ test-suite compiler-test
     , hspec
   other-modules:
       Compiler.Backend.X86.CodegenSpec
-      Compiler.Backend.X86.IntegratoinTigerSpec
+      Compiler.Backend.X86.IntegrationTigerSpec
       Compiler.Backend.X86.IntermediateMock
       Compiler.Frontend.FrameMock
       Compiler.Frontend.Language.Linear.EvalSpec

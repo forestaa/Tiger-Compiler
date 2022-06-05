@@ -1,4 +1,4 @@
-module Compiler.Backend.X86.IntegratoinTigerSpec where
+module Compiler.Backend.X86.IntegrationTigerSpec where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
