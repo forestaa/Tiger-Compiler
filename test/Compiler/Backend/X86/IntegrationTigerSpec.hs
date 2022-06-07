@@ -26,7 +26,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test01.tig" $ do
     let testcase = tigerTest "test01.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
+    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
@@ -36,7 +36,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ L.Label {label = label0, val = Label label0},
+      `shouldBe` [ L.Label {label = mainLabel, val = Label mainLabel},
                    L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
                    L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
                    L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
@@ -51,7 +51,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
+    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         temp0 = U.Temp "t" (U.Unique 0)
         temp1 = U.Temp "t" (U.Unique 1)
@@ -61,7 +61,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRsi = U.Temp "RSI" (U.Unique 0)
         tempRax = U.Temp "RAX" (U.Unique 0)
     result
-      `shouldBe` [ L.Label {label = label0, val = Label label0},
+      `shouldBe` [ L.Label {label = mainLabel, val = Label mainLabel},
                    L.Instruction {src = [], dst = [temp2], val = MovImmediate 10 temp2},
                    L.Instruction {src = [], dst = [temp3], val = MovImmediate 0 temp3},
                    L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
@@ -76,7 +76,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
+    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
@@ -111,7 +111,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                    L.Instruction {src = [], dst = [], val = Long 10},
                    L.Instruction {src = [], dst = [], val = String "\"Somebody\""},
                    L.Instruction {src = [], dst = [], val = Zero 5},
-                   L.Label {label = label0, val = Label label0},
+                   L.Label {label = mainLabel, val = Label mainLabel},
                    L.Instruction {src = [], dst = [temp2], val = MovImmediate 16 temp2},
                    L.Instruction {src = [temp2], dst = [tempRdi], val = MovRegister temp2 tempRdi},
                    L.Instruction {src = [temp2], dst = [tempRax], val = Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12)))},
@@ -130,7 +130,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"
     result <- compileTest testcase
-    let label0 = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
+    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 0)
         label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
         label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
         label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
@@ -154,9 +154,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         tempRip = U.Temp "RIP" (U.Unique 0)
         tempRbp = U.Temp "RBP" (U.Unique 0)
     result
-      `shouldBe` [
-                   -- TODO: reverse this list order because the last label of main should be at the last, and use ret
-                   L.Label {label = label12, val = Label label12},
+      `shouldBe` [ L.Label {label = label12, val = Label label12},
                    L.Instruction {src = [], dst = [temp1], val = MovImmediate 1 temp1},
                    L.Label {label = label14, val = Label label14},
                    L.Instruction {src = [temp1], dst = [tempRax], val = MovRegister temp1 tempRax},
@@ -183,7 +181,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
                    L.Label {label = label16, val = Label label16},
                    L.Jump {jumps = [label13], val = Jump label13},
                    L.Label {label = label15, val = Label label15},
-                   L.Label {label = label0, val = Label label0},
+                   L.Label {label = mainLabel, val = Label mainLabel},
                    L.Instruction {src = [tempRbp], dst = [temp8], val = MovRegister tempRbp temp8},
                    L.Instruction {src = [], dst = [temp9], val = MovImmediate 10 temp9},
                    L.Instruction {src = [temp8], dst = [tempRdi], val = MovRegister temp8 tempRdi},
