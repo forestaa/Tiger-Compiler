@@ -49,6 +49,9 @@ bp = registerTempMap ! RBP
 rv :: U.Temp
 rv = registerTempMap ! RAX
 
+rip :: U.Temp
+rip = registerTempMap ! RIP
+
 wordSize :: Int
 wordSize = 8
 
