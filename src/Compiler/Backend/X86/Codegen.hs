@@ -120,8 +120,7 @@ codegenExp (IR.Mem e) = do
   pure (flow ++ [L.Instruction {src = [t], dst = [t'], val = MovLoadIndirect 0 t t'}], t')
 codegenExp (IR.Call (IR.Name f) es) = do
   (flows, dsts) <- codegenParameters es
-  let t = U.newStringTemp "RAX"
-  pure (flows ++ [L.Instruction {src = dsts, dst = [t], val = Call (fromUniqueLabel f)}], t)
+  pure (flows ++ [L.Instruction {src = dsts, dst = [rax], val = Call (fromUniqueLabel f)}], rax)
 codegenExp (IR.Call _ _) = undefined
 codegenExp (IR.ESeq _ _) = undefined
 

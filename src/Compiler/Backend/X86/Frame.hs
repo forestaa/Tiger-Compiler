@@ -52,6 +52,9 @@ rv = registerTempMap ! RAX
 rip :: U.Temp
 rip = registerTempMap ! RIP
 
+rax :: U.Temp
+rax = registerTempMap ! RAX
+
 wordSize :: Int
 wordSize = 8
 
