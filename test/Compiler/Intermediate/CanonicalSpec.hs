@@ -232,6 +232,12 @@ basicBlocksSpec = describe "basicBlocks spec" $ do
 
 traceScheduleSpec :: Spec
 traceScheduleSpec = describe "traceSchedule spec" $ do
+  it "0 block" $ do
+    let done = U.Label "done" (U.Unique 0)
+        blocks = []
+        result = leaveEff . U.evalUniqueEff @"label" $ traceSchedule blocks done
+    result `shouldBe` [Label done]
+
   it "2 block" $ do
     let label1 = U.Label "l1" (U.Unique 10)
         label2 = U.Label "l2" (U.Unique 11)

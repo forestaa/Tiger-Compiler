@@ -6,10 +6,11 @@ import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
 import Compiler.Intermediate.Frame qualified as F (Frame, ProgramFragment (..), ProgramFragments (..), name)
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, Unique (Unique), UniqueEff, newStringTemp, newTemp)
+import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, UniqueEff, namedLabel, newTemp)
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
-import Data.List (singleton)
+import Data.List (findIndex, singleton, splitAt)
+import Data.Maybe (fromJust)
 import RIO
 
 codegen :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragments f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
@@ -18,9 +19,15 @@ codegen fragments = do
   flows2 <- codegenMain @im @f @xs fragments.main
   pure $ flows1 ++ flows2
 
--- TODO: pre stack extension, and ret
 codegenMain :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-codegenMain (F.Proc {body}) = processIntermediate @im (IR.Label (U.Label "tigerMain" (U.Unique 0)) `IR.Seq` body) >>= fmap concat . mapM codegenStm
+codegenMain (F.Proc {body}) = do
+  mainLabel <- U.namedLabel "tigerMain"
+  body <- processIntermediate @im ((IR.Label mainLabel) `IR.Seq` body) >>= fmap concat . mapM codegenStm
+  let mainIndex = fromJust $ findIndex (\case L.Label {label} -> label == fromUniqueLabel mainLabel; _ -> False) body
+      (prefix, suffix) = splitAt (mainIndex + 1) body
+      prologueFlows = L.Instruction [] [] <$> prologue
+      epilogueFlows = L.Instruction [] [] <$> epilogue
+  pure $ concat [prefix, prologueFlows, suffix, epilogueFlows]
 codegenMain _ = undefined
 
 codegenFragment :: forall im f xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im, F.Frame f) => F.ProgramFragment f -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]

@@ -86,7 +86,7 @@ prologue =
 
 epilogue :: [Assembly U.Temp]
 epilogue =
-  [ Pop (registerTempMap ! RBP),
+  [ Leave,
     Ret
   ]
 

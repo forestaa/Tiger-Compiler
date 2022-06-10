@@ -57,6 +57,7 @@ data Assembly register
   | JumpIfEqualOrLessThan Label
   | JumpIfEqualOrGreaterThan Label
   | Call Label
+  | Leave
   | Ret
   | PushImmediate Int
   | PushRegister register
