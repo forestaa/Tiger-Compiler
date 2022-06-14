@@ -15,19 +15,14 @@ import RIO
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragments Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegen fragments = do
-  flows1 <- concat <$> mapM (codegenFragment @im @xs) fragments.fragments
-  flows2 <- codegenMain @im @xs fragments.main
+  flows1 <- concat <$> mapM (codegenFragment @im) fragments.fragments
+  flows2 <- codegenMain @im fragments.main
   pure $ flows1 ++ flows2
 
 codegenMain :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenMain (F.Proc {frame, body}) = do
   mainLabel <- U.namedLabel "tigerMain"
-  body <- processIntermediate @im ((IR.Label mainLabel) `IR.Seq` body) >>= fmap concat . mapM codegenStm
-  let mainIndex = fromJust $ findIndex (\case L.Label {label} -> label == fromUniqueLabel mainLabel; _ -> False) body
-      (prefix, suffix) = splitAt (mainIndex + 1) body
-      prologueFlows = L.Instruction [] [] <$> (prologue frame)
-      epilogueFlows = L.Instruction [] [] <$> epilogue
-  pure $ concat [prefix, prologueFlows, suffix, epilogueFlows]
+  codegenFragment @im (F.Proc {frame = frame {name = mainLabel}, body})
 codegenMain _ = undefined
 
 codegenFragment :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]

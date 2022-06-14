@@ -322,7 +322,5 @@ codegenSpec = describe "codegen spec" $ do
                    L.Instruction {src = [t], dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}
                  ]
 
--- TODO: no unit test for codegenFragments
-
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]
 takeMainBlockBody flows = drop 3 (take (length flows - 2) flows)
