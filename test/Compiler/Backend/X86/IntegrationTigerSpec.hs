@@ -1,4 +1,4 @@
-module Compiler.Backend.X86.IntegrationTigerSpec where
+module Compiler.Backend.X86.IntegrationTigerSpec (spec) where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
@@ -6,6 +6,7 @@ import Compiler.Backend.X86.Frame (Frame)
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
+import Compiler.Frontend.Language.Tiger.Samples (tigerTest)
 import Compiler.Intermediate.Canonical (Canonical (Canonical))
 import Compiler.Intermediate.Frame qualified as F (ProgramFragment (..))
 import Compiler.Intermediate.Unique qualified as U
@@ -227,6 +228,3 @@ compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"lab
   bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
   fragments <- (=<<) (either (throwEff #exception . toException) pure) . runEitherEff @"frontendException" $ processFrontend @Tiger @Frame file bs
   codegen @Canonical fragments
-
-tigerTest :: String -> FilePath
-tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file

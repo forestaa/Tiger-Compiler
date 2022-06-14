@@ -4,16 +4,11 @@ import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
 import Compiler.Frontend.FrameMock
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
-import Compiler.Frontend.Language.Tiger.Parser
-import Compiler.Frontend.Language.Tiger.Semant
-import Compiler.Frontend.Language.Tiger.Semant.Exp
-import Compiler.Frontend.Language.Tiger.Semant.Level
-import Compiler.Frontend.Language.Tiger.Semant.MarkEscape
-import Compiler.Frontend.Language.Tiger.Semant.TypeCheck
-import Compiler.Frontend.Language.Tiger.Semant.Types
+import Compiler.Frontend.Language.Tiger.Samples (tigerTest, validTigerTests)
+import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError)
 import Compiler.Frontend.Language.Tiger.TestUtils
-import Compiler.Frontend.Lexer
-import Compiler.Frontend.SrcLoc
+import Compiler.Frontend.Lexer (ParserException (ParserException))
+import Compiler.Frontend.SrcLoc (RealLocated (L))
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
@@ -26,9 +21,9 @@ import Data.Extensible
 import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 import Data.Maybe (isJust)
-import GHC.Base (undefined)
 import RIO hiding (catch)
 import Test.Hspec
+import Text.Printf (printf)
 
 spec :: Spec
 spec = do
@@ -202,11 +197,8 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                  ]
 
   it "valid test cases" $ do
-    let tigerTests = (++) <$> (("test/Compiler/Frontend/Language/Tiger/samples/test" ++) <$> validTestCases) <*> [".tig"]
-    res <- runExceptT (traverse (ExceptT . translateTest) tigerTests)
+    res <- runExceptT (traverse (ExceptT . translateTest) validTigerTests)
     res `shouldSatisfy` isRight
-  where
-    validTestCases = (\(d :: Integer) -> if d < 10 then '0' : show d else show d) <$> concat [[1 .. 8], [12], [27], [30], [37], [41 .. 42], [44], [46 .. 48]]
 
 invalidTestSpec :: Spec
 invalidTestSpec = describe "invalid integration test cases for tiger to translate" $ do
@@ -331,6 +323,3 @@ runErrorTranslateTest file assert = do
       m `catch` \e@(SomeFrontendException _) -> case fromFrontendException e of
         Nothing -> throwM e
         Just e -> f e
-
-tigerTest :: String -> FilePath
-tigerTest file = "test/Compiler/Frontend/Language/Tiger/samples/" ++ file

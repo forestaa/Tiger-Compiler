@@ -137,6 +137,7 @@ test-suite compiler-test
       Compiler.Frontend.Language.Tiger.IntegrationSpec
       Compiler.Frontend.Language.Tiger.LexerSpec
       Compiler.Frontend.Language.Tiger.ParserSpec
+      Compiler.Frontend.Language.Tiger.Samples
       Compiler.Frontend.Language.Tiger.Semant.LevelSpec
       Compiler.Frontend.Language.Tiger.Semant.MarkEscapeSpec
       Compiler.Frontend.Language.Tiger.Semant.TypeCheckSpec

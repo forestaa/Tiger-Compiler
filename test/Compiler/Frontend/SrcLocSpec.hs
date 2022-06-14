@@ -1,4 +1,4 @@
-module Compiler.Frontend.SrcLocSpec where
+module Compiler.Frontend.SrcLocSpec (spec) where
 
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (..), frontendExceptionFromException, frontendExceptionToException)
 import Compiler.Frontend.SrcLoc

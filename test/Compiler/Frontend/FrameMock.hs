@@ -35,7 +35,7 @@ formals FrameMock {formals} = formals
 
 allocLocal :: (Lookup xs "temp" UniqueEff) => FrameMock -> Bool -> Eff xs (FrameMock, AccessMock)
 allocLocal frame False = (frame,) . InReg <$> U.newTemp
-allocLocal frame@FrameMock {} True = pure (frame {numberOfLocals = numberOfLocals}, InFrame $ -numberOfLocals * wordSize)
+allocLocal frame True = pure (frame {numberOfLocals = numberOfLocals}, InFrame $ -numberOfLocals * wordSize)
   where
     numberOfLocals = frame.numberOfLocals + 1
 
