@@ -2,9 +2,9 @@ module Compiler.Backend.X86.CodegenSpec (spec) where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
+import Compiler.Backend.X86.Frame (emptyFrame)
 import Compiler.Backend.X86.IntermediateMock (IntermediateMock (IntermediateMock))
 import Compiler.Backend.X86.Liveness qualified as L
-import Compiler.Frontend.FrameMock (FrameMock (..))
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
@@ -20,7 +20,7 @@ codegenSpec :: Spec
 codegenSpec = describe "codegen spec" $ do
   it "Main prologue" $ do
     let blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Const 0)) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Const 0)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
         tempRbp = U.Temp "RBP" (U.Unique 0)
         tempRsp = U.Temp "RSP" (U.Unique 0)
@@ -32,7 +32,7 @@ codegenSpec = describe "codegen spec" $ do
 
   it "Main epilogue" $ do
     let blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Const 0)) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Const 0)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     drop (length result - 2) result
       `shouldBe` [ L.Instruction {src = [], dst = [], val = Leave},
@@ -42,7 +42,7 @@ codegenSpec = describe "codegen spec" $ do
   it "Move Temp Const -> mov $0x0 %rax" $ do
     let t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.Const 0)) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.Const 0)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [], dst = [t], val = MovImmediate 0 t}
@@ -52,7 +52,7 @@ codegenSpec = describe "codegen spec" $ do
     let t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.Temp t')) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.Temp t')) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t'], dst = [t], val = MovRegister t' t}
@@ -64,7 +64,7 @@ codegenSpec = describe "codegen spec" $ do
         rip = U.Temp "RIP" (U.Unique 0)
         label = U.Label "label" (U.Unique 1)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t') (IR.Name label)) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t') (IR.Name label)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [], dst = [t], val = Lea (fromUniqueLabel label) rip t},
@@ -77,7 +77,7 @@ codegenSpec = describe "codegen spec" $ do
         t'' = U.Temp "t" (U.Unique 12)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.BinOp IR.Plus (IR.Temp t') (IR.Temp t''))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.BinOp IR.Plus (IR.Temp t') (IR.Temp t''))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t'], dst = [dst], val = MovRegister t' dst},
@@ -88,7 +88,7 @@ codegenSpec = describe "codegen spec" $ do
   it "Mem (Const 0) -> mov $0x0 %rax" $ do
     let dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.Const 0))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.Const 0))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [], dst = [dst], val = MovLoad (Memory 0) dst}
@@ -98,7 +98,7 @@ codegenSpec = describe "codegen spec" $ do
     let t = U.Temp "t" (U.Unique 10)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp t)))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp t)))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [dst], val = MovLoadIndirect 4 t dst}
@@ -109,7 +109,7 @@ codegenSpec = describe "codegen spec" $ do
         t' = U.Temp "t" (U.Unique 11)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t')))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t')))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [dst], val = MovLoadDisplacement 0 t t' 1 dst}
@@ -120,7 +120,7 @@ codegenSpec = describe "codegen spec" $ do
         t' = U.Temp "t" (U.Unique 11)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [dst], val = MovLoadDisplacement 4 t t' 1 dst}
@@ -129,7 +129,7 @@ codegenSpec = describe "codegen spec" $ do
   it "Move (Mem (Const 0)) Temp -> mov %rax $0x0" $ do
     let t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.Const 0)) (IR.Temp t)) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.Const 0)) (IR.Temp t)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [], val = MovStore t (Memory 0)}
@@ -139,7 +139,7 @@ codegenSpec = describe "codegen spec" $ do
     let t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp t))) (IR.Temp t')) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Temp t))) (IR.Temp t')) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [], val = MovStoreIndirect t' 4 t}
@@ -151,7 +151,7 @@ codegenSpec = describe "codegen spec" $ do
         t'' = U.Temp "t" (U.Unique 12)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))) (IR.Temp t'')) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))) (IR.Temp t'')) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
@@ -163,7 +163,7 @@ codegenSpec = describe "codegen spec" $ do
     let t = U.Temp "t" (U.Unique 10)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 1))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 1))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
@@ -175,7 +175,7 @@ codegenSpec = describe "codegen spec" $ do
         t' = U.Temp "t" (U.Unique 11)
         dst = U.Temp "t" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t'))) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
@@ -186,7 +186,7 @@ codegenSpec = describe "codegen spec" $ do
     let label = U.Label "label" (U.Unique 0)
         labels = [label]
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Jump (IR.Name label) labels) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Jump (IR.Name label) labels) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Jump {jumps = fromUniqueLabel <$> labels, val = Jump (fromUniqueLabel label)}
@@ -197,7 +197,7 @@ codegenSpec = describe "codegen spec" $ do
         false = U.Label "false" (U.Unique 0)
         t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Const 1) true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Const 1) true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [], val = CmpImmediate t 1},
@@ -210,7 +210,7 @@ codegenSpec = describe "codegen spec" $ do
         t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Temp t') true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Temp t') true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
@@ -221,7 +221,7 @@ codegenSpec = describe "codegen spec" $ do
         false = U.Label "false" (U.Unique 0)
         t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Const 1) true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Const 1) true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [], val = CmpImmediate t 1},
@@ -234,7 +234,7 @@ codegenSpec = describe "codegen spec" $ do
         t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Temp t') true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Eq (IR.Temp t) (IR.Temp t') true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
@@ -246,7 +246,7 @@ codegenSpec = describe "codegen spec" $ do
         false = U.Label "false" (U.Unique 0)
         t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Lt (IR.Temp t) (IR.Const 1) true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Lt (IR.Temp t) (IR.Const 1) true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t], dst = [], val = CmpImmediate t 1},
@@ -259,7 +259,7 @@ codegenSpec = describe "codegen spec" $ do
         t = U.Temp "t" (U.Unique 10)
         t' = U.Temp "t" (U.Unique 11)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Lt (IR.Temp t) (IR.Temp t') true false) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.CJump IR.Lt (IR.Temp t) (IR.Temp t') true false) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
@@ -269,7 +269,7 @@ codegenSpec = describe "codegen spec" $ do
   it "Label -> label: " $ do
     let label = U.Label "label" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Label label) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Label label) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Label {label = fromUniqueLabel label, val = Label (fromUniqueLabel label)}
@@ -279,7 +279,7 @@ codegenSpec = describe "codegen spec" $ do
     let f = U.Label "f" (U.Unique 0)
         temps = U.Temp "t" . U.Unique <$> [0 .. 20]
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Call (IR.Name f) [IR.Const 1, IR.Const 2, IR.Const 3, IR.Const 4, IR.Const 5, IR.Const 6, IR.Const 7, IR.Const 8, IR.Const 9, IR.Const 10])) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Call (IR.Name f) [IR.Const 1, IR.Const 2, IR.Const 3, IR.Const 4, IR.Const 5, IR.Const 6, IR.Const 7, IR.Const 8, IR.Const 9, IR.Const 10])) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [], dst = [temps !! 0], val = MovImmediate 1 (temps !! 0)},
@@ -311,7 +311,7 @@ codegenSpec = describe "codegen spec" $ do
         t'' = U.Temp "t" (U.Unique 1)
         f = U.Label "f" (U.Unique 0)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.BinOp IR.Plus (IR.Const 3) (IR.Const 2)) `IR.Seq` IR.Exp (IR.Call (IR.Name f) [IR.Temp t])) (frameMock blockLabel), fragments = []}
+        fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t) (IR.BinOp IR.Plus (IR.Const 3) (IR.Const 2)) `IR.Seq` IR.Exp (IR.Call (IR.Name f) [IR.Temp t])) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
       `shouldBe` [ L.Instruction {src = [], dst = [t'], val = MovImmediate 3 t'},
@@ -322,8 +322,7 @@ codegenSpec = describe "codegen spec" $ do
                    L.Instruction {src = [t], dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}
                  ]
 
-frameMock :: U.Label -> FrameMock
-frameMock label = FrameMock {name = label}
+-- TODO: no unit test for codegenFragments
 
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]
 takeMainBlockBody flows = drop 3 (take (length flows - 2) flows)

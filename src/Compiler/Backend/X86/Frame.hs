@@ -15,6 +15,14 @@ data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [
 
 data Access = InRegister U.Temp | InFrame Int
 
+isInRegister :: Access -> Bool
+isInRegister (InRegister _) = True
+isInRegister _ = False
+
+isInFrame :: Access -> Bool
+isInFrame (InFrame _) = True
+isInFrame _ = False
+
 emptyFrame :: U.Label -> Frame
 emptyFrame label = Frame label [] [] 0
 
@@ -39,6 +47,9 @@ allocateLocal frame False = do
   let access = InRegister t
   pure frame {localVariables = frame.localVariables ++ [access]}
 
+numberOfFrameAllocatedVariables :: Frame -> Int
+numberOfFrameAllocatedVariables frame = length $ filter isInFrame frame.localVariables
+
 exp :: Access -> IR.Exp -> IR.Exp
 exp (InRegister t) _ = IR.Temp t
 exp (InFrame offset) base = IR.Mem (IR.BinOp IR.Plus base (IR.Const offset))
@@ -54,6 +65,12 @@ rip = registerTempMap ! RIP
 
 rax :: U.Temp
 rax = registerTempMap ! RAX
+
+rsp :: U.Temp
+rsp = registerTempMap ! RSP
+
+rbp :: U.Temp
+rbp = registerTempMap ! RBP
 
 wordSize :: Int
 wordSize = 8
@@ -78,11 +95,17 @@ parameterRegisters = [RDI, RSI, RDX, RCX, R8, R9]
 parameterTempRegisters :: [U.Temp]
 parameterTempRegisters = (!) registerTempMap <$> parameterRegisters
 
-prologue :: [Assembly U.Temp]
-prologue =
-  [ PushRegister (registerTempMap ! RBP),
-    MovRegister (registerTempMap ! RSP) (registerTempMap ! RBP)
-  ]
+prologue :: Frame -> [Assembly U.Temp]
+prologue frame
+  | numberOfFrameAllocatedVariables frame == 0 =
+      [ PushRegister rbp,
+        MovRegister rsp rbp
+      ]
+  | otherwise =
+      [ PushRegister rbp,
+        MovRegister rsp rbp,
+        SubImmediate (wordSize * numberOfFrameAllocatedVariables frame) rsp
+      ]
 
 epilogue :: [Assembly U.Temp]
 epilogue =
