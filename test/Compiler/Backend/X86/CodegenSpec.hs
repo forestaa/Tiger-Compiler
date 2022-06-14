@@ -2,7 +2,7 @@ module Compiler.Backend.X86.CodegenSpec (spec) where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
-import Compiler.Backend.X86.Frame (emptyFrame)
+import Compiler.Backend.X86.Frame (emptyFrame, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.IntermediateMock (IntermediateMock (IntermediateMock))
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Intermediate.Frame qualified as F
@@ -22,12 +22,10 @@ codegenSpec = describe "codegen spec" $ do
     let blockLabel = U.Label "tigerMain" (U.Unique 0)
         fragment = F.ProgramFragments {main = F.Proc (IR.Exp (IR.Const 0)) (emptyFrame blockLabel), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
-        tempRbp = U.Temp "RBP" (U.Unique 0)
-        tempRsp = U.Temp "RSP" (U.Unique 0)
     take 3 result
       `shouldBe` [ L.Label {label = fromUniqueLabel blockLabel, val = Label (fromUniqueLabel blockLabel)},
-                   L.Instruction {src = [], dst = [], val = PushRegister tempRbp},
-                   L.Instruction {src = [], dst = [], val = MovRegister tempRsp tempRbp}
+                   L.Instruction {src = [], dst = [], val = PushRegister rbp},
+                   L.Instruction {src = [], dst = [], val = MovRegister rsp rbp}
                  ]
 
   it "Main epilogue" $ do
@@ -61,7 +59,6 @@ codegenSpec = describe "codegen spec" $ do
   it "Move Temp Name -> lea label %rip %rax" $ do
     let t = U.Temp "t" (U.Unique 0)
         t' = U.Temp "t" (U.Unique 10)
-        rip = U.Temp "RIP" (U.Unique 0)
         label = U.Label "label" (U.Unique 1)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
         fragment = F.ProgramFragments {main = F.Proc (IR.Move (IR.Temp t') (IR.Name label)) (emptyFrame blockLabel), fragments = []}
@@ -292,17 +289,17 @@ codegenSpec = describe "codegen spec" $ do
                    L.Instruction {src = [], dst = [temps !! 7], val = MovImmediate 8 (temps !! 7)},
                    L.Instruction {src = [], dst = [temps !! 8], val = MovImmediate 9 (temps !! 8)},
                    L.Instruction {src = [], dst = [temps !! 9], val = MovImmediate 10 (temps !! 9)},
-                   L.Instruction {src = [temps !! 0], dst = [U.newStringTemp "RDI"], val = MovRegister (temps !! 0) (U.newStringTemp "RDI")},
-                   L.Instruction {src = [temps !! 1], dst = [U.newStringTemp "RSI"], val = MovRegister (temps !! 1) (U.newStringTemp "RSI")},
-                   L.Instruction {src = [temps !! 2], dst = [U.newStringTemp "RDX"], val = MovRegister (temps !! 2) (U.newStringTemp "RDX")},
-                   L.Instruction {src = [temps !! 3], dst = [U.newStringTemp "RCX"], val = MovRegister (temps !! 3) (U.newStringTemp "RCX")},
-                   L.Instruction {src = [temps !! 4], dst = [U.newStringTemp "R8"], val = MovRegister (temps !! 4) (U.newStringTemp "R8")},
-                   L.Instruction {src = [temps !! 5], dst = [U.newStringTemp "R9"], val = MovRegister (temps !! 5) (U.newStringTemp "R9")},
-                   L.Instruction {src = [temps !! 6], dst = [], val = MovStoreIndirect (temps !! 6) 8 (U.newStringTemp "RBP")},
-                   L.Instruction {src = [temps !! 7], dst = [], val = MovStoreIndirect (temps !! 7) 16 (U.newStringTemp "RBP")},
-                   L.Instruction {src = [temps !! 8], dst = [], val = MovStoreIndirect (temps !! 8) 24 (U.newStringTemp "RBP")},
-                   L.Instruction {src = [temps !! 9], dst = [], val = MovStoreIndirect (temps !! 9) 32 (U.newStringTemp "RBP")},
-                   L.Instruction {src = take 10 temps, dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}
+                   L.Instruction {src = [temps !! 0], dst = [rdi], val = MovRegister (temps !! 0) rdi},
+                   L.Instruction {src = [temps !! 1], dst = [rsi], val = MovRegister (temps !! 1) rsi},
+                   L.Instruction {src = [temps !! 2], dst = [rdx], val = MovRegister (temps !! 2) rdx},
+                   L.Instruction {src = [temps !! 3], dst = [rcx], val = MovRegister (temps !! 3) rcx},
+                   L.Instruction {src = [temps !! 4], dst = [r8], val = MovRegister (temps !! 4) r8},
+                   L.Instruction {src = [temps !! 5], dst = [r9], val = MovRegister (temps !! 5) r9},
+                   L.Instruction {src = [temps !! 6], dst = [], val = MovStoreIndirect (temps !! 6) 8 rbp},
+                   L.Instruction {src = [temps !! 7], dst = [], val = MovStoreIndirect (temps !! 7) 16 rbp},
+                   L.Instruction {src = [temps !! 8], dst = [], val = MovStoreIndirect (temps !! 8) 24 rbp},
+                   L.Instruction {src = [temps !! 9], dst = [], val = MovStoreIndirect (temps !! 9) 32 rbp},
+                   L.Instruction {src = take 10 temps, dst = [rax], val = Call (Label' "fu0")}
                  ]
 
   it "Move Temp (1+1); f(Temp) -> " $ do
@@ -318,8 +315,8 @@ codegenSpec = describe "codegen spec" $ do
                    L.Instruction {src = [t'], dst = [t''], val = MovRegister t' t''},
                    L.Instruction {src = [t''], dst = [t''], val = AddImmediate 2 t''},
                    L.Instruction {src = [t''], dst = [t], val = MovRegister t'' t},
-                   L.Instruction {src = [t], dst = [U.newStringTemp "RDI"], val = MovRegister t (U.newStringTemp "RDI")},
-                   L.Instruction {src = [t], dst = [U.newStringTemp "RAX"], val = Call (Label' "fu0")}
+                   L.Instruction {src = [t], dst = [rdi], val = MovRegister t rdi},
+                   L.Instruction {src = [t], dst = [rax], val = Call (Label' "fu0")}
                  ]
 
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]

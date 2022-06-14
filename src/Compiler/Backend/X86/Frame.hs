@@ -54,12 +54,6 @@ exp :: Access -> IR.Exp -> IR.Exp
 exp (InRegister t) _ = IR.Temp t
 exp (InFrame offset) base = IR.Mem (IR.BinOp IR.Plus base (IR.Const offset))
 
-bp :: U.Temp
-bp = registerTempMap ! RBP
-
-rv :: U.Temp
-rv = registerTempMap ! RAX
-
 rip :: U.Temp
 rip = registerTempMap ! RIP
 
@@ -72,6 +66,24 @@ rsp = registerTempMap ! RSP
 rbp :: U.Temp
 rbp = registerTempMap ! RBP
 
+rdi :: U.Temp
+rdi = registerTempMap ! RDI
+
+rsi :: U.Temp
+rsi = registerTempMap ! RSI
+
+rdx :: U.Temp
+rdx = registerTempMap ! RDX
+
+rcx :: U.Temp
+rcx = registerTempMap ! RCX
+
+r8 :: U.Temp
+r8 = registerTempMap ! R8
+
+r9 :: U.Temp
+r9 = registerTempMap ! R9
+
 wordSize :: Int
 wordSize = 8
 
@@ -83,17 +95,14 @@ externalCall f parameters = do
 parameterReceiving :: Frame -> IR.Stm
 parameterReceiving frame = foldl' IR.Seq IR.noop $ zipWith parameterReceivingStm frame.parameters parameterPassingAccesses
   where
-    parameterReceivingStm to (InRegister temp) = IR.Move (exp to (IR.Temp bp)) (IR.Temp temp)
-    parameterReceivingStm to (InFrame offset) = IR.Move (exp to (IR.Temp bp)) (IR.Mem (IR.BinOp IR.Plus (IR.Temp bp) (IR.Const offset)))
+    parameterReceivingStm to (InRegister temp) = IR.Move (exp to (IR.Temp rbp)) (IR.Temp temp)
+    parameterReceivingStm to (InFrame offset) = IR.Move (exp to (IR.Temp rbp)) (IR.Mem (IR.BinOp IR.Plus (IR.Temp rbp) (IR.Const offset)))
 
 parameterPassingAccesses :: [Access]
 parameterPassingAccesses = (InRegister <$> parameterTempRegisters) ++ [InFrame (wordSize * i) | i <- [2 ..]]
 
-parameterRegisters :: [Register]
-parameterRegisters = [RDI, RSI, RDX, RCX, R8, R9]
-
 parameterTempRegisters :: [U.Temp]
-parameterTempRegisters = (!) registerTempMap <$> parameterRegisters
+parameterTempRegisters = [rdi, rsi, rdx, rcx, r8, r9]
 
 prologue :: Frame -> [Assembly U.Temp]
 prologue frame
@@ -142,8 +151,8 @@ instance Frame.Frame Frame where
   name frame = frame.name
   formals frame = frame.parameters
   allocLocal frame escape = (\frame -> (frame, last frame.localVariables)) <$> allocateLocal frame escape
-  fp = bp
-  rv = rv
+  fp = rbp
+  rv = rax
   exp = exp
   wordSize = wordSize
   externalCall = externalCall

@@ -139,7 +139,7 @@ codegenParameters es = do
   pure (flows ++ parameterPassingInstrs, dsts)
   where
     parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> parameterTempRegisters
-    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) bp}) <$> [7 ..] -- TODO: use pushq
+    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) rbp}) <$> [7 ..] -- TODO: use pushq
 
 jumpInstr :: forall register. IR.RelOp -> Label -> Assembly register
 jumpInstr IR.Eq = JumpIfEqual
