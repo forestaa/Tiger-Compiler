@@ -1,4 +1,4 @@
-module Compiler.Frontend.Coroutine where
+module Compiler.Utils.Coroutine where
 
 import Data.Kind (Type)
 import RIO

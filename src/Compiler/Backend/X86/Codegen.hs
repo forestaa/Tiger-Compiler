@@ -4,7 +4,7 @@ import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Frame
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
-import Compiler.Intermediate.Frame qualified as F (ProgramFragment (..), ProgramFragments (..), name)
+import Compiler.Intermediate.Frame qualified as F (Frame (..), Procedure (..), ProgramFragment (..), ProgramFragments (..), StringFragment (..))
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, UniqueEff, namedLabel, newTemp)
 import Data.Extensible (Lookup)
@@ -20,20 +20,20 @@ codegen fragments = do
   pure $ flows1 ++ flows2
 
 codegenMain :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-codegenMain (F.Proc {frame, body}) = do
+codegenMain (F.Proc (F.Procedure {frame, body})) = do
   mainLabel <- U.namedLabel "tigerMain"
-  codegenFragment @im (F.Proc {frame = frame {name = mainLabel}, body})
+  codegenFragment @im (F.Proc (F.Procedure {frame = frame {name = mainLabel}, body}))
 codegenMain _ = undefined
 
 codegenFragment :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-codegenFragment (F.Proc {body, frame}) = do
-  body <- processIntermediate @im (IR.Label (F.name frame) `IR.Seq` body) >>= fmap concat . mapM codegenStm
-  let entryIndex = fromJust $ findIndex (\case L.Label {label} -> label == fromUniqueLabel (F.name frame); _ -> False) body
+codegenFragment (F.Proc procedure) = do
+  body <- processIntermediate @im (IR.Label (F.name procedure.frame) `IR.Seq` procedure.body) >>= fmap concat . mapM codegenStm
+  let entryIndex = fromJust $ findIndex (\case L.Label {label} -> label == fromUniqueLabel (F.name procedure.frame); _ -> False) body
       (prefix, suffix) = splitAt (entryIndex + 1) body
-      prologueFlows = L.Instruction [] [] <$> (prologue frame)
+      prologueFlows = L.Instruction [] [] <$> (prologue procedure.frame)
       epilogueFlows = L.Instruction [] [] <$> epilogue
   pure $ concat [prefix, prologueFlows, suffix, epilogueFlows]
-codegenFragment (F.String {label, string}) = codegenString label string
+codegenFragment (F.String string) = codegenString string.name string.text
 
 codegenStm :: Lookup xs "temp" U.UniqueEff => IR.Stm -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus e1 (IR.Const i))) e2) = codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e1)) e2)

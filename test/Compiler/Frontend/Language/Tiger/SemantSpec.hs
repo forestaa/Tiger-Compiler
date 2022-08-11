@@ -17,6 +17,7 @@ import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique
+import Compiler.Utils.Maybe
 import Data.Extensible
 import Data.Extensible.Effect
 import RIO
@@ -65,12 +66,10 @@ translateStringSpec = describe "translate string test" $ do
         exp `shouldSatisfy` expP
         ty `shouldBe` TString
         length fragments.fragments `shouldBe` 1
-        Partial.head fragments.fragments `shouldSatisfy` fragmentP
+        (Partial.head fragments.fragments).string.text `shouldBe` Just "hoge"
   where
     expP (Ex (IR.Name _)) = True
     expP _ = False
-    fragmentP (F.String (Label _ _) s) = s == "hoge"
-    fragmentP _ = False
 
 translateNilSpec :: Spec
 translateNilSpec = describe "translate nil test" $ do
@@ -1406,7 +1405,7 @@ translateLetSpec = describe "translate let test" $ do
           expP _ = False
           tyP r@TRecord {} = r.map == [("y", TInt), ("x", TString)]
           tyP _ = False
-          fragmentsP [F.String _ s] = s == "hoge"
+          fragmentsP [F.String string] = string.text == "hoge"
           fragmentsP _ = False
 
   it "let function f(x: int): int = x in f(1)" $ do
@@ -1423,11 +1422,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc procedure] = case procedure.body of
             IR.Move (IR.Temp rv) (IR.Temp (Temp _ _)) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc procedure] = case procedure.frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0, InReg _] -> numberOfLocals == 0
               _ -> False
@@ -1447,11 +1446,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp _, IR.Const 1])) = True
           expP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc (F.Procedure {body})] = case body of
             IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _ _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc (F.Procedure {frame})] = case frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0, InReg _] -> numberOfLocals == 1
               _ -> False
@@ -1471,11 +1470,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
+          bodyP [F.Proc (F.Procedure {body = body1}), F.Proc (F.Procedure {body = body2})] = case (body1, body2) of
             (IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _))), IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0])) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of
+          frameP [F.Proc (F.Procedure {frame = frame1}), F.Proc (F.Procedure {frame = frame2})] = case (frame1, frame2) of
             (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
               ([InFrame 0, InReg _], [InFrame 0, InFrame 4]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False
@@ -1497,11 +1496,11 @@ translateLetSpec = describe "translate let test" $ do
           expP _ = False
           tyP r@TRecord {} = r.map == []
           tyP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc (F.Procedure {body})] = case body of
             IR.Move (IR.Temp rv) (IR.Const 0) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc (F.Procedure {frame})] = case frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0] -> numberOfLocals == 0
               _ -> False
@@ -1521,11 +1520,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp']))) = fp == F.fp @FrameMock && fp' == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc (F.Procedure {body})] = case body of
             IR.Move (IR.Temp rv) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc (F.Procedure {frame})] = case frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0] -> numberOfLocals == 0
               _ -> False
@@ -1545,11 +1544,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp _) (IR.Const 1)) (IR.Call (IR.Name _) [IR.Temp fp]))) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc (F.Procedure {body})] = case body of
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc (F.Procedure {frame})] = case frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0] -> numberOfLocals == 0
               _ -> False
@@ -1569,11 +1568,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.ESeq (IR.Move (IR.Temp r) (IR.Const 1)) (IR.Temp r'))) = r == r'
           expP _ = False
-          bodyP [F.Proc {body}] = case body of
+          bodyP [F.Proc (F.Procedure {body})] = case body of
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame}] = case frame of
+          frameP [F.Proc (F.Procedure {frame})] = case frame of
             FrameMock {formals, numberOfLocals} -> case formals of
               [InFrame 0] -> numberOfLocals == 0
               _ -> False
@@ -1593,11 +1592,11 @@ translateLetSpec = describe "translate let test" $ do
         where
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp])) = fp == F.fp @FrameMock
           expP _ = False
-          bodyP [F.Proc {body = body1}, F.Proc {body = body2}] = case (body1, body2) of
+          bodyP [F.Proc (F.Procedure {body = body1}), F.Proc (F.Procedure {body = body2})] = case (body1, body2) of
             (IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp1))]), (IR.Move (IR.Temp rv2) (IR.Call (IR.Name _) [IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))]))) -> rv1 == F.rv @FrameMock && fp1 == F.fp @FrameMock && rv2 == F.rv @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc {frame = frame1}, F.Proc {frame = frame2}] = case (frame1, frame2) of
+          frameP [F.Proc (F.Procedure {frame = frame1}), F.Proc (F.Procedure {frame = frame2})] = case (frame1, frame2) of
             (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
               ([InFrame 0], [InFrame 0]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False

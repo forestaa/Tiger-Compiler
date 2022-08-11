@@ -70,7 +70,6 @@ library
       Compiler.Exception
       Compiler.Frontend
       Compiler.Frontend.AbstSyntax
-      Compiler.Frontend.Coroutine
       Compiler.Frontend.Env
       Compiler.Frontend.Exception
       Compiler.Frontend.Id
@@ -100,6 +99,8 @@ library
       Compiler.Intermediate.Frame
       Compiler.Intermediate.IR
       Compiler.Intermediate.Unique
+      Compiler.Utils.Coroutine
+      Compiler.Utils.Maybe
   other-modules:
       Paths_Tiger_Compiler
 
@@ -145,4 +146,5 @@ test-suite compiler-test
       Compiler.Frontend.Language.Tiger.TestUtils
       Compiler.Frontend.SrcLocSpec
       Compiler.Intermediate.CanonicalSpec
+      Compiler.Utils.MaybeSpec
       Paths_Tiger_Compiler

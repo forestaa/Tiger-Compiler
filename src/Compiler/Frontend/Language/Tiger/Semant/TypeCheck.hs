@@ -6,7 +6,6 @@ import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 import Data.Foldable
 import Data.Graph
-import Compiler.Frontend.Coroutine
 import Compiler.Frontend.Env qualified as E
 import Compiler.Frontend.Id
 import Compiler.Frontend.SrcLoc
@@ -17,6 +16,7 @@ import RIO.Set qualified as Set
 import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
 import Compiler.Frontend.Language.Tiger.Semant.Env
 import Compiler.Frontend.Language.Tiger.Semant.Types
+import Compiler.Utils.Coroutine
 
 initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
