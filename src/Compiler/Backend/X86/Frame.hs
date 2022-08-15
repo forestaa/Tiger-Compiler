@@ -6,8 +6,9 @@ import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
+import Data.Maybe (fromJust)
 import RIO hiding (exp)
-import RIO.List.Partial (last)
+import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
 import RIO.Map.Partial
 
@@ -104,23 +105,30 @@ parameterPassingAccesses = (InRegister <$> parameterTempRegisters) ++ [InFrame (
 parameterTempRegisters :: [U.Temp]
 parameterTempRegisters = [rdi, rsi, rdx, rcx, r8, r9]
 
-prologue :: Frame -> [Assembly U.Temp]
+prologue :: Frame -> [Assembly Register]
 prologue frame
   | numberOfFrameAllocatedVariables frame == 0 =
-      [ PushRegister rbp,
-        MovRegister rsp rbp
+      [ PushRegister RBP,
+        MovRegister RSP RBP
       ]
   | otherwise =
-      [ PushRegister rbp,
-        MovRegister rsp rbp,
-        SubImmediate (wordSize * numberOfFrameAllocatedVariables frame) rsp
+      [ PushRegister RBP,
+        MovRegister RSP RBP,
+        SubImmediate (wordSize * numberOfFrameAllocatedVariables frame) RSP
       ]
 
-epilogue :: [Assembly U.Temp]
+epilogue :: [Assembly Register]
 epilogue =
   [ Leave,
     Ret
   ]
+
+procEntryExit3 :: ProcedureX86 [Assembly Register] -> ProcedureX86 [Assembly Register]
+procEntryExit3 procedure =
+  let entryIndex = fromJust $ List.findIndex (\case Label label' -> label' == fromUniqueLabel (Frame.name procedure.frame); _ -> False) procedure.body
+      (prefix, suffix) = List.splitAt (entryIndex + 1) procedure.body
+      flows = concat [prefix, prologue procedure.frame, suffix, epilogue]
+   in Procedure {body = flows, frame = procedure.frame}
 
 registerTempMap :: Map Register U.Temp
 registerTempMap =

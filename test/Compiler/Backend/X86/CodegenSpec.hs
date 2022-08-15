@@ -18,25 +18,6 @@ spec = codegenSpec
 
 codegenSpec :: Spec
 codegenSpec = describe "codegen spec" $ do
-  it "Main prologue" $ do
-    let blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (F.Procedure {body = IR.Exp (IR.Const 0), frame = emptyFrame blockLabel}), fragments = []}
-        result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
-    take 3 result
-      `shouldBe` [ L.Label {label = fromUniqueLabel blockLabel, val = Label (fromUniqueLabel blockLabel)},
-                   L.Instruction {src = [], dst = [], val = PushRegister rbp},
-                   L.Instruction {src = [], dst = [], val = MovRegister rsp rbp}
-                 ]
-
-  it "Main epilogue" $ do
-    let blockLabel = U.Label "tigerMain" (U.Unique 0)
-        fragment = F.ProgramFragments {main = F.Proc (F.Procedure {body = IR.Exp (IR.Const 0), frame = emptyFrame blockLabel}), fragments = []}
-        result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
-    drop (length result - 2) result
-      `shouldBe` [ L.Instruction {src = [], dst = [], val = Leave},
-                   L.Instruction {src = [], dst = [], val = Ret}
-                 ]
-
   it "Move Temp Const -> mov $0x0 %rax" $ do
     let t = U.Temp "t" (U.Unique 10)
         blockLabel = U.Label "tigerMain" (U.Unique 0)
@@ -269,7 +250,7 @@ codegenSpec = describe "codegen spec" $ do
         fragment = F.ProgramFragments {main = F.Proc (F.Procedure {body = IR.Label label, frame = emptyFrame blockLabel}), fragments = []}
         result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
     takeMainBlockBody result
-      `shouldBe` [ L.Label {label = fromUniqueLabel label, val = Label (fromUniqueLabel label)}
+      `shouldBe` [ L.Label {label' = fromUniqueLabel label, val = Label (fromUniqueLabel label)}
                  ]
 
   it "f(1,2,3,4,5,6,7,8,9,10) -> mov $0x1 %rax; ...; mov %rax %rdi; ...; mov %rcx 8(%rbp); ...; call f" $ do
@@ -320,4 +301,4 @@ codegenSpec = describe "codegen spec" $ do
                  ]
 
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]
-takeMainBlockBody flows = drop 3 (take (length flows - 2) flows)
+takeMainBlockBody = drop 1

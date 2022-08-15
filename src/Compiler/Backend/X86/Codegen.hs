@@ -9,8 +9,7 @@ import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, UniqueEff, namedLabel, newTemp)
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
-import Data.List (findIndex, singleton, splitAt)
-import Data.Maybe (fromJust)
+import Data.List (singleton)
 import RIO
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragments Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
@@ -27,12 +26,7 @@ codegenMain _ = undefined
 
 codegenFragment :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenFragment (F.Proc procedure) = do
-  body <- processIntermediate @im (IR.Label (F.name procedure.frame) `IR.Seq` procedure.body) >>= fmap concat . mapM codegenStm
-  let entryIndex = fromJust $ findIndex (\case L.Label {label} -> label == fromUniqueLabel (F.name procedure.frame); _ -> False) body
-      (prefix, suffix) = splitAt (entryIndex + 1) body
-      prologueFlows = L.Instruction [] [] <$> (prologue procedure.frame)
-      epilogueFlows = L.Instruction [] [] <$> epilogue
-  pure $ concat [prefix, prologueFlows, suffix, epilogueFlows]
+  processIntermediate @im (IR.Label (F.name procedure.frame) `IR.Seq` procedure.body) >>= fmap concat . mapM codegenStm
 codegenFragment (F.String string) = codegenString string.name string.text
 
 codegenStm :: Lookup xs "temp" U.UniqueEff => IR.Stm -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
@@ -71,7 +65,7 @@ codegenStm (IR.CJump op e1 e2 true _) = do
          ]
 -- codegenStm (IR.Seq s1 s2) = (++) <$> codegenStm s1 <*> codegenStm s2
 codegenStm (IR.Seq _ _) = undefined
-codegenStm (IR.Label label) = pure [L.Label {label = label', val = Label label'}]
+codegenStm (IR.Label label) = pure [L.Label {label' = label', val = Label label'}]
   where
     label' = fromUniqueLabel label
 
@@ -170,9 +164,9 @@ codegenString label string =
       L.Instruction {src = [], dst = [], val = Align 16},
       L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label)},
       L.Instruction {src = [], dst = [], val = Size (fromUniqueLabel label) size},
-      L.Label {label = (fromUniqueLabel label), val = Label (fromUniqueLabel label)},
+      L.Label {label' = (fromUniqueLabel label), val = Label (fromUniqueLabel label)},
       L.Instruction {src = [], dst = [], val = Long (length string)},
-      L.Instruction {src = [], dst = [], val = String string},
+      L.Instruction {src = [], dst = [], val = Compiler.Backend.X86.Arch.String string},
       L.Instruction {src = [], dst = [], val = Zero padding}
     ]
   where
