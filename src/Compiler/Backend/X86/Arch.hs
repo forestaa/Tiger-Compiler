@@ -5,7 +5,7 @@ import RIO
 
 newtype Memory = Memory Int deriving (Show, Eq)
 
-newtype Label = Label' String deriving (Show, Eq)
+newtype Label = Label' String deriving (Show, Eq, Ord)
 
 fromUniqueLabel :: U.Label -> Label
 fromUniqueLabel = Label' . show
@@ -72,4 +72,4 @@ data Assembly register
   | String String
   | Zero Int
   | Long Int
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor)

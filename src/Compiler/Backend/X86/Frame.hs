@@ -153,6 +153,20 @@ registerTempMap =
       (EFLAGS, U.newStringTemp "EFLAGS")
     ]
 
+data ProcedureX86 body = Procedure {body :: body, frame :: Frame}
+
+data StringFragmentX86 body = StringFragment {body :: body}
+
+data ProgramFragmentX86 body = Proc (ProcedureX86 body) | String (StringFragmentX86 body)
+
+instance HasField "procedure" (ProgramFragmentX86 body) (Maybe (ProcedureX86 body)) where
+  getField (Proc procedure) = Just procedure
+  getField _ = Nothing
+
+instance HasField "string" (ProgramFragmentX86 body) (Maybe (StringFragmentX86 body)) where
+  getField (Compiler.Backend.X86.Frame.String string) = Just string
+  getField _ = Nothing
+
 instance Frame.Frame Frame where
   type Access Frame = Access
   newFrame = newFrame
