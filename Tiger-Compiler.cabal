@@ -156,5 +156,6 @@ test-suite compiler-test
       Compiler.Frontend.SrcLocSpec
       Compiler.Intermediate.CanonicalSpec
       Compiler.Utils.Graph.MutableSpec
+      Compiler.Utils.Graph.ImmutableSpec
       Compiler.Utils.MaybeSpec
       Paths_Tiger_Compiler

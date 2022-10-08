@@ -3,7 +3,6 @@ module Compiler.Utils.Graph.MutableSpec (spec) where
 import Compiler.Utils.Graph.Base
 import Compiler.Utils.Graph.Mutable
 import Compiler.Utils.Maybe
-import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
 import Data.Vector qualified as V
 import GHC.Records (HasField (getField))
 import RIO hiding (reverse)

@@ -405,4 +405,4 @@ freeze (MGraph var) = do
 thaw :: PrimMonad m => Immutable.IGraph d node edge -> m (MGraph d node edge (PrimState m))
 thaw graph = do
   vertices <- GV.thaw =<< mapM thawNode graph.vertices
-  MGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeIndexCounter})
+  MGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeCount})
