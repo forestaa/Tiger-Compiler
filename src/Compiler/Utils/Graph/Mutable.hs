@@ -7,7 +7,7 @@ module Compiler.Utils.Graph.Mutable
 where
 
 import Compiler.Utils.Graph.Base (Directional (Directional, UnDirectional), Edge (..), EdgeIndex (..), GraphException (..), Node (..), NodeIndex (..))
-import Compiler.Utils.Graph.Immutable qualified as Immutable (IGraph (IGraph, edgeIndexCounter, vertices))
+import Compiler.Utils.Graph.Immutable qualified as Immutable (IGraph (..))
 import Data.Kind (Type)
 import Data.Primitive.MutVar
 import Data.Vector qualified as V
@@ -211,4 +211,4 @@ freeze (MGraph var) = do
 thaw :: PrimMonad m => Immutable.IGraph d node edge -> m (MGraph d node edge (PrimState m))
 thaw graph = do
   vertices <- GV.thaw =<< mapM thawNode graph.vertices
-  MGraph <$> newMutVar (MGraphState {vertices = vertices, edgeIndexCounter = graph.edgeIndexCounter})
+  MGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeIndexCounter})
