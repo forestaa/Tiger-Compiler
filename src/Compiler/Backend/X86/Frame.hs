@@ -39,14 +39,17 @@ allocateParameter frame False = do
   let access = InRegister t
   pure frame {parameters = frame.parameters ++ [access]}
 
-allocateLocal :: Lookup xs "temp" U.UniqueEff => Frame -> Bool -> Eff xs Frame
+allocateLocal :: Lookup xs "temp" U.UniqueEff => Frame -> Bool -> Eff xs (Frame, Access)
 allocateLocal frame True = do
   let access = InFrame frame.head
-   in pure frame {localVariables = frame.localVariables ++ [access], head = frame.head - wordSize}
+   in pure (frame {localVariables = frame.localVariables ++ [access], head = frame.head - wordSize}, access)
 allocateLocal frame False = do
   t <- U.newTemp
   let access = InRegister t
-  pure frame {localVariables = frame.localVariables ++ [access]}
+  pure (frame {localVariables = frame.localVariables ++ [access]}, access)
+
+getAllocatedRegisters :: Frame -> [U.Temp]
+getAllocatedRegisters frame = fmap (\case InRegister t -> t; _ -> undefined) . filter isInRegister $ frame.parameters ++ frame.localVariables
 
 numberOfFrameAllocatedVariables :: Frame -> Int
 numberOfFrameAllocatedVariables frame = length $ filter isInFrame frame.localVariables
@@ -172,10 +175,34 @@ instance Frame.Frame Frame where
   newFrame = newFrame
   name frame = frame.name
   formals frame = frame.parameters
-  allocLocal frame escape = (\frame -> (frame, last frame.localVariables)) <$> allocateLocal frame escape
+  allocLocal = allocateLocal
   fp = rbp
   rv = rax
   exp = exp
   wordSize = wordSize
   externalCall = externalCall
   procEntryExit1 frame stm = parameterReceiving frame `IR.Seq` stm -- TODO: callee save statement
+
+type FrameEff = State Frame
+
+runFrameEff :: Eff (("frame" >: FrameEff) ': xs) a -> Frame -> Eff xs (a, Frame)
+runFrameEff = runStateEff @"frame"
+
+allocateParameterEff :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Bool -> Eff xs ()
+allocateParameterEff escape = do
+  frame <- getEff #frame
+  frame' <- allocateParameter frame escape
+  putEff #frame frame'
+
+allocateLocalEff :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Bool -> Eff xs Access
+allocateLocalEff escape = do
+  frame <- getEff #frame
+  (frame', access) <- allocateLocal frame escape
+  putEff #frame frame'
+  pure access
+
+allocateNonEscapedLocal :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs U.Temp
+allocateNonEscapedLocal = allocateLocalEff False >>= \case InRegister t -> pure t; _ -> undefined
+
+allocateEscapedLocal :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs Int
+allocateEscapedLocal = allocateLocalEff True >>= \case InFrame i -> pure i; _ -> undefined
