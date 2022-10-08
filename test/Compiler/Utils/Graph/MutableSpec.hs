@@ -13,6 +13,7 @@ spec :: Spec
 spec = do
   mgraphDirectionalSpec
   mgraphUnDirectionalSpec
+  freezeThawSpec
 
 mgraphDirectionalSpec :: Spec
 mgraphDirectionalSpec = describe "MGraph 'Directional spec" $ do
@@ -298,6 +299,32 @@ mgraphUnDirectionalSpec = describe "MGraph 'UnDirectional spec" $ do
       `shouldBe` V.fromList
         [ V.fromList [(NodeIndex 1, NodeIndex 0, ())],
           V.fromList [(NodeIndex 0, NodeIndex 1, ()), (NodeIndex 1, NodeIndex 1, ())]
+        ]
+
+freezeThawSpec :: Spec
+freezeThawSpec = describe "freeze thaw spec" $ do
+  it "thaw . freeze = id" $ do
+    nodes <- do
+      graph :: MGraph 'Directional _ _ _ <- empty
+      node1 <- addNode graph 1
+      node2 <- addNode graph 2
+      node3 <- addNode graph 3
+      addEdgeByIndex graph node1.index node2.index ()
+      addEdgeByIndex graph node1.index node3.index ()
+      getAllNodes =<< thaw =<< freeze graph
+    V.length nodes `shouldBe` 3
+    fmap (getField @"val") nodes `shouldBe` V.fromList [1, 2, 3]
+    fmap (fmap extractEdge . getField @"outEdges") nodes
+      `shouldBe` V.fromList
+        [ V.fromList [(NodeIndex 0, NodeIndex 1, ()), (NodeIndex 0, NodeIndex 2, ())],
+          V.fromList [],
+          V.fromList []
+        ]
+    fmap (fmap extractEdge . getField @"inEdges") nodes
+      `shouldBe` V.fromList
+        [ V.fromList [],
+          V.fromList [(NodeIndex 0, NodeIndex 1, ())],
+          V.fromList [(NodeIndex 0, NodeIndex 2, ())]
         ]
 
 extractEdge :: Edge edge -> (NodeIndex, NodeIndex, edge)
