@@ -2,7 +2,7 @@ module Compiler.Utils.Graph.Base
   ( Directional (..),
     NodeIndex (NodeIndex),
     EdgeIndex (EdgeIndex),
-    Edge (Edge, source, target, val),
+    Edge (Edge, index, source, target, val),
     Node (Node, index, val, outEdges, inEdges),
     GraphException (..),
   )

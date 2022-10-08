@@ -32,8 +32,8 @@ class MutableGraph (graph :: Type -> Type) (d :: Directional) node edge | graph 
   addNode :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> m (Node node edge)
   addEdge :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> node -> edge -> m (Edge edge)
   addEdgeByIndex :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> NodeIndex -> edge -> m (Edge edge)
-  updateNode :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> node -> m (Node node edge)
-  updateEdge :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> edge -> m (Edge edge)
+  updateNode :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> node -> m ()
+  updateEdge :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> edge -> m ()
   removeNode :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> Node node edge -> m ()
   removeEdge :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> m ()
   reverse :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> m (graph (PrimState m))
@@ -97,14 +97,29 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
     writeMGraphVar mgraph $ graph {Compiler.Utils.Graph.Mutable.edgeIndexCounter = graph.edgeIndexCounter + 1}
     pure edge
 
-  updateNode :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> node -> m (Node node edge)
-  updateNode (MGraph var) (NodeIndex index) val = do
-    graph <- readMutVar var
-    MNode var <- GV.read graph.vertices index
-    vertex <- readMutVar var
-    let newVertex = vertex {Compiler.Utils.Graph.Mutable.val = val}
-    writeMutVar var newVertex
-    freezeNode (MNode var)
+  updateNode :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> node -> m ()
+  updateNode mgraph (NodeIndex index) val = do
+    graph <- readMGraphVar mgraph
+    mnode <- GV.read graph.vertices index
+    node <- readMNodeVar mnode
+    let newVertex = node {Compiler.Utils.Graph.Mutable.val = val}
+    writeMNodeVar mnode newVertex
+
+  updateEdge :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> edge -> m ()
+  updateEdge mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) edgeIndex val = do
+    graph <- readMGraphVar mgraph
+
+    srcNode <- readMNodeVar =<< GV.read graph.vertices srcIndex
+    len <- GV.length srcNode.outEdges
+    forM_ [0 .. len - 1] $ \index -> do
+      edge <- GV.read srcNode.outEdges index
+      when (edge.index == edgeIndex) $ GV.write srcNode.outEdges index (edge {val = val} :: Edge edge)
+
+    tgtNode <- readMNodeVar =<< GV.read graph.vertices tgtIndex
+    len <- GV.length tgtNode.inEdges
+    forM_ [0 .. len - 1] $ \index -> do
+      edge <- GV.read tgtNode.inEdges index
+      when (edge.index == edgeIndex) $ GV.write tgtNode.inEdges index (edge {val = val} :: Edge edge)
 
   removeNode :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> Node node edge -> m ()
   removeNode mgraph removedNode = do
@@ -136,6 +151,28 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
 
     writeMGraphVar mgraph =<< readMGraphVar newGraph
 
+  removeEdge :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> m ()
+  removeEdge mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) edgeIndex = do
+    graph <- readMGraphVar mgraph
+
+    srcMNode <- GV.read graph.vertices srcIndex
+    srcNode <- readMNodeVar srcMNode
+    newOutEdges <- GV.new
+    len <- GV.length srcNode.outEdges
+    forM_ [0 .. len - 1] $ \index -> do
+      edge <- GV.read srcNode.outEdges index
+      when (edge.index /= edgeIndex) $ GV.push newOutEdges edge
+    writeMNodeVar srcMNode srcNode {Compiler.Utils.Graph.Mutable.outEdges = newOutEdges}
+
+    tgtMNode <- GV.read graph.vertices tgtIndex
+    tgtNode <- readMNodeVar tgtMNode
+    newInEdges <- GV.new
+    len <- GV.length tgtNode.inEdges
+    forM_ [0 .. len - 1] $ \index -> do
+      edge <- GV.read tgtNode.inEdges index
+      when (edge.index /= edgeIndex) $ GV.push newInEdges edge
+    writeMNodeVar tgtMNode tgtNode {Compiler.Utils.Graph.Mutable.inEdges = newInEdges}
+
   reverse :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> m (MGraph 'Directional node edge (PrimState m))
   reverse graph = do
     newGraph <- empty
@@ -154,12 +191,6 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
         addEdgeByIndex newGraph edge.target edge.source edge.val
 
     pure newGraph
-
-  updateEdge :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> edge -> m (Edge edge)
-  updateEdge = undefined
-
-  removeEdge :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> m ()
-  removeEdge = undefined
 
 instance MutableGraph (MGraph 'UnDirectional node edge) 'UnDirectional node edge
 
