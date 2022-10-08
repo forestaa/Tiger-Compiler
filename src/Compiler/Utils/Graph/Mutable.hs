@@ -45,20 +45,20 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
     MGraph <$> newMutVar (MGraphState {vertices = vec, nodeMap = Map.empty, edgeIndexCounter = 0})
 
   getNode :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> node -> m (Node node edge)
-  getNode mgraph@(MGraph var) n = do
-    graph <- readMutVar var
+  getNode mgraph n = do
+    graph <- readMGraphVar mgraph
     case graph.nodeMap Map.!? n of
       Nothing -> throwM KeyNotFound
       Just index -> getNodeByIndex mgraph index
 
   getNodeByIndex :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> m (Node node edge)
-  getNodeByIndex (MGraph var) (NodeIndex index) = do
-    graph <- readMutVar var
+  getNodeByIndex mgraph (NodeIndex index) = do
+    graph <- readMGraphVar mgraph
     freezeNode =<< GV.read graph.vertices index
 
   getAllNodes :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> m (Vector (Node node edge))
-  getAllNodes (MGraph var) = do
-    graph <- readMutVar var
+  getAllNodes mgraph = do
+    graph <- readMGraphVar mgraph
     V.mapM freezeNode =<< GV.freeze graph.vertices
 
   getEdgesByIndex :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> m (Vector (Edge edge))
@@ -68,37 +68,33 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
     pure $ V.filter (\edge -> edge.target == tgtNode.index) srcNode.outEdges
 
   addNode :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> node -> m (Node node edge)
-  addNode (MGraph var) n = do
-    graph <- readMutVar var
+  addNode mgraph n = do
+    graph <- readMGraphVar mgraph
     case graph.nodeMap Map.!? n of
       Just _ -> throwM KeyAlradyExist
       Nothing -> do
         index <- NodeIndex <$> GV.length graph.vertices
         node <- newMNode index n
         GV.push graph.vertices node
-        writeMutVar var graph {nodeMap = Map.insert n index graph.nodeMap}
+        writeMGraphVar mgraph graph {nodeMap = Map.insert n index graph.nodeMap}
         freezeNode node
 
   addEdge :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> node -> node -> edge -> m (Edge edge)
-  addEdge mgraph@(MGraph var) srcN tgtN label = do
-    graph <- readMutVar var
+  addEdge mgraph srcN tgtN label = do
+    graph <- readMGraphVar mgraph
     case (graph.nodeMap Map.!? srcN, graph.nodeMap Map.!? tgtN) of
       (Just srcIndex, Just tgtIndex) -> addEdgeByIndex mgraph srcIndex tgtIndex label
       _ -> throwM KeyNotFound
 
   addEdgeByIndex :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> edge -> m (Edge edge)
-  addEdgeByIndex (MGraph var) (NodeIndex srcIndex) (NodeIndex tgtIndex) label = do
-    graph <- readMutVar var
-    srcNode <- do
-      MNode var <- GV.read graph.vertices srcIndex
-      readMutVar var
-    tgtNode <- do
-      MNode var <- GV.read graph.vertices tgtIndex
-      readMutVar var
+  addEdgeByIndex mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) label = do
+    graph <- readMGraphVar mgraph
+    srcNode <- readMNodeVar =<< GV.read graph.vertices srcIndex
+    tgtNode <- readMNodeVar =<< GV.read graph.vertices tgtIndex
     let edge = Edge (EdgeIndex graph.edgeIndexCounter) (NodeIndex srcIndex) (NodeIndex tgtIndex) label
     GV.push srcNode.outEdges edge
     GV.push tgtNode.inEdges edge
-    writeMutVar var $ graph {Compiler.Utils.Graph.Mutable.edgeIndexCounter = graph.edgeIndexCounter + 1}
+    writeMGraphVar mgraph $ graph {Compiler.Utils.Graph.Mutable.edgeIndexCounter = graph.edgeIndexCounter + 1}
     pure edge
 
   updateNode :: (PrimMonad m, MonadThrow m) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> node -> m (Node node edge)
@@ -111,23 +107,23 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
     freezeNode (MNode var)
 
   removeNode :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> Node node edge -> m ()
-  removeNode (MGraph var) removedNode = do
-    mgraph <- readMutVar var
-    len <- GV.length mgraph.vertices
+  removeNode mgraph removedNode = do
+    graph <- readMGraphVar mgraph
+    len <- GV.length graph.vertices
     let NodeIndex removedIndex = removedNode.index
     newGraph :: MGraph 'Directional _ _ _ <- empty
     forM_ [0 .. len - 1] $ \index ->
       if index == removedIndex
         then pure ()
         else do
-          node <- readMNodeVar =<< GV.read mgraph.vertices index
+          node <- readMNodeVar =<< GV.read graph.vertices index
           _ <- addNode newGraph node.val
           pure ()
 
     let newIndex (NodeIndex i) = if i < removedIndex then NodeIndex i else NodeIndex (i - 1)
     forM_ [0 .. len - 1] $ \index ->
       when (index /= removedIndex) $ do
-        node <- readMNodeVar =<< GV.read mgraph.vertices index
+        node <- readMNodeVar =<< GV.read graph.vertices index
 
         outEdgeLength <- GV.length node.outEdges
         forM_ [0 .. outEdgeLength - 1] $ \edgeIndex -> do
@@ -138,7 +134,7 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
             _ <- addEdgeByIndex newGraph sourceIndex targetIndex edge.val
             pure ()
 
-    writeMutVar var =<< readMGraphVar newGraph
+    writeMGraphVar mgraph =<< readMGraphVar newGraph
 
   reverse :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> m (MGraph 'Directional node edge (PrimState m))
   reverse graph = do
@@ -172,6 +168,12 @@ readMNodeVar (MNode var) = readMutVar var
 
 readMGraphVar :: PrimMonad m => MGraph d node edge (PrimState m) -> m (MGraphState node edge (PrimState m))
 readMGraphVar (MGraph var) = readMutVar var
+
+writeMNodeVar :: PrimMonad m => MNode node edge (PrimState m) -> MNodeState node edge (PrimState m) -> m ()
+writeMNodeVar (MNode var) = writeMutVar var
+
+writeMGraphVar :: PrimMonad m => MGraph d node edge (PrimState m) -> MGraphState node edge (PrimState m) -> m ()
+writeMGraphVar (MGraph var) = writeMutVar var
 
 newMNode :: PrimMonad m => NodeIndex -> node -> m (MNode node edge (PrimState m))
 newMNode index val = do
