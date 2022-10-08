@@ -2,9 +2,9 @@ module Compiler.Intermediate.Canonical where
 
 import Compiler.Intermediate (Intermediate (..))
 import Compiler.Intermediate.IR
-import Compiler.Intermediate.Unique (Label, UniqueEff, getUniqueEff, newLabel, newTemp, putUniqueEff)
+import Compiler.Intermediate.Unique (Label, UniqueEff, newLabel, newTemp)
 import Data.Extensible (Lookup, type (>:))
-import Data.Extensible.Effect (Eff, State, evalStateEff, getEff, getsEff, leaveEff, modifyEff, putEff, runStateEff)
+import Data.Extensible.Effect (Eff, State, castEff, evalStateEff, getEff, getsEff, modifyEff, putEff)
 import Data.Foldable (foldrM)
 import Data.Graph (Tree (..), dff, graphFromEdges)
 import Data.List (init, last)
@@ -122,7 +122,7 @@ removeLastJump block = case lastJump block of
 
 type BlockEff = State (Maybe Block, [Block])
 
-evalBlockEff :: Eff (k >: State (Maybe Block, [Block]) ': xs) a -> Eff xs a
+evalBlockEff :: Eff (k >: BlockEff ': xs) a -> Eff xs a
 evalBlockEff effect = evalStateEff effect (Nothing, [])
 
 startCurrentBlockEff :: Lookup xs k BlockEff => Proxy k -> Label -> Eff xs ()
@@ -150,13 +150,9 @@ endBlockEff k = do
     Just block -> pure $ blocks ++ [block]
 
 basicBlocks :: Lookup xs "label" UniqueEff => [Stm] -> Eff xs ([Block], Label)
-basicBlocks stms = do
-  unique <- getUniqueEff #label
-  let (blocks, newUnique) = leaveEff . flip (runStateEff @"label") unique . evalBlockEff @"block" $ go stms
-  putUniqueEff #label newUnique -- workaround: extensible-effect cannot peel action partially
-  pure blocks
+basicBlocks stms = castEff . evalBlockEff @"block" $ go stms
   where
-    go :: (Lookup xs "label" UniqueEff, Lookup xs "block" BlockEff) => [Stm] -> Eff xs ([Block], Label)
+    go :: [Stm] -> Eff '["block" >: BlockEff, "label" >: UniqueEff] ([Block], Label)
     go ((Label label) : stms) = do
       whenM (isCurrentBlockStartedEff #block) do
         addStatementToCurrentBlockEff #block $ Jump (Name label) [label]
@@ -222,6 +218,6 @@ traceSchedule blocks done = do
         CJump _ _ _ _ false -> (block, block.lbl, [false])
         _ -> undefined
       treeToList (Node block blocks) = block : (maybe [] treeToList $ headMaybe blocks)
-      traces = newTrace <$> (fmap (\(a, _, _) -> a) . fmap vertex) <$> treeToList <$> dff graph
+      traces = newTrace . fmap ((\(a, _, _) -> a) . vertex) . treeToList <$> dff graph
   body <- concat <$> mapM statements traces
   pure $ body ++ [Label done] -- TODO: done should call popq, ret

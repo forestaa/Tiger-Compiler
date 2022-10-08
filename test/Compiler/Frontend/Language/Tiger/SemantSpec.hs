@@ -1738,7 +1738,9 @@ runEff ::
      ]
     a ->
   Either (RealLocated SemantAnalysisError) ((a, NestingLevel FrameMock), F.ProgramFragments FrameMock)
-runEff = leaveEff . evalTranslateEffWithNewLevel
+runEff a = fst . fst . leaveEff . runUniqueEff @"label" uniqueSeed . runUniqueEff @"temp" uniqueSeed . runTranslateEff $ do
+  label <- newLabel
+  withNewLevelEff label [] a
 
 allocateLocalVariableAndInsertType ::
   ( F.Frame f,

@@ -55,49 +55,51 @@ type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "typeCheckError" 
 
 runTranslateEff ::
   forall f xs a.
-  Unique ->
-  Unique ->
   Eff
     ( ("typeEnv" >: State TEnv)
         ': ("varTypeEnv" >: State VTEnv)
-          ': ("varAccessEnv" >: State (VAEnv f))
-            ': ("nestingLevel" >: NestingLevelEff f)
-              ': ("breakpoint" >: BreakPointEff)
-                ': ("fragment" >: F.ProgramEff f)
-                  ': ("id" >: UniqueEff)
-                    ': ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
-                      ': ("translateError" >: EitherEff (RealLocated TranslateError))
-                        ': ("temp" >: UniqueEff)
-                          ': ("label" >: UniqueEff)
-                            ': xs
+        ': ("varAccessEnv" >: State (VAEnv f))
+        ': ("nestingLevel" >: NestingLevelEff f)
+        ': ("breakpoint" >: BreakPointEff)
+        ': ("fragment" >: F.ProgramEff f)
+        ': ("id" >: UniqueEff)
+        ': ("typeCheckError" >: EitherEff (RealLocated TypeCheckError))
+        ': ("translateError" >: EitherEff (RealLocated TranslateError))
+        ': xs
     )
     a ->
-  Eff xs ((Either (RealLocated SemantAnalysisError) ((a, NestingLevel f), F.ProgramFragments f), Unique), Unique)
-runTranslateEff tempUnique labelUnique = runUniqueEff @"label" labelUnique . runUniqueEff @"temp" tempUnique . fmap join . (fmap (Bi.first (fmap TranslateError)) . runEitherEff @"translateError") . (fmap (Bi.first (fmap TypeCheckError)) . runEitherEff @"typeCheckError") . evalUniqueEff @"id" . F.runProgramEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
+  Eff xs (Either (RealLocated SemantAnalysisError) ((a, NestingLevel f), F.ProgramFragments f))
+runTranslateEff = fmap join . (fmap (Bi.first (fmap TranslateError)) . runEitherEff @"translateError") . (fmap (Bi.first (fmap TypeCheckError)) . runEitherEff @"typeCheckError") . evalUniqueEff @"id" . F.runProgramEff . runBreakPointEff . runNestingLevelEff . evalEnvEff initTEnv
 
 translateProgram :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => T.LExp -> Eff xs (Either (RealLocated SemantAnalysisError) (F.ProgramFragments f))
 translateProgram ast = do
-  tempUnique <- getUniqueEff #temp
-  labelUnique <- getUniqueEff #label
-  let ((result, newTempUnique), newLabelUnique) = leaveEff . runTranslateEff @f tempUnique labelUnique $ do
-        label <- namedLabel "tiger"
-        insertInitVAEnv
-        insertInitVTEnv
-        withNewLevelEff label [] $ do
-          (exp, _) <- translateExp $ markEscape ast
-          stm <- unNx exp
-          level <- fetchCurrentLevelEff
-          F.saveMainFragmentEff level.frame stm
-  putUniqueEff #label newLabelUnique
-  putUniqueEff #temp newTempUnique
+  result <- castEff . runTranslateEff @f $ do
+    label <- namedLabel "tiger"
+    insertInitVAEnv
+    insertInitVTEnv
+    withNewLevelEff label [] $ do
+      (exp, _) <- translateExp $ markEscape ast
+      stm <- unNx exp
+      level <- fetchCurrentLevelEff
+      F.saveMainFragmentEff level.frame stm ::
+        Eff
+          '[ "typeEnv" >: State TEnv,
+             "varTypeEnv" >: State VTEnv,
+             "varAccessEnv" >: State (VAEnv f),
+             "nestingLevel" >: NestingLevelEff f,
+             "breakpoint" >: BreakPointEff,
+             "fragment" >: F.ProgramEff f,
+             "id" >: UniqueEff,
+             "typeCheckError" >: EitherEff (RealLocated TypeCheckError),
+             "translateError" >: EitherEff (RealLocated TranslateError),
+             "temp" >: UniqueEff,
+             "label" >: UniqueEff
+           ]
+          ()
   case result of
     Left e -> pure $ Left e
     Right (((), NestingLevel [TopLevel]), fragments) -> pure $ Right fragments
     _ -> undefined
-
-evalTranslateEffWithNewLevel a = fmap (fst . fst) . runTranslateEff uniqueSeed uniqueSeed $ do
-  label <- newLabel
-  withNewLevelEff label [] a
 
 translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Int i)) = pure $ translateInt i
