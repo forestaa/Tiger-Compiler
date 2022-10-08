@@ -105,7 +105,6 @@ library
       Compiler.Intermediate.IR
       Compiler.Intermediate.Unique
       Compiler.Utils.Coroutine
-      Compiler.Utils.Graph
       Compiler.Utils.Graph.Base
       Compiler.Utils.Graph.Mutable
       Compiler.Utils.Graph.Immutable
