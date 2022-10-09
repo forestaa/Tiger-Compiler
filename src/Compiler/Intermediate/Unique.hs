@@ -1,9 +1,8 @@
 module Compiler.Intermediate.Unique where
 
-import Control.Lens ((.~))
 import Data.Extensible
 import Data.Extensible.Effect
-import RIO hiding ((.~))
+import RIO
 
 newtype Unique = Unique Int deriving (Eq, Ord)
 

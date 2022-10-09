@@ -28,12 +28,9 @@ common deps
     , data-vector-growable
     , extensible
     , extensible-skeleton
-    , lens
-    , monad-skeleton
     , mtl
     , primitive
     , rio
-    , transformers
     , safe-exceptions
     , vector
 

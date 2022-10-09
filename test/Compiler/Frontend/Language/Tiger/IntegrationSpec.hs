@@ -2,7 +2,7 @@ module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
-import Compiler.Frontend.FrameMock
+import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..))
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Samples (tigerTest, validTigerTests)
 import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError)
@@ -14,18 +14,13 @@ import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Maybe
 import Control.Exception.Safe (Exception (toException), MonadCatch, MonadThrow, catch)
-import Control.Monad (when)
-import Control.Monad.Except
+import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
 import Data.ByteString.Lazy qualified as B
-import Data.Data (Proxy (Proxy))
-import Data.Extensible
-import Data.Extensible.Effect
-import Data.Extensible.Effect.Default
-import Data.Maybe (isJust)
+import Data.Extensible.Effect (liftEff, runEitherEff)
+import Data.Extensible.Effect.Default (runIODef)
 import RIO hiding (catch)
-import RIO.List.Partial
-import Test.Hspec
-import Text.Printf (printf)
+import RIO.List.Partial ((!!))
+import Test.Hspec (Spec, describe, expectationFailure, it, shouldBe, shouldSatisfy)
 
 spec :: Spec
 spec = do
@@ -123,7 +118,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                     IR.>> IR.Move
                       (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp0) (IR.Const 4)))
                       (IR.Const 1000)
-                    IR.>>& IR.Temp temp0
+                      IR.>>& IR.Temp temp0
                 )
                 IR.>>& IR.Move
                   (IR.Mem (IR.BinOp IR.Plus (IR.Temp temp1) (IR.Const 0)))
@@ -192,7 +187,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                   )
                 IR.>> IR.Jump (IR.Name label14) [label14]
                 IR.>> IR.Label label14
-                IR.>>& (IR.Temp temp1)
+                  IR.>>& (IR.Temp temp1)
             )
         )
     (res.fragments !! 0).procedure.frame
@@ -317,7 +312,7 @@ translateTest' = translateTest >=> either throwM pure
 
 translateTest :: FilePath -> IO (Either SomeFrontendException (F.ProgramFragments FrameMock))
 translateTest file = runIODef . runEitherEff @"frontendException" . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ do
-  bs <- liftEff (Proxy :: Proxy "IO") $ B.readFile file
+  bs <- liftEff (Proxy @"IO") $ B.readFile file
   processFrontend @Tiger file bs
 
 runErrorTranslateTest :: FilePath -> (SemantAnalysisError -> IO ()) -> IO ()

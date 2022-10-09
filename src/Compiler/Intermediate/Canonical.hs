@@ -9,6 +9,7 @@ import Data.Foldable (foldrM)
 import Data.Graph (Tree (..), dff, graphFromEdges)
 import Data.List (init, last)
 import RIO hiding (Const)
+import RIO.Lens
 import RIO.List (headMaybe)
 
 data Canonical = Canonical
@@ -218,6 +219,6 @@ traceSchedule blocks done = do
         CJump _ _ _ _ false -> (block, block.lbl, [false])
         _ -> undefined
       treeToList (Node block blocks) = block : (maybe [] treeToList $ headMaybe blocks)
-      traces = newTrace . fmap ((\(a, _, _) -> a) . vertex) . treeToList <$> dff graph
+      traces = newTrace . fmap (view _1 . vertex) . treeToList <$> dff graph
   body <- concat <$> mapM statements traces
   pure $ body ++ [Label done] -- TODO: done should call popq, ret

@@ -16,7 +16,6 @@ import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified
 import Compiler.Intermediate.Unique
-import Control.Monad.Trans.Cont
 import Data.Extensible
 import Data.Extensible.Effect
 import RIO

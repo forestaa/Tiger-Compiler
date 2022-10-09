@@ -18,15 +18,15 @@ spec = describe "optional chaining" $ do
     let justHoge = Just (Hoge 2)
     justHoge.int `shouldBe` Just 2
 
-  it "optinahining" $ do
-    let nothing = Nothing :: Maybe Pohe
-    (nothing ?. (Proxy :: Proxy "fuga") ?. (Proxy :: Proxy "hoge")).int `shouldBe` Nothing
+  it "optional chaining" $ do
+    let nothing :: Maybe Pohe = Nothing
+    (nothing ?. (Proxy @"fuga") ?. (Proxy @"hoge")).int `shouldBe` Nothing
 
     let justPohe = Just (Pohe Nothing)
-    (justPohe ?. (Proxy :: Proxy "fuga") ?. (Proxy :: Proxy "hoge")).int `shouldBe` Nothing
+    (justPohe ?. (Proxy @"fuga") ?. (Proxy @"hoge")).int `shouldBe` Nothing
 
     let justFuga = Just (Pohe (Just (Fuga Nothing)))
-    (justFuga ?. (Proxy :: Proxy "fuga") ?. (Proxy :: Proxy "hoge")).int `shouldBe` Nothing
+    (justFuga ?. (Proxy @"fuga") ?. (Proxy @"hoge")).int `shouldBe` Nothing
 
     let justHoge = Just (Pohe (Just (Fuga (Just (Hoge 2)))))
-    (justHoge ?. (Proxy :: Proxy "fuga") ?. (Proxy :: Proxy "hoge")).int `shouldBe` Just 2
+    (justHoge ?. (Proxy @"fuga") ?. (Proxy @"hoge")).int `shouldBe` Just 2
