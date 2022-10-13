@@ -31,6 +31,9 @@ data Register
   | EFLAGS
   deriving (Show, Eq, Ord)
 
+allTemporaryRegisters :: [Register]
+allTemporaryRegisters = [RAX, RDI, RSI, RDX, RCX, R8, R9, R10, R11, R12, R13, R14, R15]
+
 data Assembly register
   = MovImmediate Int register
   | MovImmediateLabel Label register
@@ -73,3 +76,6 @@ data Assembly register
   | Zero Int
   | Long Int
   deriving (Show, Eq, Functor)
+
+replaceRegister :: (register1 -> register2) -> Assembly register1 -> Assembly register2
+replaceRegister = fmap

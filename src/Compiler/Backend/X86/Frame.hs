@@ -4,9 +4,10 @@ import Compiler.Backend.X86.Arch
 import Compiler.Intermediate.Frame qualified as Frame
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
-import Data.Extensible (Lookup)
-import Data.Extensible.Effect (Eff)
+import Data.Extensible (Lookup, type (>:))
+import Data.Extensible.Effect (Eff, State, getEff, putEff, runStateEff)
 import Data.Maybe (fromJust)
+import GHC.Records (HasField (..))
 import RIO hiding (exp)
 import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
@@ -14,7 +15,7 @@ import RIO.Map.Partial
 
 data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int}
 
-data Access = InRegister U.Temp | InFrame Int
+data Access = InRegister U.Temp | InFrame Int | SpilledOut
 
 isInRegister :: Access -> Bool
 isInRegister (InRegister _) = True
@@ -58,6 +59,9 @@ exp :: Access -> IR.Exp -> IR.Exp
 exp (InRegister t) _ = IR.Temp t
 exp (InFrame offset) base = IR.Mem (IR.BinOp IR.Plus base (IR.Const offset))
 
+allTempRegisters :: [U.Temp]
+allTempRegisters = [rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15]
+
 rip :: U.Temp
 rip = registerTempMap ! RIP
 
@@ -87,6 +91,24 @@ r8 = registerTempMap ! R8
 
 r9 :: U.Temp
 r9 = registerTempMap ! R9
+
+r10 :: U.Temp
+r10 = registerTempMap ! R10
+
+r11 :: U.Temp
+r11 = registerTempMap ! R11
+
+r12 :: U.Temp
+r12 = registerTempMap ! R12
+
+r13 :: U.Temp
+r13 = registerTempMap ! R13
+
+r14 :: U.Temp
+r14 = registerTempMap ! R14
+
+r15 :: U.Temp
+r15 = registerTempMap ! R15
 
 wordSize :: Int
 wordSize = 8

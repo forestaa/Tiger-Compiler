@@ -69,6 +69,7 @@ library
       Compiler.Backend.X86.Codegen
       Compiler.Backend.X86.Frame
       Compiler.Backend.X86.Liveness
+      Compiler.Backend.X86.RegisterAllocation
       Compiler.Exception
       Compiler.Frontend
       Compiler.Frontend.AbstSyntax

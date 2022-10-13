@@ -23,7 +23,7 @@ data MGraphState node edge s = MGraphState {vertices :: GV.GrowableVector s (MNo
 
 newtype MGraph (d :: Directional) node edge s = MGraph (MutVar s (MGraphState node edge s))
 
-class MutableGraph (graph :: Type -> Type) (d :: Directional) node edge | graph -> d, graph -> node, graph -> edge where
+class MutableGraph (d :: Directional) node edge (graph :: Type -> Type) | graph -> d, graph -> node, graph -> edge where
   empty :: PrimMonad m => m (graph (PrimState m))
   getNode :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> m (Node node edge)
   getNodeByIndex :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> NodeIndex -> m (Node node edge)
@@ -38,7 +38,7 @@ class MutableGraph (graph :: Type -> Type) (d :: Directional) node edge | graph 
   removeEdge :: (PrimMonad m, MonadThrow m) => graph (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> m ()
   reverse :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> m (graph (PrimState m))
 
-instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge where
+instance MutableGraph 'Directional node edge (MGraph 'Directional node edge) where
   empty :: PrimMonad m => m (MGraph 'Directional node edge (PrimState m))
   empty = do
     vec <- GV.new
@@ -192,7 +192,7 @@ instance MutableGraph (MGraph 'Directional node edge) 'Directional node edge whe
 
     pure newGraph
 
-instance MutableGraph (MGraph 'UnDirectional node edge) 'UnDirectional node edge where
+instance MutableGraph 'UnDirectional node edge (MGraph 'UnDirectional node edge) where
   empty :: PrimMonad m => m (MGraph 'UnDirectional node edge (PrimState m))
   empty = do
     vec <- GV.new
