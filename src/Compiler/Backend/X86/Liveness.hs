@@ -3,7 +3,7 @@ module Compiler.Backend.X86.Liveness
     ControlFlow (..),
     InterferenceGraph,
     InterferenceMutableGraph,
-    InterferenceGraphEdgeLabel,
+    InterferenceGraphEdgeLabel (..),
     thaw,
     freeze,
     buildInterfereceGraph,
@@ -54,6 +54,10 @@ isJump :: ControlFlow var val -> Bool
 isJump Jump {} = True
 isJump CJump {} = True
 isJump _ = False
+
+doesGoNext :: ControlFlow var val -> Bool
+doesGoNext Jump {} = False
+doesGoNext _ = True
 
 isLabel :: ControlFlow var val -> Bool
 isLabel Label {} = True
@@ -147,12 +151,13 @@ newControlFlowGraph flows =
       when (isJump node.val) $
         forM_ node.val.jumpsTo $
           \label -> Mutable.addEdge graph node (labelMap Map.! label) ()
-    addControlFlowGraphEdges graph labelMap (node1 : node2 : nodes) =
-      if isJump node1.val
-        then do
-          forM_ node1.val.jumpsTo $ \label -> Mutable.addEdge graph node1 (labelMap Map.! label) ()
-          addControlFlowGraphEdges graph labelMap (node2 : nodes)
-        else void $ Mutable.addEdge graph node1 node2 ()
+    addControlFlowGraphEdges graph labelMap (node1 : node2 : nodes) = do
+      when (isJump node1.val) $
+        forM_ node1.val.jumpsTo $
+          \label -> Mutable.addEdge graph node1 (labelMap Map.! label) ()
+      when (doesGoNext node1.val) . void $
+        Mutable.addEdge graph node1 node2 ()
+      addControlFlowGraphEdges graph labelMap (node2 : nodes)
 
 data LiveVariables var val = LiveVariable {node :: ControlFlowNode var val, input :: Set.Set var, output :: Set.Set var} deriving (Show, Eq)
 
@@ -208,12 +213,15 @@ newInterferenceGraph vars liveVariablesMap =
     addInterferenceGraphEdges :: (PrimMonad m, Ord var, MonadThrow m) => Mutable.MGraph 'UnDirectional var InterferenceGraphEdgeLabel (PrimState m) -> LiveVariables var val -> m ()
     addInterferenceGraphEdges graph liveVariables
       | liveVariables.node.isMove =
-          let notUsedOutput = Set.toList $ liveVariables.output Set.\\ liveVariables.node.usedVariables
-           in sequence_ $
-                (\src tgt -> Mutable.addEdge graph src tgt InterferenceGraphEdgeLabel)
-                  <$> Set.toList liveVariables.node.definedVariables
-                  <*> notUsedOutput
-      | otherwise = sequence_ $ (\src dst -> Mutable.addEdge graph src dst InterferenceGraphEdgeLabel) <$> Set.toList liveVariables.node.definedVariables <*> Set.toList liveVariables.output
+          let notUsedOutput = liveVariables.output Set.\\ liveVariables.node.usedVariables
+           in sequence_ $ addEdge <$> Set.toList liveVariables.node.definedVariables <*> Set.toList notUsedOutput
+      | otherwise =
+          let notDefinedOutput = liveVariables.output Set.\\ liveVariables.node.definedVariables
+           in sequence_ $ addEdge <$> Set.toList liveVariables.node.definedVariables <*> Set.toList notDefinedOutput
+      where
+        addEdge src tgt =
+          whenM (Vec.null <$> Mutable.getEdges graph src tgt) . void $
+            Mutable.addEdge graph src tgt InterferenceGraphEdgeLabel
 
 buildInterfereceGraph :: Ord var => ControlFlows var val -> InterferenceGraph var
 buildInterfereceGraph flows = newInterferenceGraph flows.vars . solveDataFlowEquation $ newControlFlowGraph flows.flows
