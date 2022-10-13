@@ -28,6 +28,7 @@ class MutableGraph (d :: Directional) node edge (graph :: Type -> Type) | graph 
   getNode :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> m (Node node edge)
   getNodeByIndex :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> NodeIndex -> m (Node node edge)
   getAllNodes :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> m (Vector (Node node edge))
+  getEdges :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> node -> m (Vector (Edge edge))
   getEdgesByIndex :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> NodeIndex -> NodeIndex -> m (Vector (Edge edge))
   addNode :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> m (Node node edge)
   addEdge :: (PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> node -> node -> edge -> m (Edge edge)
@@ -60,6 +61,13 @@ instance MutableGraph 'Directional node edge (MGraph 'Directional node edge) whe
   getAllNodes mgraph = do
     graph <- readMGraphVar mgraph
     V.mapM freezeNode =<< GV.freeze graph.vertices
+
+  getEdges :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> node -> node -> m (Vector (Edge edge))
+  getEdges mgraph srcN tgtN = do
+    graph <- readMGraphVar mgraph
+    case (graph.nodeMap Map.!? srcN, graph.nodeMap Map.!? tgtN) of
+      (Just srcIndex, Just tgtIndex) -> getEdgesByIndex mgraph srcIndex tgtIndex
+      _ -> throwM KeyNotFound
 
   getEdgesByIndex :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'Directional node edge (PrimState m) -> NodeIndex -> NodeIndex -> m (Vector (Edge edge))
   getEdgesByIndex mgraph srcIndex tgtIndex = do
@@ -214,6 +222,13 @@ instance MutableGraph 'UnDirectional node edge (MGraph 'UnDirectional node edge)
   getAllNodes mgraph = do
     graph <- readMGraphVar mgraph
     V.mapM freezeNode =<< GV.freeze graph.vertices
+
+  getEdges :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'UnDirectional node edge (PrimState m) -> node -> node -> m (Vector (Edge edge))
+  getEdges mgraph srcN tgtN = do
+    graph <- readMGraphVar mgraph
+    case (graph.nodeMap Map.!? srcN, graph.nodeMap Map.!? tgtN) of
+      (Just srcIndex, Just tgtIndex) -> getEdgesByIndex mgraph srcIndex tgtIndex
+      _ -> throwM KeyNotFound
 
   getEdgesByIndex :: (PrimMonad m, MonadThrow m, Ord node) => MGraph 'UnDirectional node edge (PrimState m) -> NodeIndex -> NodeIndex -> m (Vector (Edge edge))
   getEdgesByIndex mgraph srcIndex tgtIndex = do

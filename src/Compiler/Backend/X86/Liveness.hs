@@ -70,7 +70,7 @@ instance Ord (ControlFlowNode var val) where
 newControlFlowNode :: Ord var => ControlFlow var val -> Int -> ControlFlowNode var val
 newControlFlowNode flow key = ControlFlowNode {key = key, definedVariables = Set.fromList flow.destinations, usedVariables = Set.fromList flow.sources, isMove = isMove flow, val = flow}
 
-newtype ControlFlowGraph var val = ControlFlowGraph (Immutable.IGraph 'Directional (ControlFlowNode var val) ()) deriving (Immutable.ImmutableGraph 'Directional (ControlFlowNode var val) ())
+newtype ControlFlowGraph var val = ControlFlowGraph (Immutable.IGraph 'Directional (ControlFlowNode var val) ()) deriving (Show, Immutable.ImmutableGraph 'Directional (ControlFlowNode var val) ())
 
 data InterferenceGraphEdgeLabel = InterferenceGraphEdgeLabel deriving (Show, Eq, Ord)
 
@@ -90,6 +90,9 @@ instance Mutable.MutableGraph 'UnDirectional var InterferenceGraphEdgeLabel (Int
 
   getAllNodes :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> m (Vector (Node var InterferenceGraphEdgeLabel))
   getAllNodes (InterferenceMutableGraph graph) = Mutable.getAllNodes graph
+
+  getEdges :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> var -> var -> m (Vector (Edge InterferenceGraphEdgeLabel))
+  getEdges (InterferenceMutableGraph graph) = Mutable.getEdges graph
 
   getEdgesByIndex :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> NodeIndex -> m (Vector (Edge InterferenceGraphEdgeLabel))
   getEdgesByIndex (InterferenceMutableGraph graph) = Mutable.getEdgesByIndex graph
@@ -151,7 +154,7 @@ newControlFlowGraph flows =
           addControlFlowGraphEdges graph labelMap (node2 : nodes)
         else void $ Mutable.addEdge graph node1 node2 ()
 
-data LiveVariables var val = LiveVariable {node :: ControlFlowNode var val, input :: Set.Set var, output :: Set.Set var} deriving (Eq)
+data LiveVariables var val = LiveVariable {node :: ControlFlowNode var val, input :: Set.Set var, output :: Set.Set var} deriving (Show, Eq)
 
 newLiveVariables :: ControlFlowNode var val -> LiveVariables var val
 newLiveVariables node = LiveVariable node Set.empty Set.empty

@@ -1,17 +1,27 @@
 module Compiler.Utils.Graph.Immutable (IGraph (..), ImmutableGraph (..), bfs) where
 
-import Compiler.Utils.Graph.Base (Directional (..), Node (..), NodeIndex (..))
+import Compiler.Utils.Graph.Base (Directional (..), Edge (..), Node (..), NodeIndex (..))
 import Control.Monad.State.Strict
-import RIO (Int, Ord, Vector, flip, pure, ($), (.), (<$>))
+import Data.MultiSet qualified as Multi
+import GHC.Records (HasField (getField))
+import RIO
 import RIO.Map qualified as Map
 import RIO.Map.Partial qualified as Map
 import RIO.Seq (Seq ((:<|), (:|>)))
 import RIO.Seq qualified as Seq
 import RIO.Set qualified as Set
-import RIO.Vector qualified as Vec (foldl')
+import RIO.Vector qualified as Vec
 import RIO.Vector.Partial qualified as Vec
 
-data IGraph (d :: Directional) node edge = IGraph {vertices :: Vector (Node node edge), edgeCount :: !Int, nodeMap :: Map.Map node NodeIndex}
+data IGraph (d :: Directional) node edge = IGraph {vertices :: Vector (Node node edge), edgeCount :: !Int, nodeMap :: Map.Map node NodeIndex} deriving (Show)
+
+instance (Ord node, Ord edge) => Eq (IGraph d node edge) where
+  graph1 == graph2 = (vertices graph1 == vertices graph2) && (edges graph1 == edges graph2)
+    where
+      vertices :: IGraph d node edge -> Set.Set node
+      vertices graph = Set.fromList . Vec.toList $ Vec.map (getField @"val") graph.vertices
+      edges :: IGraph d node edge -> Multi.MultiSet (node, node, edge)
+      edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (getField @"outEdges") graph.vertices
 
 class ImmutableGraph (d :: Directional) node edge graph | graph -> d, graph -> node, graph -> edge where
   getNode :: Ord node => graph -> node -> Node node edge

@@ -28,6 +28,7 @@ common deps
     , data-vector-growable
     , extensible
     , extensible-skeleton
+    , multiset
     , mtl
     , primitive
     , rio
@@ -137,6 +138,7 @@ test-suite compiler-test
       Compiler.Backend.X86.CodegenSpec
       Compiler.Backend.X86.IntegrationTigerSpec
       Compiler.Backend.X86.IntermediateMock
+      Compiler.Backend.X86.LivenessSpec
       Compiler.Frontend.FrameMock
       Compiler.Frontend.Language.Linear.EvalSpec
       Compiler.Frontend.Language.Linear.LexerSpec
