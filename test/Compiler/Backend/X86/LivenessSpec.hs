@@ -1,179 +1,175 @@
 module Compiler.Backend.X86.LivenessSpec (spec) where
 
 import Compiler.Backend.X86.Arch (Label (Label'))
-import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlows (ControlFlows), InterferenceGraph, InterferenceGraphEdgeLabel (..), buildInterfereceGraph, freeze)
-import Compiler.Utils.Graph.Base
-import Compiler.Utils.Graph.Mutable as Mutable
-import RIO (Int, undefined, ($), (=<<))
+import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, LiveVariables (..), freeze, newControlFlowGraph, newControlFlowNode, solveDataFlowEquation)
+import Compiler.Utils.Graph.Base (Node (index))
+import Compiler.Utils.Graph.Mutable as Mutable (MutableGraph (addEdgeByIndex, addNode, empty))
+import RIO (Int, ($))
+import RIO.Map qualified as Map
 import RIO.Set qualified as Set
 import Test.Hspec (Spec, describe, it, pending, shouldBe)
 
 spec :: Spec
 spec = do
-  buildInterfereceGraphSpec
+  newControlFlowGraphSpec
+  solveDataFlowEquationSpec
 
-buildInterfereceGraphSpec :: Spec
-buildInterfereceGraphSpec = describe "interference graph" $ do
-  it "empty: InterferenceGraph of empty code block's is empty graph" $ do
-    let graph :: L.InterferenceGraph Int =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Label (Label' "done") undefined
-              ]
-              Set.empty
-    expectedGraph :: L.InterferenceGraph Int <- L.freeze =<< Mutable.empty
-    graph `shouldBe` expectedGraph
-
-  it "An alive variable has an edge: InterferenceGraph of t1 <- 1; t2 <- 2; t1 <- t1 + t2 is t1 - t2" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [1, 2], dst = [1], val = undefined},
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2])
+newControlFlowGraphSpec :: Spec
+newControlFlowGraphSpec = describe "newControlFlow spec" $ do
+  it "A usual instruction has a successor" $ do
+    let graph :: L.ControlFlowGraph Int Int =
+          L.newControlFlowGraph
+            [ L.Label (Label' "entry") 0,
+              L.Instruction {src = [], dst = [], val = 1},
+              L.Label (Label' "done") 2
+            ]
     expectedGraph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      Mutable.addEdgeByIndex graph node1.index node2.index L.InterferenceGraphEdgeLabel
+      node1 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "entry") 1) 0
+      node2 <- Mutable.addNode graph $ L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 0}) 1
+      node3 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "done") 2) 2
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       L.freeze graph
     graph `shouldBe` expectedGraph
 
-  it "An alive variable become unalive: t1 <- 1; t2 <- 2; t2 <- t1; t3 <- 3; t1 <- t1 + t3 is t1 - t2 t1 - t3" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [1, 2], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [3], val = undefined},
-                L.Instruction {src = [1, 3], dst = [3], val = undefined},
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2, 3])
+  it "jump does not go next but jump to label" $ do
+    let graph :: L.ControlFlowGraph Int Int =
+          L.newControlFlowGraph
+            [ L.Label (Label' "entry") 0,
+              L.Instruction {src = [], dst = [], val = 1},
+              L.Jump {jumps = [Label' "done"], val = 2},
+              L.Instruction {src = [], dst = [], val = 3},
+              L.Label (Label' "done") 4
+            ]
     expectedGraph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      node3 <- Mutable.addNode graph 3
-      Mutable.addEdgeByIndex graph node1.index node2.index L.InterferenceGraphEdgeLabel
-      Mutable.addEdgeByIndex graph node1.index node3.index L.InterferenceGraphEdgeLabel
+      node1 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "entry") 0) 0
+      node2 <- Mutable.addNode graph $ L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 1}) 1
+      node3 <- Mutable.addNode graph $ L.newControlFlowNode (L.Jump {jumps = [Label' "done"], val = 2}) 2
+      node4 <- Mutable.addNode graph $ L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 3}) 3
+      node5 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "done") 4) 4
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node3.index node5.index ()
+      _ <- Mutable.addEdgeByIndex graph node4.index node5.index ()
       L.freeze graph
     graph `shouldBe` expectedGraph
 
-  it "The defined variable interferes the variables used after the variable is defined: t1 <- 1; t2 <- 2; t3 <- 3; t2 <- t1 + t2 is t1 - t2 t1 - t3 t2 - t3" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [], dst = [3], val = undefined},
-                L.Instruction {src = [1, 2], dst = [1], val = undefined},
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2, 3])
+  it "cjump does go next and jump to label" $ do
+    let graph :: L.ControlFlowGraph Int Int =
+          L.newControlFlowGraph
+            [ L.Label (Label' "entry") 0,
+              L.Instruction {src = [], dst = [], val = 1},
+              L.CJump {jumps = [Label' "done"], val = 2},
+              L.Instruction {src = [], dst = [], val = 3},
+              L.Label (Label' "done") 4
+            ]
     expectedGraph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      node3 <- Mutable.addNode graph 3
-      Mutable.addEdgeByIndex graph node1.index node2.index L.InterferenceGraphEdgeLabel
-      Mutable.addEdgeByIndex graph node1.index node3.index L.InterferenceGraphEdgeLabel
-      Mutable.addEdgeByIndex graph node2.index node3.index L.InterferenceGraphEdgeLabel
+      node1 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "entry") 0) 0
+      node2 <- Mutable.addNode graph $ L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 1}) 1
+      node3 <- Mutable.addNode graph $ L.newControlFlowNode (L.Jump {jumps = [Label' "done"], val = 2}) 2
+      node4 <- Mutable.addNode graph $ L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 3}) 3
+      node5 <- Mutable.addNode graph $ L.newControlFlowNode (L.Label (Label' "done") 4) 4
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node3.index node4.index ()
+      _ <- Mutable.addEdgeByIndex graph node3.index node5.index ()
+      _ <- Mutable.addEdgeByIndex graph node4.index node5.index ()
       L.freeze graph
     graph `shouldBe` expectedGraph
 
-  it "Not alive variable exist: t1 <- 1; t2 <- 2; t2 <- t1 + t2; t3 <- 3 is t1 - t2 t3" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [1, 2], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [3], val = undefined},
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2, 3])
-    expectedGraph <- do
+solveDataFlowEquationSpec :: Spec
+solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
+  it "A variable is live between defined and used" $ do
+    let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
+        cnode2 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 2}) 2
+        cnode3 = L.newControlFlowNode (L.Instruction {src = [1], dst = [], val = 3}) 3
+    graph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      node3 <- Mutable.addNode graph 3
-      Mutable.addEdgeByIndex graph node1.index node2.index L.InterferenceGraphEdgeLabel
+      node1 <- Mutable.addNode graph cnode1
+      node2 <- Mutable.addNode graph cnode2
+      node3 <- Mutable.addNode graph cnode3
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       L.freeze graph
-    graph `shouldBe` expectedGraph
+    let liveVariablesMap = L.solveDataFlowEquation graph
+        expectedLiveVariablesMap =
+          Map.fromList
+            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
+              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) (Set.fromList [1])),
+              (cnode3, L.LiveVariable cnode3 (Set.fromList [1]) Set.empty)
+            ]
+    liveVariablesMap `shouldBe` expectedLiveVariablesMap
 
-  it "move doesn't interfere: t1 <- 1; t2 <- 2; t1 <- t2 is t1 t2" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Move {src = [2], dst = [1], val = undefined},
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2])
-    expectedGraph <- do
+  it "A variable is dead after used" $ do
+    let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
+        cnode2 = L.newControlFlowNode (L.Instruction {src = [1], dst = [], val = 2}) 2
+        cnode3 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 3}) 3
+    graph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
+      node1 <- Mutable.addNode graph cnode1
+      node2 <- Mutable.addNode graph cnode2
+      node3 <- Mutable.addNode graph cnode3
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       L.freeze graph
-    graph `shouldBe` expectedGraph
+    let liveVariablesMap = L.solveDataFlowEquation graph
+        expectedLiveVariablesMap =
+          Map.fromList
+            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
+              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) Set.empty),
+              (cnode3, L.LiveVariable cnode3 Set.empty Set.empty)
+            ]
+    liveVariablesMap `shouldBe` expectedLiveVariablesMap
 
-  it "Jump: t1 <- 1; t1 <- t1 + 1; t2 <- 1; t2 <- t2 + 1; jump; t3 <- t1 + 1; t3 <- t3 + 1; label is t1 t2" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [1], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [2], dst = [2], val = undefined},
-                L.Jump {jumps = [Label' "label"], val = undefined},
-                L.Instruction {src = [1], dst = [3], val = undefined},
-                L.Instruction {src = [3], dst = [3], val = undefined},
-                L.Label (Label' "label") undefined,
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2, 3])
-    expectedGraph <- do
+  it "A variable is dead between doubly defined and not used" $ do
+    let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
+        cnode2 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 2}) 2
+        cnode3 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 3}) 3
+        cnode4 = L.newControlFlowNode (L.Instruction {src = [1], dst = [], val = 4}) 4
+    graph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      node3 <- Mutable.addNode graph 3
+      node1 <- Mutable.addNode graph cnode1
+      node2 <- Mutable.addNode graph cnode2
+      node3 <- Mutable.addNode graph cnode3
+      node4 <- Mutable.addNode graph cnode4
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node3.index node4.index ()
       L.freeze graph
-    graph `shouldBe` expectedGraph
+    let liveVariablesMap = L.solveDataFlowEquation graph
+        expectedLiveVariablesMap =
+          Map.fromList
+            [ (cnode1, L.LiveVariable cnode1 Set.empty Set.empty),
+              (cnode2, L.LiveVariable cnode2 Set.empty Set.empty),
+              (cnode3, L.LiveVariable cnode3 Set.empty (Set.fromList [1])),
+              (cnode4, L.LiveVariable cnode4 (Set.fromList [1]) Set.empty)
+            ]
+    liveVariablesMap `shouldBe` expectedLiveVariablesMap
 
-  it "CJump: t1 <- 1; t1 <- t1 + 1; t2 <- 1; t2 <- t2 + 1; cjump; t3 <- t1 + 1; t3 <- t3 + 1; label is t1 t2" $ do
-    let graph =
-          L.buildInterfereceGraph $
-            L.ControlFlows
-              [ L.Label (Label' "entry") undefined,
-                L.Instruction {src = [], dst = [1], val = undefined},
-                L.Instruction {src = [1], dst = [1], val = undefined},
-                L.Instruction {src = [], dst = [2], val = undefined},
-                L.Instruction {src = [2], dst = [2], val = undefined},
-                L.CJump {jumps = [Label' "label"], val = undefined},
-                L.Instruction {src = [1], dst = [3], val = undefined},
-                L.Instruction {src = [3], dst = [3], val = undefined},
-                L.Label (Label' "label") undefined,
-                L.Label (Label' "done") undefined
-              ]
-              (Set.fromList [1, 2, 3])
-    expectedGraph <- do
+  it "A variable is live-out if the variable is live on any output path" $ do
+    let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
+        cnode2 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 2}) 2
+        cnode3 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 3}) 3
+        cnode4 = L.newControlFlowNode (L.Instruction {src = [1], dst = [], val = 4}) 4
+    graph <- do
       graph <- Mutable.empty
-      node1 <- Mutable.addNode graph 1
-      node2 <- Mutable.addNode graph 2
-      node3 <- Mutable.addNode graph 3
-      Mutable.addEdgeByIndex graph node1.index node2.index L.InterferenceGraphEdgeLabel
+      node1 <- Mutable.addNode graph cnode1
+      node2 <- Mutable.addNode graph cnode2
+      node3 <- Mutable.addNode graph cnode3
+      node4 <- Mutable.addNode graph cnode4
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node4.index ()
       L.freeze graph
-    graph `shouldBe` expectedGraph
+    let liveVariablesMap = L.solveDataFlowEquation graph
+        expectedLiveVariablesMap =
+          Map.fromList
+            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
+              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) (Set.fromList [1])),
+              (cnode3, L.LiveVariable cnode3 Set.empty Set.empty),
+              (cnode4, L.LiveVariable cnode4 (Set.fromList [1]) Set.empty)
+            ]
+    liveVariablesMap `shouldBe` expectedLiveVariablesMap

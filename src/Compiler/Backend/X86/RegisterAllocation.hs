@@ -2,13 +2,13 @@ module Compiler.Backend.X86.RegisterAllocation (allocateRegisters) where
 
 import Compiler.Backend.X86.Arch (Assembly (..), Register (..), allTemporaryRegisters, replaceRegister)
 import Compiler.Backend.X86.Frame (Access (..), Frame (..), ProcedureX86 (..), allocateLocal, getAllocatedRegisters)
-import Compiler.Backend.X86.Liveness (InterferenceGraph)
-import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlows (ControlFlows), InterferenceGraph, InterferenceMutableGraph, buildInterfereceGraph, thaw)
+import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
+import Compiler.Backend.X86.RegisterAllocation.InterferenceGraph (InterferenceGraph, InterferenceMutableGraph, buildInterfereceGraph, thaw)
 import Compiler.Intermediate.Frame qualified as F (fp)
 import Compiler.Intermediate.Unique qualified as U
-import Compiler.Utils.Graph.Base (Node (outEdges, val))
-import Compiler.Utils.Graph.Immutable qualified as Immutable (getNode, getNodeByIndex)
-import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (getAllNodes, removeNode))
+import Compiler.Utils.Graph.Base (Node (..))
+import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..), getNode, getNodeByIndex)
+import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (..))
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
 import Data.Vector qualified as V
@@ -32,16 +32,16 @@ allocateRegisters procedure = case simpleColoring allTemporaryRegisters procedur
 
 simpleColoring :: [Register] -> ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> ColoringResult
 simpleColoring colors procedure =
-  let graph = L.buildInterfereceGraph (L.ControlFlows procedure.body (Set.fromList (getAllocatedRegisters procedure.frame)))
+  let graph = buildInterfereceGraph (Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
       stacks = simplifyAndSpill colors graph
    in select colors graph stacks
 
 data ColoringResult = Spilled [U.Temp] | Colored Allocation
 
-simplifyAndSpill :: [Register] -> L.InterferenceGraph U.Temp -> [U.Temp]
-simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop =<< L.thaw graph
+simplifyAndSpill :: [Register] -> InterferenceGraph U.Temp -> [U.Temp]
+simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop =<< thaw graph
   where
-    simplifyAndSpillLoop :: (PrimMonad m, MonadThrow m) => L.InterferenceMutableGraph U.Temp (PrimState m) -> m [U.Temp]
+    simplifyAndSpillLoop :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph U.Temp (PrimState m) -> m [U.Temp]
     simplifyAndSpillLoop graph = do
       node <- V.minimumBy (comparing (\n -> length n.outEdges)) <$> Mutable.getAllNodes graph
       if length node.outEdges < length colors
@@ -55,7 +55,7 @@ simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop =<< L.thaw graph
           Mutable.removeNode graph node
           (:) node.val <$> simplifyAndSpillLoop graph
 
-select :: [Register] -> L.InterferenceGraph U.Temp -> [U.Temp] -> ColoringResult
+select :: [Register] -> InterferenceGraph U.Temp -> [U.Temp] -> ColoringResult
 select colors graph stack =
   let (missed, allocator) = runRegisterAllocatorState graph colors $ selectLoop stack
    in if List.null missed
