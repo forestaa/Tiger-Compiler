@@ -177,7 +177,7 @@ solveDataFlowEquation graph = flip runReader graph . solveDataFlowEquationLoop $
 solveDataFlowEquationStep :: (Ord var, MonadReader (ControlFlowGraph var val) m) => LiveVariablesMap var val -> m (LiveVariablesMap var val)
 solveDataFlowEquationStep liveVariables = do
   ControlFlowGraph graph <- ask
-  let Just last = Vec.find (\node -> Vec.null node.outEdges && not (Vec.null node.inEdges)) (Immutable.getAllNodes graph)
+  let terminals = Vec.toList $ Vec.filter (\node -> Vec.null node.outEdges && not (Vec.null node.inEdges)) (Immutable.getAllNodes graph)
       reversedGraph = runST $ Mutable.thaw graph >>= Mutable.reverse >>= Mutable.freeze
   foldM
     ( \liveVariables node -> do
@@ -185,7 +185,7 @@ solveDataFlowEquationStep liveVariables = do
         pure $ Map.insert node.val newLiveVariable liveVariables
     )
     liveVariables
-    $ Immutable.bfs reversedGraph [last]
+    $ Immutable.bfs reversedGraph terminals
 
 dataFlowEquation :: (Ord var, MonadReader (ControlFlowGraph var val) m) => LiveVariablesMap var val -> Node (ControlFlowNode var val) () -> m (LiveVariables var val)
 dataFlowEquation variablesMap node = do

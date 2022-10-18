@@ -83,7 +83,7 @@ newInterferenceGraph vars liveVariablesMap =
     addInterferenceGraphEdges :: (PrimMonad m, Ord var, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> L.LiveVariables var val -> m ()
     addInterferenceGraphEdges graph liveVariables
       | liveVariables.node.isMove =
-          let notUsedOutput = liveVariables.output Set.\\ liveVariables.node.usedVariables
+          let notUsedOutput = liveVariables.output Set.\\ liveVariables.node.usedVariables Set.\\ liveVariables.node.definedVariables
            in sequence_ $ addEdge <$> Set.toList liveVariables.node.definedVariables <*> Set.toList notUsedOutput
       | otherwise =
           let notDefinedOutput = liveVariables.output Set.\\ liveVariables.node.definedVariables
