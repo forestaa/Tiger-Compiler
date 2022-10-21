@@ -48,6 +48,22 @@ mgraphDirectionalSpec = describe "MGraph 'Directional spec" $ do
       getNodeByIndex graph node.index
     node.val `shouldBe` 1
 
+  it "empty -> addNode -> updateNode -> getNodeByIndex" $ do
+    node <- do
+      graph :: MGraph 'Directional _ _ _ <- empty
+      node <- addNode graph 1
+      updateNode graph node.index 2
+      getNodeByIndex graph node.index
+    node.val `shouldBe` 2
+
+  it "empty -> addNode -> updateNode -> getNode" $ do
+    node <- do
+      graph :: MGraph 'Directional _ _ _ <- empty
+      node <- addNode graph 1
+      updateNode graph node.index 2
+      getNode graph 2
+    node.val `shouldBe` 2
+
   it "empty -> addNode*3 -> getAllNodes" $ do
     nodes <- do
       graph :: MGraph 'Directional _ _ _ <- empty

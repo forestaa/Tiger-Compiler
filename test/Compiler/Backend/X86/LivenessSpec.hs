@@ -1,10 +1,11 @@
 module Compiler.Backend.X86.LivenessSpec (spec) where
 
 import Compiler.Backend.X86.Arch (Label (Label'))
-import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, LiveVariables (..), freeze, newControlFlowGraph, newControlFlowNode, solveDataFlowEquation)
-import Compiler.Utils.Graph.Base (Node (index))
-import Compiler.Utils.Graph.Mutable as Mutable (MutableGraph (addEdgeByIndex, addNode, empty))
-import RIO (Int, ($))
+import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, ControlFlowNode (..), freeze, newControlFlowGraph, newControlFlowNode, solveDataFlowEquation)
+import Compiler.Utils.Graph.Base (Node (..))
+import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..))
+import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (addEdgeByIndex, addNode, empty))
+import RIO (Int, ($), (<$>))
 import RIO.Map qualified as Map
 import RIO.Set qualified as Set
 import Test.Hspec (Spec, describe, it, pending, shouldBe)
@@ -94,14 +95,18 @@ solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
       _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
       _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       L.freeze graph
-    let liveVariablesMap = L.solveDataFlowEquation graph
-        expectedLiveVariablesMap =
-          Map.fromList
-            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
-              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) (Set.fromList [1])),
-              (cnode3, L.LiveVariable cnode3 (Set.fromList [1]) Set.empty)
-            ]
-    liveVariablesMap `shouldBe` expectedLiveVariablesMap
+    expectedLiveVariablesGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode1 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1]}
+      node2 <- Mutable.addNode graph cnode2 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.fromList [1]}
+      node3 <- Mutable.addNode graph cnode3 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.empty}
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      L.freeze graph
+    let liveVariablesGraph = L.solveDataFlowEquation graph
+        liveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes liveVariablesGraph
+        expectedLiveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes expectedLiveVariablesGraph
+    liveVariables `shouldBe` expectedLiveVariables
 
   it "A variable is dead after used" $ do
     let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
@@ -115,16 +120,21 @@ solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
       _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
       _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       L.freeze graph
-    let liveVariablesMap = L.solveDataFlowEquation graph
-        expectedLiveVariablesMap =
-          Map.fromList
-            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
-              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) Set.empty),
-              (cnode3, L.LiveVariable cnode3 Set.empty Set.empty)
-            ]
-    liveVariablesMap `shouldBe` expectedLiveVariablesMap
+    expectedLiveVariablesGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode1 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1]}
+      node2 <- Mutable.addNode graph cnode2 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.empty}
+      node3 <- Mutable.addNode graph cnode3 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.empty}
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      L.freeze graph
+    let liveVariablesGraph = L.solveDataFlowEquation graph
+        liveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes liveVariablesGraph
+        expectedLiveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes expectedLiveVariablesGraph
+    liveVariables `shouldBe` expectedLiveVariables
 
   it "A variable is dead between doubly defined and not used" $ do
+    pending
     let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
         cnode2 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 2}) 2
         cnode3 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 3}) 3
@@ -139,15 +149,20 @@ solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
       _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       _ <- Mutable.addEdgeByIndex graph node3.index node4.index ()
       L.freeze graph
-    let liveVariablesMap = L.solveDataFlowEquation graph
-        expectedLiveVariablesMap =
-          Map.fromList
-            [ (cnode1, L.LiveVariable cnode1 Set.empty Set.empty),
-              (cnode2, L.LiveVariable cnode2 Set.empty Set.empty),
-              (cnode3, L.LiveVariable cnode3 Set.empty (Set.fromList [1])),
-              (cnode4, L.LiveVariable cnode4 (Set.fromList [1]) Set.empty)
-            ]
-    liveVariablesMap `shouldBe` expectedLiveVariablesMap
+    expectedLiveVariablesGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode1 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.empty}
+      node2 <- Mutable.addNode graph cnode2 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.empty}
+      node3 <- Mutable.addNode graph cnode3 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1]}
+      node4 <- Mutable.addNode graph cnode4 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.empty}
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node3.index node4.index ()
+      L.freeze graph
+    let liveVariablesGraph = L.solveDataFlowEquation graph
+        liveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes liveVariablesGraph
+        expectedLiveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes expectedLiveVariablesGraph
+    liveVariables `shouldBe` expectedLiveVariables
 
   it "A variable is live-out if the variable is live on any output path" $ do
     let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
@@ -164,12 +179,17 @@ solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
       _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
       _ <- Mutable.addEdgeByIndex graph node2.index node4.index ()
       L.freeze graph
-    let liveVariablesMap = L.solveDataFlowEquation graph
-        expectedLiveVariablesMap =
-          Map.fromList
-            [ (cnode1, L.LiveVariable cnode1 Set.empty (Set.fromList [1])),
-              (cnode2, L.LiveVariable cnode2 (Set.fromList [1]) (Set.fromList [1])),
-              (cnode3, L.LiveVariable cnode3 Set.empty Set.empty),
-              (cnode4, L.LiveVariable cnode4 (Set.fromList [1]) Set.empty)
-            ]
-    liveVariablesMap `shouldBe` expectedLiveVariablesMap
+    expectedLiveVariablesGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode1 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1]}
+      node2 <- Mutable.addNode graph cnode2 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.fromList [1]}
+      node3 <- Mutable.addNode graph cnode3 {L.liveInVariables = Set.empty, L.liveOutVariables = Set.empty}
+      node4 <- Mutable.addNode graph cnode4 {L.liveInVariables = Set.fromList [1], L.liveOutVariables = Set.empty}
+      _ <- Mutable.addEdgeByIndex graph node1.index node2.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node3.index ()
+      _ <- Mutable.addEdgeByIndex graph node2.index node4.index ()
+      L.freeze graph
+    let liveVariablesGraph = L.solveDataFlowEquation graph
+        liveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes liveVariablesGraph
+        expectedLiveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes expectedLiveVariablesGraph
+    liveVariables `shouldBe` expectedLiveVariables

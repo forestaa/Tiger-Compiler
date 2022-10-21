@@ -2,8 +2,6 @@ module Compiler.Backend.X86.Liveness
   ( ControlFlow (..),
     ControlFlowNode (..),
     ControlFlowGraph,
-    LiveVariables (..),
-    LiveVariablesMap,
     newControlFlowNode,
     newControlFlowGraph,
     solveDataFlowEquation,
@@ -13,7 +11,7 @@ module Compiler.Backend.X86.Liveness
 where
 
 import Compiler.Backend.X86.Arch (Label)
-import Compiler.Utils.Graph.Base (Directional (..), Edge, EdgeIndex, Node (..), NodeIndex)
+import Compiler.Utils.Graph.Base (Directional (..), Edge (..), EdgeIndex, Node (..), NodeIndex)
 import Compiler.Utils.Graph.Immutable qualified as Immutable (IGraph, ImmutableGraph (..), bfs)
 import Compiler.Utils.Graph.Mutable qualified as Mutable (MGraph, MutableGraph (..), freeze, thaw)
 import GHC.Records (HasField (..))
@@ -63,7 +61,7 @@ isLabel :: ControlFlow var val -> Bool
 isLabel Label {} = True
 isLabel _ = False
 
-data ControlFlowNode var val = ControlFlowNode {key :: Int, definedVariables :: Set.Set var, usedVariables :: Set.Set var, isMove :: Bool, val :: ControlFlow var val} deriving (Show)
+data ControlFlowNode var val = ControlFlowNode {key :: Int, definedVariables :: Set.Set var, usedVariables :: Set.Set var, isMove :: Bool, liveInVariables :: Set.Set var, liveOutVariables :: Set.Set var, val :: ControlFlow var val} deriving (Show)
 
 instance Eq (ControlFlowNode var val) where
   node1 == node2 = node1.key == node2.key
@@ -72,7 +70,7 @@ instance Ord (ControlFlowNode var val) where
   node1 <= node2 = node1.key <= node2.key
 
 newControlFlowNode :: Ord var => ControlFlow var val -> Int -> ControlFlowNode var val
-newControlFlowNode flow key = ControlFlowNode {key = key, definedVariables = Set.fromList flow.destinations, usedVariables = Set.fromList flow.sources, isMove = isMove flow, val = flow}
+newControlFlowNode flow key = ControlFlowNode {key = key, definedVariables = Set.fromList flow.destinations, usedVariables = Set.fromList flow.sources, isMove = isMove flow, liveInVariables = Set.empty, liveOutVariables = Set.empty, val = flow}
 
 newtype ControlFlowGraph var val = ControlFlowGraph (Immutable.IGraph 'Directional (ControlFlowNode var val) ())
   deriving (Show, Eq, Immutable.ImmutableGraph 'Directional (ControlFlowNode var val) ())
@@ -153,44 +151,30 @@ newControlFlowGraph flows = runST $ do
         Mutable.addEdge graph node1 node2 ()
       addControlFlowGraphEdges graph labelMap (node2 : nodes)
 
-data LiveVariables var val = LiveVariable {node :: ControlFlowNode var val, input :: Set.Set var, output :: Set.Set var} deriving (Show, Eq)
+solveDataFlowEquation :: (Ord var) => ControlFlowGraph var val -> ControlFlowGraph var val
+solveDataFlowEquation graph =
+  let graph' = solveDataFlowEquationStep graph
+      liveVariables = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes graph
+      liveVariables' = (\node -> (node.val.key, node.val.liveInVariables, node.val.liveOutVariables)) <$> Immutable.getAllNodes graph'
+   in if liveVariables == liveVariables'
+        then graph'
+        else solveDataFlowEquation graph'
 
-newLiveVariables :: ControlFlowNode var val -> LiveVariables var val
-newLiveVariables node = LiveVariable node Set.empty Set.empty
-
--- TODO: liveVariables should be in ControlFlowNode
-type LiveVariablesMap var val = Map.Map (ControlFlowNode var val) (LiveVariables var val)
-
-newLiveVariablesMap :: ControlFlowGraph var val -> LiveVariablesMap var val
-newLiveVariablesMap graph = Vec.foldl' (\liveVariablesMap node -> Map.insert node.val (newLiveVariables node.val) liveVariablesMap) Map.empty $ Immutable.getAllNodes graph
-
-solveDataFlowEquation :: (Ord var) => ControlFlowGraph var val -> LiveVariablesMap var val
-solveDataFlowEquation graph = flip runReader graph . solveDataFlowEquationLoop $ newLiveVariablesMap graph
-  where
-    solveDataFlowEquationLoop :: (Ord var, MonadReader (ControlFlowGraph var val) m) => LiveVariablesMap var val -> m (LiveVariablesMap var val)
-    solveDataFlowEquationLoop liveVariablesMap = do
-      liveVariablesMap' <- solveDataFlowEquationStep liveVariablesMap
-      if liveVariablesMap == liveVariablesMap'
-        then pure liveVariablesMap'
-        else solveDataFlowEquationLoop liveVariablesMap'
-
-solveDataFlowEquationStep :: (Ord var, MonadReader (ControlFlowGraph var val) m) => LiveVariablesMap var val -> m (LiveVariablesMap var val)
-solveDataFlowEquationStep liveVariables = do
-  ControlFlowGraph graph <- ask
+solveDataFlowEquationStep :: (Ord var) => ControlFlowGraph var val -> ControlFlowGraph var val
+solveDataFlowEquationStep graph =
   let terminals = Vec.toList $ Vec.filter (\node -> Vec.null node.outEdges && not (Vec.null node.inEdges)) (Immutable.getAllNodes graph)
-      reversedGraph = runST $ Mutable.thaw graph >>= Mutable.reverse >>= Mutable.freeze
-  foldM
-    ( \liveVariables node -> do
-        newLiveVariable <- dataFlowEquation liveVariables node
-        pure $ Map.insert node.val newLiveVariable liveVariables
-    )
-    liveVariables
-    $ Immutable.bfs reversedGraph terminals
+   in runST $ do
+        mgraph <- thaw graph
+        reversed <- Mutable.reverse mgraph >>= freeze
+        forM_ (Immutable.bfs reversed terminals) $ \node -> do
+          cnode <- dataFlowEquation mgraph node.index
+          Mutable.updateNode mgraph node.index cnode
+        freeze mgraph
 
-dataFlowEquation :: (Ord var, MonadReader (ControlFlowGraph var val) m) => LiveVariablesMap var val -> Node (ControlFlowNode var val) () -> m (LiveVariables var val)
-dataFlowEquation variablesMap node = do
-  graph <- ask
-  let variables = variablesMap Map.! node.val
-      output = Set.unions $ Vec.map (\target -> (variablesMap Map.! target.val).input) (Immutable.getOutNeiborhoodsByIndex graph node.index)
-      input = node.val.usedVariables `Set.union` (output Set.\\ node.val.definedVariables)
-  pure variables {input = input, output = output}
+dataFlowEquation :: (Ord var, PrimMonad m, MonadThrow m) => ControlFlowMutableGraph var val (PrimState m) -> NodeIndex -> m (ControlFlowNode var val)
+dataFlowEquation mgraph index = do
+  node <- Mutable.getNodeByIndex mgraph index
+  successors <- mapM (Mutable.getNodeByIndex mgraph . getField @"target") node.outEdges
+  let input = node.val.usedVariables `Set.union` (node.val.liveOutVariables Set.\\ node.val.definedVariables)
+      output = Set.unions $ (\node -> node.val.liveInVariables) <$> successors
+  pure node.val {liveInVariables = input, liveOutVariables = output}

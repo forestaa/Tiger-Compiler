@@ -1,7 +1,7 @@
 module Compiler.Backend.X86.RegisterAllocation.InterferenceGraphSpec (spec) where
 
 import Compiler.Backend.X86.Arch (Label (Label'))
-import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), LiveVariables (..), newControlFlowNode)
+import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, ControlFlowNode (..), freeze, newControlFlowNode)
 import Compiler.Backend.X86.RegisterAllocation.InterferenceGraph
 import Compiler.Utils.Graph.Base
 import Compiler.Utils.Graph.Mutable as Mutable hiding (freeze)
@@ -18,10 +18,12 @@ spec = do
 newInterferenceGraphSpec :: Spec
 newInterferenceGraphSpec = describe "newInterferenceGraphSpec" $ do
   it "add edges (a,b_1) ... (a,b_j) for any instruction which defines a and is not move where b_1..b_j are live-out and are not a" $ do
-    let cnode = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
+    let cnode = (L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1) {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1, 2, 3]}
         vars = Set.fromList [1, 2, 3]
-        liveVariablesMap = Map.fromList [(cnode, L.LiveVariable cnode Set.empty (Set.fromList [1, 2, 3]))]
-        graph = newInterferenceGraph vars liveVariablesMap
+    cfGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode
+      L.freeze graph
     expectedGraph <- do
       graph <- Mutable.empty
       node1 <- Mutable.addNode graph 1
@@ -30,26 +32,32 @@ newInterferenceGraphSpec = describe "newInterferenceGraphSpec" $ do
       _ <- Mutable.addEdgeByIndex graph node1.index node2.index InterferenceGraphEdgeLabel
       _ <- Mutable.addEdgeByIndex graph node1.index node3.index InterferenceGraphEdgeLabel
       freeze graph
+    let graph = newInterferenceGraph vars cfGraph
     graph `shouldBe` expectedGraph
 
   it "do not add edges (a,b_1) ... (a,b_j) for any instruction which does not define a and is not move where b_1..b_j are live-out and are not a" $ do
-    let cnode = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 1}) 1
+    let cnode = (L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 1}) 1) {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1, 2, 3]}
         vars = Set.fromList [1, 2, 3]
-        liveVariablesMap = Map.fromList [(cnode, L.LiveVariable cnode Set.empty (Set.fromList [1, 2, 3]))]
-        graph = newInterferenceGraph vars liveVariablesMap
+    cfGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode
+      L.freeze graph
     expectedGraph <- do
       graph <- Mutable.empty
       node1 <- Mutable.addNode graph 1
       node2 <- Mutable.addNode graph 2
       node3 <- Mutable.addNode graph 3
       freeze graph
+    let graph = newInterferenceGraph vars cfGraph
     graph `shouldBe` expectedGraph
 
   it "add edges (a,b_1) ... (a,b_j) for move instruction a <- c where b_1..b_j are live-out and are not a and c" $ do
-    let cnode = L.newControlFlowNode (L.Move {src = [2], dst = [1], val = 1}) 1
+    let cnode = (L.newControlFlowNode (L.Move {src = [2], dst = [1], val = 1}) 1) {L.liveInVariables = Set.empty, L.liveOutVariables = Set.fromList [1, 2, 3]}
         vars = Set.fromList [1, 2, 3]
-        liveVariablesMap = Map.fromList [(cnode, L.LiveVariable cnode Set.empty (Set.fromList [1, 2, 3]))]
-        graph = newInterferenceGraph vars liveVariablesMap
+    cfGraph <- do
+      graph <- Mutable.empty
+      node1 <- Mutable.addNode graph cnode
+      L.freeze graph
     expectedGraph <- do
       graph <- Mutable.empty
       node1 <- Mutable.addNode graph 1
@@ -57,10 +65,11 @@ newInterferenceGraphSpec = describe "newInterferenceGraphSpec" $ do
       node3 <- Mutable.addNode graph 3
       _ <- Mutable.addEdgeByIndex graph node1.index node3.index InterferenceGraphEdgeLabel
       freeze graph
+    let graph = newInterferenceGraph vars cfGraph
     graph `shouldBe` expectedGraph
 
 buildInterfereceGraphSpec :: Spec
-buildInterfereceGraphSpec = describe "interference graph" $ do
+buildInterfereceGraphSpec = describe "buildInterferenceGraph" $ do
   it "empty: InterferenceGraph of empty code block's is empty graph" $ do
     let graph :: InterferenceGraph Int =
           buildInterfereceGraph
