@@ -5,7 +5,7 @@ import Compiler.Intermediate.Frame qualified as Frame
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
 import Data.Extensible (Lookup, type (>:))
-import Data.Extensible.Effect (Eff, State, getEff, putEff, runStateEff)
+import Data.Extensible.Effect (Eff, State, getEff, modifyEff, putEff, runStateEff)
 import Data.Maybe (fromJust)
 import GHC.Records (HasField (..))
 import RIO hiding (exp)
@@ -123,6 +123,7 @@ parameterReceiving frame = foldl' IR.Seq IR.noop $ zipWith parameterReceivingStm
   where
     parameterReceivingStm to (InRegister temp) = IR.Move (exp to (IR.Temp rbp)) (IR.Temp temp)
     parameterReceivingStm to (InFrame offset) = IR.Move (exp to (IR.Temp rbp)) (IR.Mem (IR.BinOp IR.Plus (IR.Temp rbp) (IR.Const offset)))
+    parameterReceivingStm _ SpilledOut = undefined
 
 parameterPassingAccesses :: [Access]
 parameterPassingAccesses = (InRegister <$> parameterTempRegisters) ++ [InFrame (wordSize * i) | i <- [2 ..]]
@@ -178,6 +179,29 @@ registerTempMap =
       (EFLAGS, U.newStringTemp "EFLAGS")
     ]
 
+inverseRegisterTempMap :: Map U.Temp Register
+inverseRegisterTempMap =
+  Map.fromList
+    [ (U.newStringTemp "RAX", RAX),
+      (U.newStringTemp "RDI", RDI),
+      (U.newStringTemp "RSI", RSI),
+      (U.newStringTemp "RDX", RDX),
+      (U.newStringTemp "RCX", RCX),
+      (U.newStringTemp "RBP", RBP),
+      (U.newStringTemp "RSP", RSP),
+      (U.newStringTemp "RBX", RBX),
+      (U.newStringTemp "R8", R8),
+      (U.newStringTemp "R9", R9),
+      (U.newStringTemp "R10", R10),
+      (U.newStringTemp "R11", R11),
+      (U.newStringTemp "R12", R12),
+      (U.newStringTemp "R13", R13),
+      (U.newStringTemp "R14", R14),
+      (U.newStringTemp "R15", R15),
+      (U.newStringTemp "RIP", RIP),
+      (U.newStringTemp "EFLAGS", EFLAGS)
+    ]
+
 data ProcedureX86 body = Procedure {body :: body, frame :: Frame}
 
 data StringFragmentX86 body = StringFragment {body :: body}
@@ -209,6 +233,9 @@ type FrameEff = State Frame
 
 runFrameEff :: Eff (("frame" >: FrameEff) ': xs) a -> Frame -> Eff xs (a, Frame)
 runFrameEff = runStateEff @"frame"
+
+modifyFrameEff :: (Lookup xs "frame" FrameEff) => (Frame -> Frame) -> Eff xs ()
+modifyFrameEff = modifyEff #frame
 
 allocateParameterEff :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Bool -> Eff xs ()
 allocateParameterEff escape = do

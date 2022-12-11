@@ -1,5 +1,7 @@
 module Compiler.Backend.X86.Liveness
   ( ControlFlow (..),
+    setSources,
+    setDestinations,
     ControlFlowNode (..),
     ControlFlowGraph,
     newControlFlowNode,
@@ -43,6 +45,16 @@ instance HasField "jumpsTo" (ControlFlow var val) [Label] where
   getField Jump {jumps} = jumps
   getField CJump {jumps} = jumps
   getField _ = []
+
+setSources :: [var] -> ControlFlow var val -> ControlFlow var val
+setSources sources i@Instruction {} = i {src = sources}
+setSources sources m@Move {} = m {src = sources}
+setSources _ flow = flow
+
+setDestinations :: [var] -> ControlFlow var val -> ControlFlow var val
+setDestinations destinations i@Instruction {} = i {dst = destinations}
+setDestinations destinations m@Move {} = m {dst = destinations}
+setDestinations _ flow = flow
 
 isMove :: ControlFlow var val -> Bool
 isMove Move {} = True
