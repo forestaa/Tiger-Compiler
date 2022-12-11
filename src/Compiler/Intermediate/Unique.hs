@@ -41,7 +41,10 @@ getUniqueEff k = do
 putUniqueEff :: Lookup xs k UniqueEff => Proxy k -> Unique -> Eff xs ()
 putUniqueEff = putEff
 
-data Temp = Temp String Unique deriving (Eq, Ord, Show)
+data Temp = Temp String Unique deriving (Eq, Ord)
+
+instance Show Temp where
+  show (Temp str u) = str ++ show u
 
 newTemp :: Lookup xs "temp" UniqueEff => Eff xs Temp
 newTemp = Temp "t" <$> getUniqueEff #temp
