@@ -62,7 +62,8 @@ codegenStm (IR.CJump op e1 e2 true _) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
   pure $
-    flows1 ++ flows2
+    flows1
+      ++ flows2
       ++ [ L.Instruction {src = [t1, t2], dst = [], val = CmpRegister t1 t2},
            L.CJump {jumps = [fromUniqueLabel true], val = (jumpInstr op) (fromUniqueLabel true)}
          ]
@@ -74,15 +75,15 @@ codegenStm (IR.Label label) = pure [L.Label {label' = label', val = Label label'
 
 codegenExp :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => IR.Exp -> Eff xs ([L.ControlFlow U.Temp (Assembly U.Temp)], U.Temp)
 codegenExp (IR.Const i) = do
-  t <- allocateNonEscapedLocal
+  t <- allocateNonEscapedLocalEff
   pure ([L.Instruction {src = [], dst = [t], val = MovImmediate i t}], t)
 codegenExp (IR.Name label) = do
-  t <- allocateNonEscapedLocal
+  t <- allocateNonEscapedLocalEff
   pure ([L.Instruction {src = [], dst = [t], val = Lea (fromUniqueLabel label) rip t}], t)
 codegenExp (IR.Temp t) = pure ([], t)
 codegenExp (IR.BinOp op e (IR.Const i)) = do
   (flows, t) <- codegenExp e
-  t' <- allocateNonEscapedLocal
+  t' <- allocateNonEscapedLocalEff
   let flows' =
         flows
           ++ [ L.Instruction {src = [t], dst = [t'], val = MovRegister t t'},
@@ -93,9 +94,10 @@ codegenExp (IR.BinOp op e (IR.Const i)) = do
 codegenExp (IR.BinOp op e1 e2) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
-  t <- allocateNonEscapedLocal
+  t <- allocateNonEscapedLocalEff
   let flows =
-        flows1 ++ flows2
+        flows1
+          ++ flows2
           ++ [ L.Instruction {src = [t1], dst = [t], val = MovRegister t1 t},
                L.Instruction {src = [t, t2], dst = [t], val = (binOpInstr op) t2 t}
              ]
@@ -103,7 +105,7 @@ codegenExp (IR.BinOp op e1 e2) = do
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2))) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
-  t <- allocateNonEscapedLocal
+  t <- allocateNonEscapedLocalEff
   pure (flows1 ++ flows2 ++ [L.Instruction {src = [t1, t2], dst = [t], val = MovLoadDisplacement i t1 t2 1 t}], t2)
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.BinOp IR.Plus e1 (IR.Const i)) e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus e1 (IR.BinOp IR.Plus (IR.Const i) e2))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
@@ -112,16 +114,16 @@ codegenExp (IR.Mem (IR.BinOp IR.Plus e1 (IR.BinOp IR.Plus e2 (IR.Const i)))) = c
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.BinOp IR.Plus (IR.Const i) e1) e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e)) = do
   (flows, t) <- codegenExp e
-  t' <- allocateNonEscapedLocal
+  t' <- allocateNonEscapedLocalEff
   pure (flows ++ [L.Instruction {src = [t], dst = [t'], val = MovLoadIndirect i t t'}], t')
 codegenExp (IR.Mem (IR.BinOp IR.Plus e (IR.Const i))) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) e))
 codegenExp (IR.Mem (IR.BinOp IR.Plus e1 e2)) = codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.BinOp IR.Plus e1 e2)))
 codegenExp (IR.Mem (IR.Const i)) = do
-  t <- allocateNonEscapedLocal
+  t <- allocateNonEscapedLocalEff
   pure ([L.Instruction {src = [], dst = [t], val = MovLoad (Memory i) t}], t)
 codegenExp (IR.Mem e) = do
   (flow, t) <- codegenExp e
-  t' <- allocateNonEscapedLocal
+  t' <- allocateNonEscapedLocalEff
   pure (flow ++ [L.Instruction {src = [t], dst = [t'], val = MovLoadIndirect 0 t t'}], t')
 codegenExp (IR.Call (IR.Name f) es) = do
   (flows, dsts) <- codegenParameters es

@@ -223,8 +223,8 @@ allocateLocalEff escape = do
   putEff #frame frame'
   pure access
 
-allocateNonEscapedLocal :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs U.Temp
-allocateNonEscapedLocal = allocateLocalEff False >>= \case InRegister t -> pure t; _ -> undefined
+allocateNonEscapedLocalEff :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs U.Temp
+allocateNonEscapedLocalEff = allocateLocalEff False >>= \case InRegister t -> pure t; _ -> undefined
 
-allocateEscapedLocal :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs Int
-allocateEscapedLocal = allocateLocalEff True >>= \case InFrame i -> pure i; _ -> undefined
+allocateEscapedLocalEff :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => Eff xs Int
+allocateEscapedLocalEff = allocateLocalEff True >>= \case InFrame i -> pure i; _ -> undefined
