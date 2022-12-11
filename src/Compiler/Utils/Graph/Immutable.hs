@@ -1,4 +1,10 @@
-module Compiler.Utils.Graph.Immutable (IGraph (..), ImmutableGraph (..), bfs) where
+module Compiler.Utils.Graph.Immutable
+  ( IGraph (..),
+    ImmutableGraph (..),
+    bfs,
+    DebugGraphviz (..),
+  )
+where
 
 import Compiler.Utils.Graph.Base (Directional (..), Edge (..), Node (..), NodeIndex (..))
 import Control.Monad.State.Strict
@@ -10,6 +16,7 @@ import RIO.Map.Partial qualified as Map
 import RIO.Seq (Seq ((:<|), (:|>)))
 import RIO.Seq qualified as Seq
 import RIO.Set qualified as Set
+import RIO.Text (pack)
 import RIO.Vector qualified as Vec
 import RIO.Vector.Partial qualified as Vec
 
@@ -64,3 +71,24 @@ bfs graph initials = flip evalState Set.empty $ walk (Seq.fromList initials)
         else do
           modify $ Set.insert node.index
           fmap (node :) . walk $ Vec.foldl' (:|>) queue (getOutNeiborhoodsByIndex graph node.index)
+
+class DebugGraphviz graph where
+  debugGraphviz :: graph -> Text
+
+instance (Show node, Show edge) => DebugGraphviz (IGraph 'Directional node edge) where
+  debugGraphviz graph = pack $ "digraph G{\n" ++ concatMap (nodeToGraphviz graph) (getAllNodes graph) ++ "}\n"
+    where
+      nodeToGraphviz :: IGraph 'Directional node edge -> Node node edge -> String
+      nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
+      edgeToGraphviz :: Node node edge -> Node node edge -> String
+      edgeToGraphviz src tgt = concat ["  ", show src.val, " -> ", show tgt.val, ";"]
+
+instance (Show node, Show edge) => DebugGraphviz (IGraph 'UnDirectional node edge) where
+  debugGraphviz graph = pack $ "graph G{\n" ++ concatMap (nodeToGraphviz graph) (getAllNodes graph) ++ "}\n"
+    where
+      nodeToGraphviz :: IGraph 'UnDirectional node edge -> Node node edge -> String
+      nodeToGraphviz graph node = unlines . Vec.toList . Vec.mapMaybe (edgeToGraphviz node) $ getOutNeiborhoodsByIndex graph node.index
+      edgeToGraphviz :: Node node edge -> Node node edge -> Maybe String
+      edgeToGraphviz src tgt
+        | src.index <= tgt.index = Just $ concat ["  ", show src.val, " -- ", show tgt.val, ";"]
+        | otherwise = Nothing

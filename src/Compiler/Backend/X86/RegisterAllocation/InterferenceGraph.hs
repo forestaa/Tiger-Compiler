@@ -12,7 +12,7 @@ where
 import Compiler.Backend.X86.Liveness (ControlFlowNode (..))
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, ControlFlowNode (..), newControlFlowGraph, solveDataFlowEquation)
 import Compiler.Utils.Graph.Base (Directional (..), Edge, EdgeIndex, Node (..), NodeIndex)
-import Compiler.Utils.Graph.Immutable qualified as Immutable (IGraph, ImmutableGraph (..))
+import Compiler.Utils.Graph.Immutable qualified as Immutable (DebugGraphviz, IGraph, ImmutableGraph (..))
 import Compiler.Utils.Graph.Mutable qualified as Mutable (MGraph, MutableGraph (..), freeze, thaw)
 import GHC.Records (HasField (getField))
 import RIO
@@ -21,7 +21,7 @@ import RIO.Vector qualified as Vec
 
 data InterferenceGraphEdgeLabel = InterferenceGraphEdgeLabel deriving (Show, Eq, Ord)
 
-newtype InterferenceGraph var = InterferenceGraph (Immutable.IGraph 'UnDirectional var InterferenceGraphEdgeLabel) deriving (Show, Eq, Immutable.ImmutableGraph 'UnDirectional var InterferenceGraphEdgeLabel)
+newtype InterferenceGraph var = InterferenceGraph (Immutable.IGraph 'UnDirectional var InterferenceGraphEdgeLabel) deriving (Show, Eq, Immutable.ImmutableGraph 'UnDirectional var InterferenceGraphEdgeLabel, Immutable.DebugGraphviz)
 
 newtype InterferenceMutableGraph var s = InterferenceMutableGraph (Mutable.MGraph 'UnDirectional var InterferenceGraphEdgeLabel s)
 
@@ -95,5 +95,5 @@ newInterferenceGraph vars cfGraph =
           whenM (Vec.null <$> Mutable.getEdges graph src tgt) . void $
             Mutable.addEdge graph src tgt InterferenceGraphEdgeLabel
 
-buildInterfereceGraph :: Ord var => Set.Set var -> [L.ControlFlow var val] -> InterferenceGraph var
+buildInterfereceGraph :: (Ord var) => Set.Set var -> [L.ControlFlow var val] -> InterferenceGraph var
 buildInterfereceGraph vars = newInterferenceGraph vars . L.solveDataFlowEquation . L.newControlFlowGraph
