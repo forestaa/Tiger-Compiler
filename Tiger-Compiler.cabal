@@ -141,6 +141,7 @@ test-suite compiler-test
       Compiler.Backend.X86.IntermediateMock
       Compiler.Backend.X86.LivenessSpec
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraphSpec
+      Compiler.Backend.X86.RegisterAllocationSpec
       Compiler.Frontend.FrameMock
       Compiler.Frontend.Language.Linear.EvalSpec
       Compiler.Frontend.Language.Linear.LexerSpec
