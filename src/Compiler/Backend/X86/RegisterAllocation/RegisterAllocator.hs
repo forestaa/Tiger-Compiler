@@ -1,6 +1,7 @@
 module Compiler.Backend.X86.RegisterAllocation.RegisterAllocator
   ( Allocation,
     getColor,
+    AvailableColors,
     RegisterAllocator (allocation),
     runRegisterAllocatorState,
     allocateEff,
@@ -35,9 +36,11 @@ getColors allocation = mapMaybe (getColor allocation)
 putColor :: Allocation -> U.Temp -> Register -> Allocation
 putColor (Allocation map) temp register = Allocation $ Map.insert temp register map
 
-data RegisterAllocator = RegisterAllocator {graph :: InterferenceGraph U.Temp, availableColors :: [Register], allocation :: Allocation}
+type AvailableColors = [Register]
 
-newRegisterAllocator :: InterferenceGraph U.Temp -> [Register] -> RegisterAllocator
+data RegisterAllocator = RegisterAllocator {graph :: InterferenceGraph U.Temp, availableColors :: AvailableColors, allocation :: Allocation}
+
+newRegisterAllocator :: InterferenceGraph U.Temp -> AvailableColors -> RegisterAllocator
 newRegisterAllocator graph availableColors = RegisterAllocator {graph, availableColors, allocation = newAllocation}
 
 allocate :: RegisterAllocator -> U.Temp -> (Bool, RegisterAllocator)
@@ -52,5 +55,5 @@ allocate allocator temp =
 allocateEff :: (MonadState RegisterAllocator m) => U.Temp -> m Bool
 allocateEff temp = state (`allocate` temp)
 
-runRegisterAllocatorState :: InterferenceGraph U.Temp -> [Register] -> State RegisterAllocator a -> (a, RegisterAllocator)
+runRegisterAllocatorState :: InterferenceGraph U.Temp -> AvailableColors -> State RegisterAllocator a -> (a, RegisterAllocator)
 runRegisterAllocatorState graph availableColors m = runState m $ newRegisterAllocator graph availableColors
