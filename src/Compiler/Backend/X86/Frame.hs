@@ -63,52 +63,58 @@ allTempRegisters :: [U.Temp]
 allTempRegisters = [rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15]
 
 rip :: U.Temp
-rip = registerTempMap ! RIP
+rip = U.newStringTemp "RIP"
 
 rax :: U.Temp
-rax = registerTempMap ! RAX
+rax = U.newStringTemp "RAX"
 
 rsp :: U.Temp
-rsp = registerTempMap ! RSP
+rsp = U.newStringTemp "RSP"
 
 rbp :: U.Temp
-rbp = registerTempMap ! RBP
+rbp = U.newStringTemp "RBP"
+
+rbx :: U.Temp
+rbx = U.newStringTemp "RBX"
 
 rdi :: U.Temp
-rdi = registerTempMap ! RDI
+rdi = U.newStringTemp "RDI"
 
 rsi :: U.Temp
-rsi = registerTempMap ! RSI
+rsi = U.newStringTemp "RSI"
 
 rdx :: U.Temp
-rdx = registerTempMap ! RDX
+rdx = U.newStringTemp "RDX"
 
 rcx :: U.Temp
-rcx = registerTempMap ! RCX
+rcx = U.newStringTemp "RCX"
 
 r8 :: U.Temp
-r8 = registerTempMap ! R8
+r8 = U.newStringTemp "R8"
 
 r9 :: U.Temp
-r9 = registerTempMap ! R9
+r9 = U.newStringTemp "R9"
 
 r10 :: U.Temp
-r10 = registerTempMap ! R10
+r10 = U.newStringTemp "R10"
 
 r11 :: U.Temp
-r11 = registerTempMap ! R11
+r11 = U.newStringTemp "R11"
 
 r12 :: U.Temp
-r12 = registerTempMap ! R12
+r12 = U.newStringTemp "R12"
 
 r13 :: U.Temp
-r13 = registerTempMap ! R13
+r13 = U.newStringTemp "R13"
 
 r14 :: U.Temp
-r14 = registerTempMap ! R14
+r14 = U.newStringTemp "R14"
 
 r15 :: U.Temp
-r15 = registerTempMap ! R15
+r15 = U.newStringTemp "R15"
+
+eflags :: U.Temp
+eflags = U.newStringTemp "EFLAGS"
 
 wordSize :: Int
 wordSize = 8
@@ -159,47 +165,47 @@ procEntryExit3 procedure =
 registerTempMap :: Map Register U.Temp
 registerTempMap =
   Map.fromList
-    [ (RAX, U.newStringTemp "RAX"),
-      (RDI, U.newStringTemp "RDI"),
-      (RSI, U.newStringTemp "RSI"),
-      (RDX, U.newStringTemp "RDX"),
-      (RCX, U.newStringTemp "RCX"),
-      (RBP, U.newStringTemp "RBP"),
-      (RSP, U.newStringTemp "RSP"),
-      (RBX, U.newStringTemp "RBX"),
-      (R8, U.newStringTemp "R8"),
-      (R9, U.newStringTemp "R9"),
-      (R10, U.newStringTemp "R10"),
-      (R11, U.newStringTemp "R11"),
-      (R12, U.newStringTemp "R12"),
-      (R13, U.newStringTemp "R13"),
-      (R14, U.newStringTemp "R14"),
-      (R15, U.newStringTemp "R15"),
-      (RIP, U.newStringTemp "RIP"),
-      (EFLAGS, U.newStringTemp "EFLAGS")
+    [ (RAX, rax),
+      (RDI, rdi),
+      (RSI, rsi),
+      (RDX, rdx),
+      (RCX, rcx),
+      (RBP, rbp),
+      (RSP, rsp),
+      (RBX, rbx),
+      (R8, r8),
+      (R9, r9),
+      (R10, r10),
+      (R11, r11),
+      (R12, r12),
+      (R13, r13),
+      (R14, r14),
+      (R15, r15),
+      (RIP, r10),
+      (EFLAGS, eflags)
     ]
 
 inverseRegisterTempMap :: Map U.Temp Register
 inverseRegisterTempMap =
   Map.fromList
-    [ (U.newStringTemp "RAX", RAX),
-      (U.newStringTemp "RDI", RDI),
-      (U.newStringTemp "RSI", RSI),
-      (U.newStringTemp "RDX", RDX),
-      (U.newStringTemp "RCX", RCX),
-      (U.newStringTemp "RBP", RBP),
-      (U.newStringTemp "RSP", RSP),
-      (U.newStringTemp "RBX", RBX),
-      (U.newStringTemp "R8", R8),
-      (U.newStringTemp "R9", R9),
-      (U.newStringTemp "R10", R10),
-      (U.newStringTemp "R11", R11),
-      (U.newStringTemp "R12", R12),
-      (U.newStringTemp "R13", R13),
-      (U.newStringTemp "R14", R14),
-      (U.newStringTemp "R15", R15),
-      (U.newStringTemp "RIP", RIP),
-      (U.newStringTemp "EFLAGS", EFLAGS)
+    [ (rax, RAX),
+      (rdi, RDI),
+      (rsi, RSI),
+      (rdx, RDX),
+      (rcx, RCX),
+      (rbp, RBP),
+      (rsp, RSP),
+      (rbx, RBX),
+      (r8, R8),
+      (r9, R9),
+      (r10, R10),
+      (r11, R11),
+      (r12, R12),
+      (r13, R13),
+      (r14, R14),
+      (r15, R15),
+      (rip, RIP),
+      (eflags, EFLAGS)
     ]
 
 data ProcedureX86 body = Procedure {body :: body, frame :: Frame} deriving (Show)
