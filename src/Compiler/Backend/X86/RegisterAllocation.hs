@@ -1,24 +1,22 @@
 module Compiler.Backend.X86.RegisterAllocation (allocateRegisters) where
 
 import Compiler.Backend.X86.Arch (Assembly (..), Register (..), callerSaveRegisters, replaceRegister)
-import Compiler.Backend.X86.Frame (Access (..), Frame (..), FrameEff, ProcedureX86 (..), allocateLocalEff, allocateNonEscapedLocalEff, getAllocatedRegisters, inverseRegisterTempMap, modifyFrameEff, runFrameEff)
+import Compiler.Backend.X86.Frame (Access (..), Frame (..), FrameEff, ProcedureX86 (..), allTempRegisters, allocateLocalEff, allocateNonEscapedLocalEff, getAllocatedRegisters, modifyFrameEff, runFrameEff)
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), setDestinations, setSources)
 import Compiler.Backend.X86.RegisterAllocation.InterferenceGraph (InterferenceGraph, InterferenceMutableGraph, buildInterfereceGraph, thaw)
+import Compiler.Backend.X86.RegisterAllocation.RegisterAllocator (Allocation, RegisterAllocator (..), allocateEff, getColor, runRegisterAllocatorState)
 import Compiler.Intermediate.Frame qualified as F (fp)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
-import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..), getNode, getNodeByIndex)
 import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (..))
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.Vector qualified as V
-import GHC.Records (HasField (..))
 import RIO
 import RIO.List qualified as List
-import RIO.Map qualified as Map (Map, insert, (!?))
 import RIO.Partial (fromJust)
 import RIO.Set qualified as Set
-import RIO.State (MonadState, State, runState, state)
+import RIO.State (State)
 
 allocateRegisters :: Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
 allocateRegisters procedure = case simpleColoring callerSaveRegisters procedure of
@@ -90,37 +88,3 @@ startOver procedure spilledTemp = do
           ++ [newFlow]
           ++ [L.Instruction {src = [temp], dst = [], val = MovStoreIndirect temp memory (F.fp @Frame)} | spilledTemp `elem` flow.destinations]
     insertSpillAssembly _ _ _ = undefined
-
-newtype Allocation = Allocation (Map.Map U.Temp Register) deriving (Show)
-
-newAllocation :: Allocation
-newAllocation = Allocation inverseRegisterTempMap
-
-getColor :: Allocation -> U.Temp -> Maybe Register
-getColor (Allocation map) temp = map Map.!? temp
-
-getColors :: Allocation -> [U.Temp] -> [Register]
-getColors allocation = mapMaybe (getColor allocation)
-
-putColor :: Allocation -> U.Temp -> Register -> Allocation
-putColor (Allocation map) temp register = Allocation $ Map.insert temp register map
-
-data RegisterAllocator = RegisterAllocator {graph :: InterferenceGraph U.Temp, availableColors :: [Register], allocation :: Allocation}
-
-newRegisterAllocator :: InterferenceGraph U.Temp -> [Register] -> RegisterAllocator
-newRegisterAllocator graph availableColors = RegisterAllocator {graph, availableColors, allocation = newAllocation}
-
-allocate :: RegisterAllocator -> U.Temp -> (Bool, RegisterAllocator)
-allocate allocator temp =
-  let node = Immutable.getNode allocator.graph temp
-      neiborhoods = V.toList $ fmap (getField @"val" . Immutable.getNodeByIndex allocator.graph) node.outIndexes
-      allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
-   in case List.headMaybe allocatableColors of
-        Nothing -> (False, allocator)
-        Just color -> (True, allocator {allocation = putColor allocator.allocation temp color})
-
-allocateEff :: (MonadState RegisterAllocator m) => U.Temp -> m Bool
-allocateEff temp = state (`allocate` temp)
-
-runRegisterAllocatorState :: InterferenceGraph U.Temp -> [Register] -> State RegisterAllocator a -> (a, RegisterAllocator)
-runRegisterAllocatorState graph availableColors m = runState m $ newRegisterAllocator graph availableColors

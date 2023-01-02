@@ -72,6 +72,7 @@ library
       Compiler.Backend.X86.Liveness
       Compiler.Backend.X86.RegisterAllocation
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraph
+      Compiler.Backend.X86.RegisterAllocation.RegisterAllocator
       Compiler.Exception
       Compiler.Frontend
       Compiler.Frontend.AbstSyntax
