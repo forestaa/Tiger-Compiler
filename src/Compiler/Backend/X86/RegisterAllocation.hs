@@ -30,7 +30,7 @@ allocateRegisters procedure = case simpleColoring callerSaveRegisters procedure 
 
 simpleColoring :: AvailableColors -> ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> ColoringResult
 simpleColoring colors procedure =
-  let graph = buildInterfereceGraph (Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
+  let graph = buildInterfereceGraph (allTempRegisters `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
       stacks = simplifyAndSpill colors graph
    in select colors graph stacks
 

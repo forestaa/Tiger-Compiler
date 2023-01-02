@@ -11,7 +11,7 @@ import GHC.Records (HasField (..))
 import RIO hiding (exp)
 import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
-import RIO.Map.Partial
+import RIO.Set qualified as Set
 
 data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int} deriving (Show)
 
@@ -59,8 +59,8 @@ exp :: Access -> IR.Exp -> IR.Exp
 exp (InRegister t) _ = IR.Temp t
 exp (InFrame offset) base = IR.Mem (IR.BinOp IR.Plus base (IR.Const offset))
 
-allTempRegisters :: [U.Temp]
-allTempRegisters = [rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15]
+allTempRegisters :: Set.Set U.Temp
+allTempRegisters = Set.fromList [rip, rax, rsp, rbp, rbx, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15, eflags]
 
 rip :: U.Temp
 rip = U.newStringTemp "RIP"
