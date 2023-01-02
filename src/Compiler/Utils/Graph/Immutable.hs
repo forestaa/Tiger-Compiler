@@ -76,19 +76,29 @@ class DebugGraphviz graph where
   debugGraphviz :: graph -> Text
 
 instance (Show node, Show edge) => DebugGraphviz (IGraph 'Directional node edge) where
-  debugGraphviz graph = pack $ "digraph G{\n" ++ concatMap (nodeToGraphviz graph) (getAllNodes graph) ++ "}\n"
+  debugGraphviz graph = pack $ "digraph G{\n" ++ nodeGraphvizStatements graph ++ edgeGraphvizStatements graph ++ "}\n"
     where
-      nodeToGraphviz :: IGraph 'Directional node edge -> Node node edge -> String
-      nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
-      edgeToGraphviz :: Node node edge -> Node node edge -> String
-      edgeToGraphviz src tgt = concat ["  ", show src.val, " -> ", show tgt.val, ";"]
+      nodeGraphvizStatements :: IGraph 'Directional node edge -> String
+      nodeGraphvizStatements graph = unlines . Vec.toList $ (\node -> concat ["  ", show node.val, ";"]) <$> getAllNodes graph
+      edgeGraphvizStatements :: IGraph 'Directional node edge -> String
+      edgeGraphvizStatements graph = concatMap (nodeToGraphviz graph) (getAllNodes graph)
+        where
+          nodeToGraphviz :: IGraph 'Directional node edge -> Node node edge -> String
+          nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
+          edgeToGraphviz :: Node node edge -> Node node edge -> String
+          edgeToGraphviz src tgt = concat ["  ", show src.val, " -> ", show tgt.val, ";"]
 
 instance (Show node, Show edge) => DebugGraphviz (IGraph 'UnDirectional node edge) where
-  debugGraphviz graph = pack $ "graph G{\n" ++ concatMap (nodeToGraphviz graph) (getAllNodes graph) ++ "}\n"
+  debugGraphviz graph = pack $ "graph G{\n" ++ nodeGraphvizStatements graph ++ edgeGraphvizStatements graph ++ "}\n"
     where
-      nodeToGraphviz :: IGraph 'UnDirectional node edge -> Node node edge -> String
-      nodeToGraphviz graph node = unlines . Vec.toList . Vec.mapMaybe (edgeToGraphviz node) $ getOutNeiborhoodsByIndex graph node.index
-      edgeToGraphviz :: Node node edge -> Node node edge -> Maybe String
-      edgeToGraphviz src tgt
-        | src.index <= tgt.index = Just $ concat ["  ", show src.val, " -- ", show tgt.val, ";"]
-        | otherwise = Nothing
+      nodeGraphvizStatements :: IGraph 'UnDirectional node edge -> String
+      nodeGraphvizStatements graph = unlines . Vec.toList $ (\node -> concat ["  ", show node.val, ";"]) <$> getAllNodes graph
+      edgeGraphvizStatements :: IGraph 'UnDirectional node edge -> String
+      edgeGraphvizStatements graph = concatMap (nodeToGraphviz graph) (getAllNodes graph)
+        where
+          nodeToGraphviz :: IGraph 'UnDirectional node edge -> Node node edge -> String
+          nodeToGraphviz graph node = unlines . Vec.toList . Vec.mapMaybe (edgeToGraphviz node) $ getOutNeiborhoodsByIndex graph node.index
+          edgeToGraphviz :: Node node edge -> Node node edge -> Maybe String
+          edgeToGraphviz src tgt
+            | src.index <= tgt.index = Just $ concat ["  ", show src.val, " -- ", show tgt.val, ";"]
+            | otherwise = Nothing
