@@ -13,9 +13,9 @@ import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
 import RIO.Map.Partial
 
-data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int}
+data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int} deriving (Show)
 
-data Access = InRegister U.Temp | InFrame Int | SpilledOut
+data Access = InRegister U.Temp | InFrame Int | SpilledOut deriving (Show)
 
 isInRegister :: Access -> Bool
 isInRegister (InRegister _) = True
@@ -202,11 +202,11 @@ inverseRegisterTempMap =
       (U.newStringTemp "EFLAGS", EFLAGS)
     ]
 
-data ProcedureX86 body = Procedure {body :: body, frame :: Frame}
+data ProcedureX86 body = Procedure {body :: body, frame :: Frame} deriving (Show)
 
-data StringFragmentX86 body = StringFragment {body :: body}
+data StringFragmentX86 body = StringFragment {body :: body} deriving (Show)
 
-data ProgramFragmentX86 body = Proc (ProcedureX86 body) | String (StringFragmentX86 body)
+data ProgramFragmentX86 body = Proc (ProcedureX86 body) | String (StringFragmentX86 body) deriving (Show)
 
 instance HasField "procedure" (ProgramFragmentX86 body) (Maybe (ProcedureX86 body)) where
   getField (Proc procedure) = Just procedure
