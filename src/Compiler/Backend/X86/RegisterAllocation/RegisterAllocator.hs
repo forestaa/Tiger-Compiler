@@ -26,6 +26,9 @@ newtype Allocation = Allocation (Map.Map U.Temp Register) deriving (Show)
 newAllocation :: Allocation
 newAllocation = Allocation inverseRegisterTempMap
 
+isAllocated :: Allocation -> U.Temp -> Bool
+isAllocated = (.) isJust . getColor
+
 getColor :: Allocation -> U.Temp -> Maybe Register
 getColor (Allocation map) temp = map Map.!? temp
 
@@ -48,9 +51,10 @@ allocate allocator temp =
   let node = Immutable.getNode allocator.graph temp
       neiborhoods = V.toList $ fmap (getField @"val" . Immutable.getNodeByIndex allocator.graph) node.outIndexes
       allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
-   in case List.headMaybe allocatableColors of
-        Nothing -> (False, allocator)
-        Just color -> (True, allocator {allocation = putColor allocator.allocation temp color})
+   in case (isAllocated allocator.allocation temp, List.headMaybe allocatableColors) of
+        (True, _) -> (True, allocator)
+        (False, Nothing) -> (False, allocator)
+        (False, Just color) -> (True, allocator {allocation = putColor allocator.allocation temp color})
 
 allocateEff :: (MonadState RegisterAllocator m) => U.Temp -> m Bool
 allocateEff temp = state (`allocate` temp)

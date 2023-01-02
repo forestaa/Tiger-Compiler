@@ -133,22 +133,22 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
           label <- U.newLabel
           frame <- newFrame label []
           let body =
-                [ L.Instruction {src = [], dst = [], val = MovImmediate 1 r8},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r9},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r10},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r11},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r12},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r13},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r14},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 r15},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rip},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rax},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rsp},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rbp},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rdi},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rsi},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rdx},
-                  L.Instruction {src = [], dst = [], val = MovImmediate 1 rcx}
+                [ L.Instruction {src = [], dst = [r8], val = MovImmediate 1 r8},
+                  L.Instruction {src = [], dst = [r9], val = MovImmediate 1 r9},
+                  L.Instruction {src = [], dst = [r10], val = MovImmediate 1 r10},
+                  L.Instruction {src = [], dst = [r11], val = MovImmediate 1 r11},
+                  L.Instruction {src = [], dst = [r12], val = MovImmediate 1 r12},
+                  L.Instruction {src = [], dst = [r13], val = MovImmediate 1 r13},
+                  L.Instruction {src = [], dst = [r14], val = MovImmediate 1 r14},
+                  L.Instruction {src = [], dst = [r15], val = MovImmediate 1 r15},
+                  L.Instruction {src = [], dst = [rip], val = MovImmediate 1 rip},
+                  L.Instruction {src = [], dst = [rax], val = MovImmediate 1 rax},
+                  L.Instruction {src = [], dst = [rsp], val = MovImmediate 1 rsp},
+                  L.Instruction {src = [], dst = [rbp], val = MovImmediate 1 rbp},
+                  L.Instruction {src = [], dst = [rdi], val = MovImmediate 1 rdi},
+                  L.Instruction {src = [], dst = [rsi], val = MovImmediate 1 rsi},
+                  L.Instruction {src = [], dst = [rdx], val = MovImmediate 1 rdx},
+                  L.Instruction {src = [], dst = [rcx], val = MovImmediate 1 rcx}
                 ]
           allocateRegisters Procedure {body = body, frame = frame}
     result.body
