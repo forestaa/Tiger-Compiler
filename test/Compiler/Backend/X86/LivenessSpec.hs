@@ -8,7 +8,7 @@ import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (addEdgeB
 import RIO (Int, ($), (<$>))
 import RIO.Map qualified as Map
 import RIO.Set qualified as Set
-import Test.Hspec (Spec, describe, it, pending, shouldBe)
+import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = do
@@ -134,7 +134,6 @@ solveDataFlowEquationSpec = describe "solveDataFlowEquation spec" $ do
     liveVariables `shouldBe` expectedLiveVariables
 
   it "A variable is dead between doubly defined and not used" $ do
-    pending
     let cnode1 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 1}) 1
         cnode2 = L.newControlFlowNode (L.Instruction {src = [], dst = [], val = 2}) 2
         cnode3 = L.newControlFlowNode (L.Instruction {src = [], dst = [1], val = 3}) 3

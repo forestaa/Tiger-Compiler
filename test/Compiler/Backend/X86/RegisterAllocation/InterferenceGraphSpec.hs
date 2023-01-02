@@ -8,7 +8,7 @@ import Compiler.Utils.Graph.Mutable as Mutable hiding (freeze)
 import RIO (Int, undefined, ($), (=<<))
 import RIO.Map qualified as Map
 import RIO.Set qualified as Set
-import Test.Hspec (Spec, describe, it, pending, shouldBe)
+import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = do
