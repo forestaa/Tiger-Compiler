@@ -11,7 +11,7 @@ import Compiler.Frontend.Language.Tiger.Semant.Types
 import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique
+import Compiler.Intermediate.Unique (UniqueEff, namedLabel, newLabel)
 import Data.Extensible
 import Data.Extensible.Effect
 import RIO
@@ -194,7 +194,16 @@ stringOpExp T.NEq (Ex left) (Ex right) = do
   pure . Cx $ \t f -> IR.CJump IR.Eq it (IR.Const 0) t f
 stringOpExp _ _ _ = undefined
 
-ifElseExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => Exp -> Exp -> Exp -> Eff xs Exp
+ifElseExp ::
+  ( F.Frame f,
+    Lookup xs "temp" UniqueEff,
+    Lookup xs "label" UniqueEff,
+    Lookup xs "nestingLevel" (NestingLevelEff f)
+  ) =>
+  Exp ->
+  Exp ->
+  Exp ->
+  Eff xs Exp
 ifElseExp cond (Nx thenStm) (Nx elseStm) = do
   t <- newLabel
   f <- newLabel
@@ -211,7 +220,7 @@ ifElseExp cond (Nx thenStm) (Nx elseStm) = do
         IR.Label z
       ]
 ifElseExp cond (Cx thenExp) (Cx elseExp) = do
-  r <- newTemp
+  temp <- allocateTempOnCurrentLevel
   t <- newLabel
   f <- newLabel
   ret0 <- newLabel
@@ -226,17 +235,17 @@ ifElseExp cond (Cx thenExp) (Cx elseExp) = do
             IR.Label f,
             elseExp ret0 ret1,
             IR.Label ret0,
-            IR.Move (IR.Temp r) (IR.Const 0),
+            IR.Move temp (IR.Const 0),
             IR.Jump (IR.Name z) [z],
             IR.Label ret1,
-            IR.Move (IR.Temp r) (IR.Const 1),
+            IR.Move temp (IR.Const 1),
             IR.Jump (IR.Name z) [z],
             IR.Label z
           ]
       )
-      (IR.Temp r)
+      temp
 ifElseExp cond thenExp elseExp = do
-  r <- newTemp
+  temp <- allocateTempOnCurrentLevel
   t <- newLabel
   f <- newLabel
   z <- newLabel
@@ -247,15 +256,15 @@ ifElseExp cond thenExp elseExp = do
       ( IR.seqStm
           [ unCx cond t f,
             IR.Label t,
-            IR.Move (IR.Temp r) thenExp',
+            IR.Move temp thenExp',
             IR.Jump (IR.Name z) [z],
             IR.Label f,
-            IR.Move (IR.Temp r) elseExp',
+            IR.Move temp elseExp',
             IR.Jump (IR.Name z) [z],
             IR.Label z
           ]
       )
-      (IR.Temp r)
+      temp
 
 ifNoElseExp :: (Lookup xs "label" UniqueEff) => Exp -> Exp -> Eff xs Exp
 ifNoElseExp _ (Cx _) = undefined
@@ -271,24 +280,24 @@ ifNoElseExp cond exp = do
         IR.Label z
       ]
 
-recordCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => [Exp] -> Eff xs Exp
+recordCreationExp :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f)) => [Exp] -> Eff xs Exp
 recordCreationExp es = do
-  r <- newTemp
-  s <- recordCreationStm r es
-  pure . Ex $ IR.ESeq s (IR.Temp r)
+  temp <- allocateTempOnCurrentLevel
+  s <- recordCreationStm temp es
+  pure . Ex $ IR.ESeq s temp
   where
-    allocateRecordStm r n = IR.Move (IR.Temp r) <$> F.externalCall @f "malloc" [IR.Const $ n * F.wordSize @f]
-    initializeRecordFieldsStm r = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus (IR.Temp r) (IR.Const (i * F.wordSize @f))) e
+    allocateRecordStm temp n = IR.Move temp <$> F.externalCall @f "malloc" [IR.Const $ n * F.wordSize @f]
+    initializeRecordFieldsStm temp = fmap $ \(i, Ex e) -> IR.Move (IR.Mem $ IR.BinOp IR.Plus temp (IR.Const (i * F.wordSize @f))) e
     recordCreationStm r [] = allocateRecordStm r 0
-    recordCreationStm r es = do
-      s <- allocateRecordStm r (length es)
-      pure . IR.Seq s . IR.seqStm . initializeRecordFieldsStm r $ zip [0 ..] es
+    recordCreationStm temp es = do
+      s <- allocateRecordStm temp (length es)
+      pure . IR.Seq s . IR.seqStm . initializeRecordFieldsStm temp $ zip [0 ..] es
 
-arrayCreationExp :: forall f xs. (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f) => Exp -> Exp -> Eff xs Exp
+arrayCreationExp :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f)) => Exp -> Exp -> Eff xs Exp
 arrayCreationExp (Ex size) (Ex init) = do
-  r <- newTemp
-  allocateArrayStm <- IR.Move (IR.Temp r) <$> F.externalCall @f "initArray" [size, init]
-  pure . Ex $ IR.ESeq allocateArrayStm (IR.Temp r)
+  temp <- allocateTempOnCurrentLevel
+  allocateArrayStm <- IR.Move temp <$> F.externalCall @f "initArray" [size, init]
+  pure . Ex $ IR.ESeq allocateArrayStm temp
 arrayCreationExp _ _ = undefined
 
 whileLoopExp :: (Lookup xs "label" UniqueEff, Lookup xs "breakpoint" BreakPointEff) => Exp -> Exp -> Eff xs Exp
@@ -327,7 +336,7 @@ forLoopExp access from@(Ex _) (Ex to) exp = do
   index <- unEx =<< valueIdExp access
   indexInit <- unNx =<< assignExp (Ex index) from
   increment <- unNx =<< assignExp (Ex index) (Ex $ IR.BinOp IR.Plus index (IR.Const 1))
-  ul <- IR.Temp <$> newTemp
+  ul <- allocateTempOnCurrentLevel
   loop <- newLabel
   body <- newLabel
   bodyStm <- unNx exp

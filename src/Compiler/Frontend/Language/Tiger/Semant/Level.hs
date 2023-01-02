@@ -1,13 +1,13 @@
 module Compiler.Frontend.Language.Tiger.Semant.Level where
 
+import Compiler.Intermediate.Frame qualified as F
+import Compiler.Intermediate.IR qualified as IR
+import Compiler.Intermediate.Unique
 import Control.Monad.Error.Class
 import Control.Monad.State.Class
 import Data.Extensible
 import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
-import Compiler.Intermediate.Frame qualified as F
-import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique
 import RIO
 import RIO.List.Partial qualified as List
 import RIO.Partial qualified as Partial
@@ -106,3 +106,13 @@ allocateLocalOnCurrentLevel b =
       (frame', access) <- F.allocLocal level.frame b
       modifyCurrentLevelEff $ const level {frame = frame'}
       pure access
+
+allocateTempOnCurrentLevel ::
+  ( F.Frame f,
+    Lookup xs "nestingLevel" (NestingLevelEff f),
+    Lookup xs "temp" UniqueEff
+  ) =>
+  Eff xs IR.Exp
+allocateTempOnCurrentLevel = do
+  access <- allocateLocalOnCurrentLevel False
+  F.exp access <$> (pullInStaticLinksEff =<< fetchCurrentLevelEff)
