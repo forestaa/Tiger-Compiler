@@ -12,6 +12,7 @@ import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (..))
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.Vector qualified as V
+import GHC.Records (HasField (..))
 import RIO
 import RIO.List qualified as List
 import RIO.Partial (fromJust)
@@ -24,7 +25,7 @@ allocateRegisters procedure = case simpleColoring callerSaveRegisters procedure 
     procedure <- foldM startOver procedure spilled
     allocateRegisters procedure
   Colored allocation ->
-    let body = (\flow -> flow.val) <$> procedure.body
+    let body = getField @"val" <$> procedure.body
         allocatedBody = replaceRegister (fromJust . getColor allocation) <$> body
      in pure Procedure {body = allocatedBody, frame = procedure.frame}
 

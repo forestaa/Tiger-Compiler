@@ -33,7 +33,7 @@ lookupVarAccessEff ::
   Eff xs (VarAccess f)
 lookupVarAccessEff (L loc id) =
   lookupVarAccess id >>= \case
-    Just ty -> pure ty
+    Just access -> pure access
     Nothing -> throwEff #translateError . L loc $ VariableUndefined id
 
 allocateLocalVariable ::
