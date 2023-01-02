@@ -79,7 +79,7 @@ codegenExp (IR.Const i) = do
   pure ([L.Instruction {src = [], dst = [t], val = MovImmediate i t}], t)
 codegenExp (IR.Name label) = do
   t <- allocateNonEscapedLocalEff
-  pure ([L.Instruction {src = [], dst = [t], val = Lea (fromUniqueLabel label) rip t}], t)
+  pure ([L.Instruction {src = [rip], dst = [t], val = Lea (fromUniqueLabel label) rip t}], t)
 codegenExp (IR.Temp t) = pure ([], t)
 codegenExp (IR.BinOp op e (IR.Const i)) = do
   (flows, t) <- codegenExp e
@@ -138,7 +138,7 @@ codegenParameters es = do
   pure (flows ++ parameterPassingInstrs, dsts)
   where
     parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> parameterTempRegisters
-    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) rbp}) <$> [7 ..] -- TODO: use pushq
+    parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst, rbp], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) rbp}) <$> [7 ..] -- TODO: use pushq
 
 jumpInstr :: forall register. IR.RelOp -> Label -> Assembly register
 jumpInstr IR.Eq = JumpIfEqual
