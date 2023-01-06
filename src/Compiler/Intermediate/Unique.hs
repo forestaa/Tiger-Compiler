@@ -41,7 +41,7 @@ getUniqueEff k = do
 putUniqueEff :: Lookup xs k UniqueEff => Proxy k -> Unique -> Eff xs ()
 putUniqueEff = putEff
 
-data Temp = Temp String Unique deriving (Eq, Ord)
+data Temp = Temp {body :: String, unique :: Unique} deriving (Eq, Ord)
 
 instance Show Temp where
   show (Temp str u) = str ++ show u
@@ -55,7 +55,7 @@ newStringTemp s = Temp s (Unique 0)
 makeString :: Temp -> String
 makeString (Temp str (Unique n)) = str ++ show n
 
-data Label = Label String Unique deriving (Eq, Ord)
+data Label = Label {body :: String, unique :: Unique} deriving (Eq, Ord)
 
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
