@@ -26,9 +26,9 @@ codegenMain _ = undefined
 
 codegenFragment :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs (ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
 codegenFragment (F.Proc procedure) = do
+  procedure <- processIntermediate @im $ procedure {F.body = IR.Label (F.name procedure.frame) `IR.Seq` procedure.body}
   (body, frame') <- castEff . flip runFrameEff procedure.frame $ do
-    stms <- processIntermediate @im $ IR.Label (F.name procedure.frame) `IR.Seq` procedure.body
-    concat <$> mapM codegenStm stms :: Eff '["frame" >: FrameEff, "label" >: U.UniqueEff, "temp" >: U.UniqueEff] [L.ControlFlow U.Temp (Assembly U.Temp)]
+    concat <$> mapM codegenStm procedure.body :: Eff '["frame" >: FrameEff, "label" >: U.UniqueEff, "temp" >: U.UniqueEff] [L.ControlFlow U.Temp (Assembly U.Temp)]
   pure . Proc $ Procedure {body = body, frame = frame'}
 codegenFragment (F.String string) = Compiler.Backend.X86.Frame.String . StringFragment <$> codegenString string.name string.text
 

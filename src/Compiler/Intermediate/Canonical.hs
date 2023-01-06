@@ -1,31 +1,41 @@
-module Compiler.Intermediate.Canonical where
+module Compiler.Intermediate.Canonical
+  ( Canonical (Canonical),
+    Block (..),
+    linearize,
+    basicBlocks,
+    traceSchedule,
+  )
+where
 
 import Compiler.Intermediate (Intermediate (..))
+import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR
-import Compiler.Intermediate.Unique (Label, UniqueEff, newLabel, newTemp)
+import Compiler.Intermediate.Unique (Label, UniqueEff, newLabel)
 import Data.Extensible (Lookup, type (>:))
-import Data.Extensible.Effect (Eff, State, castEff, evalStateEff, getEff, getsEff, modifyEff, putEff)
+import Data.Extensible.Effect (Eff, State, castEff, evalStateEff, getEff, getsEff, modifyEff, putEff, runStateEff)
 import Data.Foldable (foldrM)
 import Data.Graph (Tree (..), dff, graphFromEdges)
 import Data.List (init, last)
 import RIO hiding (Const)
-import RIO.Lens
+import RIO.Lens (_1)
 import RIO.List (headMaybe)
 
 data Canonical = Canonical
 
 instance Intermediate Canonical where
-  processIntermediate = linearize >=> basicBlocks >=> uncurry traceSchedule
+  processIntermediate = linearize >=> basicBlocks >=> traceSchedule
 
-linearize :: Lookup xs "temp" UniqueEff => Stm -> Eff xs [Stm]
-linearize = fmap seqToList . linearizeStm
+linearize :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff) => F.Procedure f Stm -> Eff xs (F.Procedure f [Stm])
+linearize procedure = castEff . fmap (\(stms, frame) -> F.Procedure frame stms) . flip (runStateEff @"frame") procedure.frame $ do
+  seqToList <$> linearizeStm procedure.body :: Eff '["frame" >: State f, "temp" >: UniqueEff] [Stm]
   where
+    seqToList :: Stm -> [Stm]
     seqToList ((Exp (Const _)) `Seq` s2) = seqToList s2
     seqToList (s1 `Seq` s2) = seqToList s1 ++ seqToList s2
     seqToList (Exp (Const _)) = []
     seqToList s = [s]
 
-linearizeStm :: Lookup xs "temp" UniqueEff => Stm -> Eff xs Stm
+linearizeStm :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "frame" (State f)) => Stm -> Eff xs Stm
 linearizeStm (s1 `Seq` s2) = Seq <$> linearizeStm s1 <*> linearizeStm s2
 linearizeStm (Jump e labels) = do
   (s, e') <- linearizeExp e
@@ -36,8 +46,8 @@ linearizeStm (CJump op e1 e2 t f) = do
   if s2 `isCommutative` e1'
     then pure $ s1 `Seq` (s2 `Seq` CJump op e1' e2' t f)
     else do
-      temp <- newTemp
-      pure $ s1 `Seq` (Move (Temp temp) e1' `Seq` (s2 `Seq` CJump op (Temp temp) e2' t f))
+      temp <- allocateTemp
+      pure $ s1 `Seq` (Move temp e1' `Seq` (s2 `Seq` CJump op temp e2' t f))
 linearizeStm (Move (Temp temp) (Call f es)) = do
   (s, f') <- linearizeExp f
   (s', es') <- linearizeExps es
@@ -59,15 +69,15 @@ linearizeStm (Exp e) = do
   pure $ s `Seq` Exp e'
 linearizeStm s = pure s
 
-linearizeExp :: Lookup xs "temp" UniqueEff => Exp -> Eff xs (Stm, Exp)
+linearizeExp :: (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "frame" (State f)) => Exp -> Eff xs (Stm, Exp)
 linearizeExp (BinOp op e1 e2) = do
   (s1, e1') <- linearizeExp e1
   (s2, e2') <- linearizeExp e2
   if s2 `isCommutative` e1'
     then pure (s1 `Seq` s2, BinOp op e1' e2')
     else do
-      temp <- newTemp
-      pure (s1 `Seq` (Move (Temp temp) e1' `Seq` s2), BinOp op (Temp temp) e2')
+      temp <- allocateTemp
+      pure (s1 `Seq` (Move temp e1' `Seq` s2), BinOp op temp e2')
 linearizeExp (Mem e) = do
   (s, e') <- linearizeExp e
   pure (s, Mem e')
@@ -78,21 +88,21 @@ linearizeExp (ESeq s e) = do
 linearizeExp (Call f es) = do
   (s, f') <- linearizeExp f
   (s', es') <- linearizeExps es
-  temp <- newTemp
-  pure (s `Seq` (s' `Seq` Move (Temp temp) (Call f' es')), Temp temp)
+  temp <- allocateTemp
+  pure (s `Seq` (s' `Seq` Move temp (Call f' es')), temp)
 linearizeExp e = pure (noop, e)
 
-linearizeExps :: Lookup xs "temp" UniqueEff => [Exp] -> Eff xs (Stm, [Exp])
+linearizeExps :: (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "frame" (State f)) => [Exp] -> Eff xs (Stm, [Exp])
 linearizeExps = foldrM f (noop, [])
   where
-    f :: Lookup xs "temp" UniqueEff => Exp -> (Stm, [Exp]) -> Eff xs (Stm, [Exp])
+    f :: (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "frame" (State f)) => Exp -> (Stm, [Exp]) -> Eff xs (Stm, [Exp])
     f e (s, es) = do
       (s', e') <- linearizeExp e
       if s `isCommutative` e'
         then pure (s' `Seq` s, e' : es)
         else do
-          temp <- newTemp
-          pure (s' `Seq` (Move (Temp temp) e' `Seq` s), Temp temp : es)
+          temp <- allocateTemp
+          pure (s' `Seq` (Move temp e' `Seq` s), temp : es)
 
 -- TODO
 isCommutative :: Stm -> Exp -> Bool
@@ -150,8 +160,8 @@ endBlockEff k = do
     Nothing -> pure blocks
     Just block -> pure $ blocks ++ [block]
 
-basicBlocks :: Lookup xs "label" UniqueEff => [Stm] -> Eff xs ([Block], Label)
-basicBlocks stms = castEff . evalBlockEff @"block" $ go stms
+basicBlocks :: (F.Frame f, Lookup xs "label" UniqueEff) => F.Procedure f [Stm] -> Eff xs (F.Procedure f ([Block], Label))
+basicBlocks procedure = castEff . fmap (F.Procedure procedure.frame) . evalBlockEff @"block" $ go procedure.body
   where
     go :: [Stm] -> Eff '["block" >: BlockEff, "label" >: UniqueEff] ([Block], Label)
     go ((Label label) : stms) = do
@@ -212,8 +222,8 @@ statements trace = do
       _ -> pure [currBlock]
     processJump [] = pure []
 
-traceSchedule :: Lookup xs "label" UniqueEff => [Block] -> Label -> Eff xs [Stm]
-traceSchedule blocks done = do
+traceSchedule :: Lookup xs "label" UniqueEff => F.Procedure f ([Block], Label) -> Eff xs (F.Procedure f [Stm])
+traceSchedule (F.Procedure {frame, body = (blocks, done)}) = do
   let (graph, vertex, _) = graphFromEdges . flip fmap blocks $ \block -> case lastJump block of
         Jump (Name lbl) _ -> (block, block.lbl, [lbl])
         CJump _ _ _ _ false -> (block, block.lbl, [false])
@@ -221,4 +231,11 @@ traceSchedule blocks done = do
       treeToList (Node block blocks) = block : (maybe [] treeToList $ headMaybe blocks)
       traces = newTrace . fmap (view _1 . vertex) . treeToList <$> dff graph
   body <- concat <$> mapM statements traces
-  pure $ body ++ [Label done] -- TODO: done should call popq, ret
+  pure . F.Procedure frame $ body ++ [Label done] -- TODO: done should call popq, ret
+
+allocateTemp :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "frame" (State f)) => Eff xs Exp
+allocateTemp = do
+  frame <- getEff #frame
+  (frame', access) <- F.allocLocal frame False
+  putEff #frame frame'
+  pure $ F.exp access (Temp (F.fp @f))
