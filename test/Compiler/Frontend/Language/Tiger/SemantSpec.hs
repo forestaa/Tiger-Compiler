@@ -1426,10 +1426,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.Temp (Temp _ _)) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc procedure] = case procedure.frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0, InReg _] -> numberOfLocals == 0
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0, InReg _] -> procedure.frame.numberOfLocals == 0
+            _ -> False
           frameP _ = False
 
   it "let function f(x: int): int = let var y: int = 1 in x + y in f(1)" $ do
@@ -1450,10 +1449,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.ESeq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp))) (IR.Const 1)) (IR.BinOp IR.Plus (IR.Temp (Temp _ _)) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp fp'))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock && fp' == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc (F.Procedure {frame})] = case frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0, InReg _] -> numberOfLocals == 1
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0, InReg _] -> procedure.frame.numberOfLocals == 1 && (procedure.frame.localVariables Partial.!! 0) == InFrame (-4)
+            _ -> False
           frameP _ = False
 
   it "let function f(x: int): int = let function g(y: int): int = x + y in g(0) in f(1)" $ do
@@ -1471,12 +1469,12 @@ translateLetSpec = describe "translate let test" $ do
           expP (Ex (IR.Call (IR.Name _) [IR.Temp fp, IR.Const 1])) = fp == F.fp @FrameMock
           expP _ = False
           bodyP [F.Proc (F.Procedure {body = body1}), F.Proc (F.Procedure {body = body2})] = case (body1, body2) of
-            (IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const 4) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _))), IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0])) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
+            (IR.Move (IR.Temp rv2) (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp2))))) (IR.Temp (Temp _ _))), IR.Move (IR.Temp rv1) (IR.Call (IR.Name _) [IR.Temp fp1, IR.Const 0])) -> rv1 == F.rv @FrameMock && rv2 == F.rv @FrameMock && fp1 == F.fp @FrameMock && fp2 == F.fp @FrameMock
             _ -> False
           bodyP _ = False
           frameP [F.Proc (F.Procedure {frame = frame1}), F.Proc (F.Procedure {frame = frame2})] = case (frame1, frame2) of
             (frame1@FrameMock {}, frame2@FrameMock {}) -> case (frame1.formals, frame2.formals) of
-              ([InFrame 0, InReg _], [InFrame 0, InFrame 4]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
+              ([InFrame 0, InReg _], [InFrame 0, InFrame (-4)]) -> frame1.numberOfLocals == 0 && frame2.numberOfLocals == 0
               _ -> False
           frameP _ = False
 
@@ -1500,10 +1498,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.Const 0) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc (F.Procedure {frame})] = case frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0] -> numberOfLocals == 0
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0] -> procedure.frame.numberOfLocals == 0
+            _ -> False
           frameP _ = True
 
   it "let type myint = int; var a: myint = 1; function f(): myint = a; in f()" $ do
@@ -1524,10 +1521,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) (IR.Temp fp))))) -> rv == F.rv @FrameMock && fp == F.fp @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc (F.Procedure {frame})] = case frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0] -> numberOfLocals == 0
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0] -> procedure.frame.numberOfLocals == 0
+            _ -> False
           frameP _ = False
 
   it "let var f: int = 1; function f(): int = 1 in f()" $ do
@@ -1548,10 +1544,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc (F.Procedure {frame})] = case frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0] -> numberOfLocals == 0
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0] -> procedure.frame.numberOfLocals == 0
+            _ -> False
           frameP _ = False
 
   it "let function f(): int = 1; var f: int = 1 in f" $ do
@@ -1572,10 +1567,9 @@ translateLetSpec = describe "translate let test" $ do
             IR.Move (IR.Temp rv) (IR.Const 1) -> rv == F.rv @FrameMock
             _ -> False
           bodyP _ = False
-          frameP [F.Proc (F.Procedure {frame})] = case frame of
-            FrameMock {formals, numberOfLocals} -> case formals of
-              [InFrame 0] -> numberOfLocals == 0
-              _ -> False
+          frameP [F.Proc procedure] = case procedure.frame.formals of
+            [InFrame 0] -> procedure.frame.numberOfLocals == 0
+            _ -> False
           frameP _ = False
 
   it "let function f() = g(); function g() = f() in f()" $ do

@@ -67,7 +67,7 @@ fetchCurrentLevelParametersAccessEffSpec = describe "fetch current level paramet
           withNewLevelEff label [True] $ do
             fetchCurrentLevelParametersAccessEff
     access `shouldSatisfy` \case
-      [InFrame 4] -> True
+      [InFrame (-4)] -> True
       _ -> False
 
 runEff :: Eff '["temp" >: UniqueEff, "label" >: UniqueEff, "nestingLevel" >: NestingLevelEff FrameMock] a -> a

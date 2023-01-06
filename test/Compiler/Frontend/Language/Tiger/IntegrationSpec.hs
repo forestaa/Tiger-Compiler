@@ -2,7 +2,7 @@ module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
-import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..))
+import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..), isInFrame, isInRegister)
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Samples (tigerTest, validTigerTests)
 import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError)
@@ -53,14 +53,10 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 `IR.ESeq` (IR.Temp temp1)
             )
         )
-    res.main.procedure.frame
-      `shouldBe` Just
-        ( FrameMock
-            { name = U.Label "tiger" (U.Unique 0),
-              formals = [InFrame 0],
-              numberOfLocals = 0
-            }
-        )
+    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
+    res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
+    res.main.procedure.frame.head `shouldBe` Just (-4)
     res.fragments `shouldBe` []
 
   it "test02.tig" $ do
@@ -84,14 +80,11 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 IR.>>& IR.Temp temp1
             )
         )
-    res.main.procedure.frame
-      `shouldBe` Just
-        ( FrameMock
-            { name = U.Label "tiger" (U.Unique 0),
-              formals = [InFrame 0],
-              numberOfLocals = 0
-            }
-        )
+    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
+    res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
+    res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)
+    res.main.procedure.frame.head `shouldBe` Just (-4)
     res.fragments `shouldBe` []
 
   it "test03.tig" $ do
@@ -126,14 +119,11 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 IR.>>& IR.Temp temp1
             )
         )
-    res.main.procedure.frame
-      `shouldBe` Just
-        ( FrameMock
-            { name = U.Label "tiger" (U.Unique 0),
-              formals = [InFrame 0],
-              numberOfLocals = 0
-            }
-        )
+    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
+    res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
+    res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)
+    res.main.procedure.frame.head `shouldBe` Just (-4)
     length res.fragments `shouldBe` 2
     (res.fragments !! 0).string.name `shouldBe` Just nobody
     (res.fragments !! 0).string.text `shouldBe` Just "\"Nobody\""
@@ -155,14 +145,10 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
       `shouldBe` Just
         ( IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10])
         )
-    res.main.procedure.frame
-      `shouldBe` Just
-        ( FrameMock
-            { name = U.Label "tiger" (U.Unique 0),
-              formals = [InFrame 0],
-              numberOfLocals = 0
-            }
-        )
+    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
+    res.main.procedure.frame.numberOfLocals `shouldBe` Just 0
+    res.main.procedure.frame.head `shouldBe` Just (-4)
     length res.fragments `shouldBe` 1
     (res.fragments !! 0).procedure.body
       `shouldBe` Just
@@ -190,14 +176,11 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                   IR.>>& (IR.Temp temp1)
             )
         )
-    (res.fragments !! 0).procedure.frame
-      `shouldBe` Just
-        ( FrameMock
-            { name = U.Label "nfactor" (U.Unique 11),
-              formals = [InFrame 0, InReg temp0],
-              numberOfLocals = 0
-            }
-        )
+    (res.fragments !! 0).procedure.frame.name.body `shouldBe` Just "nfactor"
+    (res.fragments !! 0).procedure.frame.formals `shouldBe` Just [InFrame 0, InReg temp0]
+    (res.fragments !! 0).procedure.frame.numberOfLocals `shouldBe` Just 1
+    res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)
+    (res.fragments !! 0).procedure.frame.head `shouldBe` Just (-4)
 
   it "valid test cases" $ do
     res <- runExceptT (traverse (ExceptT . translateTest) validTigerTests)
