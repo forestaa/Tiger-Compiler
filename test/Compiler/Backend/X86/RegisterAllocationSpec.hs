@@ -5,7 +5,7 @@ import Compiler.Backend.X86.Frame (Frame (Frame), ProcedureX86 (..), allocateLoc
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
 import Compiler.Intermediate.Unique (newStringTemp)
-import Compiler.Intermediate.Unique qualified as U (evalUniqueEff, newLabel, newTemp)
+import Compiler.Intermediate.Unique qualified as U (evalUniqueEff, newLabel)
 import Data.Extensible.Effect (leaveEff)
 import RIO
 import RIO.List.Partial ((!!))
