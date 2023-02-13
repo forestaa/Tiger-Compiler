@@ -138,15 +138,14 @@ parameterPassingAccesses = (InRegister <$> parameterTempRegisters) ++ [InFrame (
 parameterTempRegisters :: [U.Temp]
 parameterTempRegisters = [rdi, rsi, rdx, rcx, r8, r9]
 
+-- NOTE: Normally PushRegister RBP is at the first of fragments, but for Tiger that is unnessary because RBP is passed as first argument of procedure
 prologue :: Frame -> [Assembly Register]
 prologue frame
   | numberOfFrameAllocatedVariables frame == 0 =
-      [ PushRegister RBP,
-        MovRegister RSP RBP
+      [ MovRegister RSP RBP
       ]
   | otherwise =
-      [ PushRegister RBP,
-        MovRegister RSP RBP,
+      [ MovRegister RSP RBP,
         SubImmediate (wordSize * numberOfFrameAllocatedVariables frame) RSP
       ]
 

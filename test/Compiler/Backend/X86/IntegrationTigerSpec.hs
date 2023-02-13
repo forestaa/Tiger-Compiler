@@ -2,7 +2,7 @@ module Compiler.Backend.X86.IntegrationTigerSpec (spec) where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
-import Compiler.Backend.X86.Frame (Frame, ProcedureX86 (..), ProgramFragmentX86 (..), StringFragmentX86 (..), r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
+import Compiler.Backend.X86.Frame (Frame, ProcedureX86 (..), ProgramFragmentX86 (..), StringFragmentX86 (..), procEntryExit3, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (val))
 import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
 import Compiler.Frontend (Frontend (processFrontend))
@@ -38,6 +38,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     (result !! 0).procedure.body
       `shouldBe` Just
         [ Label mainLabel,
+          MovRegister RSP RBP,
           MovImmediate 10 RAX,
           MovImmediate 0 RCX,
           MovRegister RAX RDI,
@@ -46,7 +47,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovRegister RAX RAX,
           MovRegister RAX RAX,
           Jump label13,
-          Label label13
+          Label label13,
+          Leave,
+          Ret
         ]
 
   it "test02.tig" $ do
@@ -59,6 +62,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     (result !! 0).procedure.body
       `shouldBe` Just
         [ Label mainLabel,
+          MovRegister RSP RBP,
           MovImmediate 10 RAX,
           MovImmediate 0 RCX,
           MovRegister RAX RDI,
@@ -67,7 +71,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovRegister RAX RAX,
           MovRegister RAX RAX,
           Jump label13,
-          Label label13
+          Label label13,
+          Leave,
+          Ret
         ]
 
   it "test03.tig" $ do
@@ -109,6 +115,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     (result !! 2).procedure.body
       `shouldBe` Just
         [ Label mainLabel,
+          MovRegister RSP RBP,
           MovImmediate 16 RAX,
           MovRegister RAX RDI,
           Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12))),
@@ -121,7 +128,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           Lea label13 RIP RAX,
           MovStoreIndirect RAX 0 RCX,
           Jump label15,
-          Label label15
+          Label label15,
+          Leave,
+          Ret
         ]
 
   it "test04.tig" $ do
@@ -159,24 +168,30 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovRegister RAX RAX,
           Jump label14,
           Label nfactor,
+          MovRegister RSP RBP,
           MovStoreIndirect RDI 0 RBP,
           MovRegister RSI RCX,
           CmpImmediate RCX 0,
           JumpIfEqual label12,
           Label label16,
           Jump label13,
-          Label label15
+          Label label15,
+          Leave,
+          Ret
         ]
     (result !! 1).procedure.body
       `shouldBe` Just
         [ Label mainLabel,
+          MovRegister RSP RBP,
           MovRegister RBP RAX,
           MovImmediate 10 RCX,
           MovRegister RAX RDI,
           MovRegister RCX RSI,
           Call nfactor,
           Jump label18,
-          Label label18
+          Label label18,
+          Leave,
+          Ret
         ]
 
 compileTest :: FilePath -> IO [ProgramFragmentX86 [Assembly Register]]
@@ -187,5 +202,5 @@ compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"lab
   mapM allocateRegisterOverFragments fragments
   where
     allocateRegisterOverFragments :: Lookup xs "temp" U.UniqueEff => ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProgramFragmentX86 [Assembly Register])
-    allocateRegisterOverFragments (Proc procedure) = Proc <$> allocateRegisters procedure
+    allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters procedure
     allocateRegisterOverFragments (Compiler.Backend.X86.Frame.String (StringFragment strings)) = pure . Compiler.Backend.X86.Frame.String . StringFragment $ fmap (replaceRegister undefined . getField @"val") strings
