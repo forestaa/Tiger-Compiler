@@ -1,12 +1,12 @@
 {
 module Compiler.Frontend.Language.Tiger.Lexer where
 
-import Prelude hiding ( GT, LT, EQ )
-import qualified Data.ByteString.Lazy.Char8 as B
-import Control.Monad
-
 import Compiler.Frontend.SrcLoc
 import Compiler.Frontend.Lexer
+import Data.ByteString.Builder qualified as BB (lazyByteString, intDec, stringUtf8)
+import Data.ByteString.Lazy qualified as B (ByteString, take, toStrict)
+import Data.ByteString.Lazy.Char8 qualified as B (readInt)
+import RIO hiding ( GT, LT, EQ )
 
 }
 
@@ -79,9 +79,9 @@ tiger:-
 data Token =
     EOF
   | NIL
-  | ID String
+  | ID Text
   | INT Int
-  | STRING String
+  | STRING Text
   | LET
   | IN
   | END
@@ -123,6 +123,9 @@ data Token =
   | COMMA
   deriving (Show, Eq)
 
+instance Display Token where
+  display = displayShow
+
 type Lexeme = RealLocated Token
 
 -- lexer main
@@ -145,29 +148,37 @@ lexToken = do
   sc <- getLexState
   case alexScan inp sc of
     AlexEOF -> pure $ L (mkRealSrcSpan loc 0) EOF
-    AlexError (AlexInput (SrcLoc file row col) _) -> failP $ concat [file, ":", show row, ":", show col, ": lexer error"]
+    AlexError (AlexInput (SrcLoc file row col) buf) -> failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: ", BB.lazyByteString buf]
     AlexSkip inp' _ -> setInput inp' >> lexToken
     AlexToken inp' len action -> setInput inp' >> action inp len
 
 lexerError :: Action a
-lexerError (AlexInput (SrcLoc file row col) buf) len = failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the caracter: ", B.unpack $ B.take (fromIntegral len) buf]
+lexerError (AlexInput (SrcLoc file row col) buf) len = failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: cannot read the caracter: ", BB.lazyByteString $ B.take (fromIntegral len) buf]
 
 tokenOf :: Token -> Action Lexeme
 tokenOf tk (AlexInput loc _) len = pure $ L (mkRealSrcSpan loc len) tk
 
 getInteger :: Action Lexeme
 getInteger (AlexInput loc@(SrcLoc file row col) buf) len = case B.readInt bstr of
-  Nothing -> failP $ concat [file, ":", show row, ":", show col, ": lexer error: cannot read the integer:", B.unpack $ B.take (fromIntegral len) buf]
+  Nothing -> failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: cannot read the integer:", BB.lazyByteString bstr]
   Just (i, _) -> pure $ L (mkRealSrcSpan loc len) (INT i)
   where
     bstr = B.take (fromIntegral len) buf
 
 getId :: Action Lexeme
-getId (AlexInput loc buf) len = pure . L (mkRealSrcSpan loc len) . ID . B.unpack $ B.take (fromIntegral len) buf
+getId (AlexInput loc@(SrcLoc file row col) buf) len = case decodeUtf8' $ B.toStrict bstr of
+  Left exception -> failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: cannot read the Identifier:", BB.stringUtf8 (show exception), ": ", BB.lazyByteString bstr]
+  Right text -> pure . L (mkRealSrcSpan loc len) $ ID text
+  where
+    bstr = B.take (fromIntegral len) buf
 
 
 getString :: Action Lexeme
-getString (AlexInput loc buf) len = pure . L (mkRealSrcSpan loc len) . STRING . B.unpack $ B.take (fromIntegral len) buf
+getString (AlexInput loc@(SrcLoc file row col) buf) len = case decodeUtf8' $ B.toStrict bstr of
+  Left exception -> failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: cannot read the String:", BB.stringUtf8 (show exception), ": ", BB.lazyByteString bstr]
+  Right text -> pure . L (mkRealSrcSpan loc len) $ STRING text
+  where
+    bstr = B.take (fromIntegral len) buf
 
 -- comment action
 enterNewComment :: Action Lexeme
@@ -182,4 +193,5 @@ unembedComment _ _  = do
       d <- getCommentDepth
       when (d == 0) (setLexState 0) -- finish comment
       lexToken
+
 }

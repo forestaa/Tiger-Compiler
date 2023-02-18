@@ -1,10 +1,11 @@
 module Compiler.Frontend.Language.Tiger.Semant.Exp where
 
-import Data.Extensible
-import Data.Extensible.Effect
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique
+import Data.Extensible
+import Data.Extensible.Effect
 import RIO
+import RIO.Text qualified as T (unpack)
 
 data Exp = Ex IR.Exp | Nx IR.Stm | Cx (Label -> Label -> IR.Stm)
 
@@ -16,12 +17,15 @@ instance Eq Exp where
       (true, false) = leaveEff . evalUniqueEff @"label" $ (,) <$> newLabel <*> newLabel
   _ == _ = False
 
-instance Show Exp where
-  show (Ex e) = "Ex: " ++ show e
-  show (Nx s) = "Nx: " ++ show s
-  show (Cx genstm) = "Cx: λt. λf -> " ++ show (genstm true false)
+instance Display Exp where
+  display (Ex e) = "Ex: " <> display e
+  display (Nx s) = "Nx: " <> display s
+  display (Cx genstm) = "Cx: λt. λf -> " <> display (genstm true false)
     where
       (true, false) = leaveEff . evalUniqueEff @"label" $ (,) <$> namedLabel "t" <*> namedLabel "f"
+
+instance Show Exp where
+  show = T.unpack . textDisplay
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e

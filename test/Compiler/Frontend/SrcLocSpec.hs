@@ -5,6 +5,7 @@ import Compiler.Frontend.SrcLoc
 import Control.Exception.Safe (MonadCatch, catch)
 import Data.Data (cast)
 import RIO hiding (catch)
+import RIO.Text qualified as T
 import Test.Hspec
 
 spec :: Spec
@@ -41,20 +42,29 @@ realLocatedCatch m f =
 
 data TestFrontendException0 = TestFrontendException0 deriving (Show, Eq)
 
+instance Display TestFrontendException0 where
+  display = displayShow
+
 instance FrontendException TestFrontendException0 where
   toFrontendException = frontendExceptionToException
   fromFrontendException = frontendExceptionFromException
 
 data SomeTestFrontendException1 = forall e. FrontendException e => SomeTestFrontendException1 e
 
+instance Display SomeTestFrontendException1 where
+  display (SomeTestFrontendException1 e) = display e
+
 instance Show SomeTestFrontendException1 where
-  show (SomeTestFrontendException1 e) = show e
+  show = T.unpack . textDisplay
 
 instance FrontendException SomeTestFrontendException1 where
   toFrontendException = frontendExceptionToException
   fromFrontendException = frontendExceptionFromException
 
 data TestFrontendException1 = TestFrontendException1 deriving (Show, Eq)
+
+instance Display TestFrontendException1 where
+  display = displayShow
 
 instance FrontendException TestFrontendException1 where
   toFrontendException = toFrontendException . SomeTestFrontendException1
@@ -64,8 +74,11 @@ instance FrontendException TestFrontendException1 where
 
 data SomeTestFrontendException2 = forall e. FrontendException e => SomeTestFrontendException2 e
 
+instance Display SomeTestFrontendException2 where
+  display (SomeTestFrontendException2 e) = display e
+
 instance Show SomeTestFrontendException2 where
-  show (SomeTestFrontendException2 e) = show e
+  show = T.unpack . textDisplay
 
 instance FrontendException SomeTestFrontendException2 where
   toFrontendException = toFrontendException . SomeTestFrontendException1
@@ -75,6 +88,9 @@ instance FrontendException SomeTestFrontendException2 where
 
 data TestFrontendException2 = TestFrontendException2 deriving (Show, Eq)
 
+instance Display TestFrontendException2 where
+  display = displayShow
+
 instance FrontendException TestFrontendException2 where
   toFrontendException = toFrontendException . SomeTestFrontendException2
   fromFrontendException e = do
@@ -83,8 +99,11 @@ instance FrontendException TestFrontendException2 where
 
 data SomeTestFrontendException3 = forall e. FrontendException e => SomeTestFrontendException3 e
 
+instance Display SomeTestFrontendException3 where
+  display (SomeTestFrontendException3 e) = display e
+
 instance Show SomeTestFrontendException3 where
-  show (SomeTestFrontendException3 e) = show e
+  show = T.unpack . textDisplay
 
 instance FrontendException SomeTestFrontendException3 where
   toFrontendException = toFrontendException . SomeTestFrontendException2
@@ -93,6 +112,9 @@ instance FrontendException SomeTestFrontendException3 where
     cast x
 
 data TestFrontendException3 = TestFrontendException3 deriving (Show, Eq)
+
+instance Display TestFrontendException3 where
+  display = displayShow
 
 instance FrontendException TestFrontendException3 where
   toFrontendException = toFrontendException . SomeTestFrontendException3

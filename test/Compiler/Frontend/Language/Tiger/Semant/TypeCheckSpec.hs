@@ -22,6 +22,7 @@ import RIO
 import RIO.List qualified as List
 import RIO.List.Partial qualified as Partial
 import RIO.Map qualified as Map
+import RIO.Text qualified as T
 import Test.Hspec
 
 spec :: Spec
@@ -38,7 +39,7 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
           (_, cont) <- cont arrayTy
           cont TInt
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right ty -> ty `shouldBe` TInt
 
   it "var a: array int; a['hoge']" $ do
@@ -50,7 +51,7 @@ typeCheckArrayIndexSpec = describe "type check array index test" $ do
           (_, cont) <- cont arrayTy
           cont TString
     case result of
-      Right ty -> expectationFailure $ "should return ExpectedIntType, but got " ++ show ty
+      Right ty -> expectationFailure . T.unpack $ "should return ExpectedIntType, but got " <> textDisplay ty
       Left (L _ e) -> e `shouldSatisfy` isExpectedIntType
 
   it "var x: int; a[0]" $ do

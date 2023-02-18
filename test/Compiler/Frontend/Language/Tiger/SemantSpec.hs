@@ -23,6 +23,7 @@ import Data.Extensible.Effect
 import RIO
 import RIO.List qualified as List
 import RIO.List.Partial qualified as Partial
+import RIO.Text qualified as T
 import Test.Hspec
 
 spec :: Spec
@@ -51,7 +52,7 @@ translateIntSpec = describe "translate int test" $ do
   it "translate 0" $ do
     let ast = T.expToLExp $ T.Int 0
     case runEff (translateExp ast) of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Const 0)
         ty `shouldBe` TInt
@@ -61,7 +62,7 @@ translateStringSpec = describe "translate string test" $ do
   it "translate 'hoge'" $ do
     let ast = T.expToLExp $ T.String "hoge"
     case runEff (translateExp ast) of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TString
@@ -76,7 +77,7 @@ translateNilSpec = describe "translate nil test" $ do
   it "translate nil" $ do
     let ast = T.expToLExp $ T.Nil
     case runEff (translateExp ast) of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((_, ty), _), _) -> do
         ty `shouldBe` TNil
 
@@ -88,7 +89,7 @@ translateVariableSpec = describe "translate variable test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -100,7 +101,7 @@ translateVariableSpec = describe "translate variable test" $ do
           allocateLocalVariableAndInsertType "y" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-2 * F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -112,7 +113,7 @@ translateVariableSpec = describe "translate variable test" $ do
           allocateLocalVariableAndInsertType "y" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -124,7 +125,7 @@ translateVariableSpec = describe "translate variable test" $ do
           allocateLocalVariableAndInsertType "y" False TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock))))
         ty `shouldBe` TInt
@@ -135,7 +136,7 @@ translateVariableSpec = describe "translate variable test" $ do
           allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` inRegister
         ty `shouldBe` TInt
@@ -171,7 +172,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
         ty `shouldBe` TInt
@@ -184,7 +185,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           allocateLocalVariableAndInsertType "object" True recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const (F.wordSize @FrameMock))))
         ty `shouldBe` TString
@@ -199,7 +200,7 @@ translateRecordFieldSpec = describe "translate record field test" $ do
           allocateLocalVariableAndInsertType "object" True nameTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0)))
         ty `shouldBe` TInt
@@ -234,7 +235,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -247,7 +248,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.BinOp IR.Plus (IR.Const 1) (IR.Const 1)) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -262,7 +263,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Const 0))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TString
@@ -277,7 +278,7 @@ translateArrayIndexSpec = describe "translate array index test" $ do
           allocateLocalVariableAndInsertType "x" True nameTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.Mem (IR.BinOp IR.Plus (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.BinOp IR.Mul (IR.Const 0) (IR.Const (F.wordSize @FrameMock)))))
         ty `shouldBe` TInt
@@ -309,7 +310,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Ex (IR.BinOp IR.Plus (IR.Const 0) (IR.Const 0))
         ty `shouldBe` TInt
@@ -341,7 +342,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           allocateLocalVariableAndInsertType "x" True arrayTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldBe` IR.CJump IR.Eq (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
@@ -364,7 +365,7 @@ translateBinOpSpec = describe "translate binop test" $ do
           allocateLocalVariableAndInsertType "x" True recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldBe` IR.CJump IR.Eq (IR.Const 0) (IR.Mem (IR.BinOp IR.Plus (IR.Const (-F.wordSize @FrameMock)) (IR.Temp (F.fp @FrameMock)))) true false
@@ -376,7 +377,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldSatisfy` expP true false
@@ -391,7 +392,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldSatisfy` expP true false
@@ -420,7 +421,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -433,7 +434,7 @@ translateBinOpSpec = describe "translate binop test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
         genstm true false `shouldSatisfy` expP
@@ -467,7 +468,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -481,7 +482,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -494,7 +495,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -507,7 +508,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -520,7 +521,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -533,7 +534,7 @@ translateIfElseSpec = describe "translate if-else test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -560,7 +561,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -574,7 +575,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -590,7 +591,7 @@ translateIfNoElseSpec = describe "translate if-no-else test" $ do
           insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -628,7 +629,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -646,7 +647,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -664,7 +665,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -682,7 +683,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record" recordTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -703,7 +704,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
           insertType "record2" record2Ty
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -778,7 +779,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           insertType "array" arrayTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` isIntArray
@@ -799,7 +800,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
           insertType "array" arrayTy
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` isRecordArray
@@ -850,7 +851,7 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -866,7 +867,7 @@ translateWhileLoopSpec = describe "translate while loop test" $ do
           insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -899,7 +900,7 @@ translateForLoopSpec = describe "translate for loop test" $ do
           allocateLocalVariableAndInsertType "x" True TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -915,7 +916,7 @@ translateForLoopSpec = describe "translate for loop test" $ do
           insertFun "f" label parent [] TUnit
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -956,7 +957,7 @@ translateBreakSpec = describe "translate break test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -969,7 +970,7 @@ translateBreakSpec = describe "translate break test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -982,7 +983,7 @@ translateBreakSpec = describe "translate break test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1017,7 +1018,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           insertFun "f" label parent [] TNil
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
@@ -1033,7 +1034,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           insertFun "f" label parent [TInt] TNil
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
@@ -1052,7 +1053,7 @@ translateFunApplySpec = describe "translate fun application test" $ do
           insertFun "f" label parent [recordTy] TNil
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TNil
@@ -1110,7 +1111,7 @@ translateAssignSpec = describe "translate assgin test" $ do
           allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1125,7 +1126,7 @@ translateAssignSpec = describe "translate assgin test" $ do
           allocateLocalVariableAndInsertType "y" False TUnit
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1149,7 +1150,7 @@ translateSeqSpec = describe "translate seq test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         ty `shouldBe` TUnit
 
@@ -1158,7 +1159,7 @@ translateSeqSpec = describe "translate seq test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1172,7 +1173,7 @@ translateSeqSpec = describe "translate seq test" $ do
           allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1185,7 +1186,7 @@ translateSeqSpec = describe "translate seq test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1199,7 +1200,7 @@ translateSeqSpec = describe "translate seq test" $ do
           allocateLocalVariableAndInsertType "x" False TInt
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1211,7 +1212,7 @@ translateSeqSpec = describe "translate seq test" $ do
     let ast = T.expToLExp $ T.Seq [T.Int 1, T.Seq []]
         result = runEff $ translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldBe` Nx (IR.Seq (IR.Exp (IR.Const 1)) (IR.Exp (IR.Const 0)))
         ty `shouldBe` TUnit
@@ -1223,7 +1224,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldBe` Ex (IR.Const 0)
         ty `shouldBe` TInt
@@ -1234,7 +1235,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldBe` Nx (IR.Exp (IR.Const 0))
         ty `shouldBe` TUnit
@@ -1245,7 +1246,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1263,7 +1264,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1277,7 +1278,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1291,7 +1292,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1305,7 +1306,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1323,7 +1324,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1337,7 +1338,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1351,7 +1352,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1365,7 +1366,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1379,7 +1380,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -1395,7 +1396,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -1413,7 +1414,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1436,7 +1437,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1459,7 +1460,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1483,7 +1484,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -1508,7 +1509,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1531,7 +1532,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1554,7 +1555,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TInt
@@ -1577,7 +1578,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         exp `shouldSatisfy` expP
         ty `shouldBe` TUnit
@@ -1601,7 +1602,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP
@@ -1618,7 +1619,7 @@ translateLetSpec = describe "translate let test" $ do
         result = runEff $ do
           translateExp ast
     case result of
-      Left (L _ e) -> expectationFailure $ show e
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         exp `shouldSatisfy` expP
         ty `shouldSatisfy` tyP

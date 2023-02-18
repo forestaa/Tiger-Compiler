@@ -29,7 +29,7 @@ class Frame f where
   rv :: U.Temp
   exp :: Access f -> IR.Exp -> IR.Exp
   wordSize :: Int
-  externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
+  externalCall :: Lookup xs "label" U.UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
   procEntryExit1 :: f -> IR.Stm -> IR.Stm
 
 data Procedure f body = Frame f => Procedure {frame :: f, body :: body}
@@ -38,7 +38,7 @@ deriving instance (Eq f, Eq body) => Eq (Procedure f body)
 
 deriving instance (Show f, Show body) => Show (Procedure f body)
 
-data StringFragment = StringFragment {name :: U.Label, text :: String} deriving (Show, Eq)
+data StringFragment = StringFragment {name :: U.Label, text :: Text} deriving (Show, Eq)
 
 data ProgramFragment f where
   Proc :: Frame f => Procedure f IR.Stm -> ProgramFragment f
@@ -82,5 +82,5 @@ saveFragmentEff frame stm = modifyEff #fragment . addFragment . Proc $ Procedure
 saveMainFragmentEff :: (Frame f, Lookup xs "fragment" (ProgramEff f)) => f -> IR.Stm -> Eff xs ()
 saveMainFragmentEff frame stm = modifyEff #fragment . putMainFragment . Proc $ Procedure {body = stm, frame = frame}
 
-saveStringFragmentEff :: Lookup xs "fragment" (ProgramEff f) => U.Label -> String -> Eff xs ()
+saveStringFragmentEff :: Lookup xs "fragment" (ProgramEff f) => U.Label -> Text -> Eff xs ()
 saveStringFragmentEff label string = modifyEff #fragment . addFragment . String $ StringFragment label string

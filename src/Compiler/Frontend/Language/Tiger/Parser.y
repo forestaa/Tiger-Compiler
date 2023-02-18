@@ -3,10 +3,12 @@ module Compiler.Frontend.Language.Tiger.Parser where
 
 import Compiler.Frontend.Id
 import Compiler.Frontend.Lexer
-import Compiler.Frontend.Language.Tiger.LSyntax
 import Compiler.Frontend.Language.Tiger.Lexer
+import Compiler.Frontend.Language.Tiger.LSyntax
 import Compiler.Frontend.SrcLoc
+import Data.ByteString.Builder qualified as BB (stringUtf8)
 import Prelude hiding (GT, EQ, LT)
+import RIO (Text, Display(..), displayShow, fold, Utf8Builder(..))
 
 }
 
@@ -182,14 +184,15 @@ exps :: { [LExp] }
 {
 
 parserError :: Lexeme -> P a
-parserError (L span tk) = failP $ concat [span.srcFile, ":", show span.srcSRow, ":", show span.srcSCol, ": parser error: token = ", show tk]
+parserError (L span tk) = failP . textDisplay $ fold [Utf8Builder (BB.stringUtf8 span.srcFile), ":", display span.srcSRow, ":", display span.srcSCol, ": parser error: token = ", display tk]
 
 retrieveID :: Lexeme -> LId
 retrieveID (L loc (ID id)) = L loc id
 retrieveINT :: Lexeme -> Int
 retrieveINT l = case unLoc l of
                   INT i -> i
-retrieveSTRING :: Lexeme -> String
+retrieveSTRING :: Lexeme -> Text
 retrieveSTRING l = case unLoc l of
                   STRING str -> str
+
 }

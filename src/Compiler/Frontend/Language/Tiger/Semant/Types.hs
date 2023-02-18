@@ -14,6 +14,9 @@ data Type
   | TName LId
   deriving (Show)
 
+instance Display Type where
+  display = displayShow
+
 instance Eq Type where
   TUnit == TUnit = True
   TInt == TInt = True

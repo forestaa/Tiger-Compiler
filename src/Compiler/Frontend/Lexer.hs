@@ -11,6 +11,7 @@ import Data.ByteString.Lazy qualified as B
 import Data.Extensible.Effect (Eff, evalStateEff, leaveEff)
 import Data.Extensible.Effect.Default (EitherDef, StateDef, runEitherDef)
 import RIO
+import RIO.Text qualified as T (unpack)
 
 data AlexInput = AlexInput SrcLoc B.ByteString
 
@@ -28,17 +29,23 @@ data PState = PState
     startcode :: !Int,
     commentDepth :: !Int
   }
-  deriving (Show, Eq)
+  deriving (Eq)
 
 initPState :: FilePath -> B.ByteString -> PState
 initPState file buf = PState (mkSrcLoc file) buf 0 0
 
 -- lexer and parser monad
-newtype P a = P {unP :: Eff '[StateDef PState, EitherDef String] a} deriving (Functor, Applicative, Monad, MonadError String, MonadState PState)
+newtype P a = P {unP :: Eff '[StateDef PState, EitherDef Text] a} deriving (Functor, Applicative, Monad, MonadError Text, MonadState PState)
 
 type Action a = AlexInput -> Int -> P a
 
-data ParserException = ParserException String deriving (Show)
+newtype ParserException = ParserException Text
+
+instance Display ParserException where
+  textDisplay (ParserException text) = "failed to parse: " <> text
+
+instance Show ParserException where
+  show = T.unpack . textDisplay
 
 instance FrontendException ParserException where
   toFrontendException = frontendExceptionToException
@@ -47,7 +54,7 @@ instance FrontendException ParserException where
 runP :: P a -> FilePath -> B.ByteString -> Either ParserException a
 runP p file bs = mapLeft ParserException . leaveEff . runEitherDef . evalStateEff (unP p) $ initPState file bs
 
-failP :: String -> P a
+failP :: Text -> P a
 failP = throwError
 
 getInput :: P AlexInput

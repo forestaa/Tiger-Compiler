@@ -29,10 +29,10 @@ mkFAbstSyntaxDefs f wrapF syntax fcon = do
   case dataInfo of
     TyConI (DataD _ _ vars _ cons _) -> do
       unless (null vars) $ fail ("mkFAbstSyntaxDefs: The Type should not have any type arguments: " ++ show syntax)
-      let (datadec, synonym) = mkFDataSyn f syntax cons
+      let (datadec, instancedec, synonym) = mkFDataSyn f syntax cons
       (unFFun, unFSig) <- mkUnF syntax fcon cons
       (sToFSFun, sToFSSig) <- mkSyntaxToFSyntax syntax wrapF cons
-      pure [datadec, synonym, unFFun, unFSig, sToFSFun, sToFSSig]
+      pure [datadec, instancedec, synonym, unFFun, unFSig, sToFSFun, sToFSSig]
     TyConI (TySynD _ _ _) -> do
       x <- newName "x"
       let fsyntax = mkFSyntaxName syntax
@@ -78,7 +78,7 @@ renameVarBangType (field, bang, t) = (field, bang, renameType t)
 
 renameType :: Type -> Type
 renameType t@(ConT syntax)
-  | syntax == ''Int || syntax == ''String || syntax == ''Bool = t
+  | syntax == ''Int || syntax == ''String || syntax == ''Bool || syntax == ''Text = t
   | otherwise = ConT $ mkFSyntaxName syntax
 renameType (AppT f t) = AppT f $ renameType t
 renameType _ = undefined
@@ -86,11 +86,14 @@ renameType _ = undefined
 mkFData' :: Name -> [Con] -> Dec
 mkFData' fsyntax' cons = DataD [] fsyntax' [] Nothing cons [DerivClause Nothing [ConT ''Show, ConT ''Eq]]
 
+mkFInstance' :: Name -> InstanceDec
+mkFInstance' fsyntax' = InstanceD Nothing [] (AppT (ConT ''Display) (ConT fsyntax')) [FunD 'display [Clause [] (NormalB (VarE 'displayShow)) []]]
+
 mkFSynonym :: Name -> Name -> Name -> Dec
 mkFSynonym fsyntax f syntax = TySynD fsyntax [] (AppT (ConT f) (ConT syntax))
 
-mkFDataSyn :: Name -> Name -> [Con] -> (Dec, Dec)
-mkFDataSyn f syntax cons = (mkFData' fsyntax' cons', mkFSynonym fsyntax f fsyntax')
+mkFDataSyn :: Name -> Name -> [Con] -> (Dec, Dec, Dec)
+mkFDataSyn f syntax cons = (mkFData' fsyntax' cons', mkFInstance' fsyntax', mkFSynonym fsyntax f fsyntax')
   where
     fsyntax = mkFSyntaxName syntax
     fsyntax' = mkFSyntaxName' syntax
@@ -138,7 +141,7 @@ mkUnFPatExp c = fail $ "mkUnFPatExp: This pattern is not implemented: " ++ show 
 
 mkUnFPatExpUnit :: Type -> Q (Pat, Exp)
 mkUnFPatExpUnit (ConT con)
-  | con == ''Int || con == ''String || con == ''Bool = do
+  | con == ''Int || con == ''String || con == ''Bool || con == ''Text = do
       x <- newName "x"
       pure (VarP x, VarE x)
   | otherwise = do
@@ -184,7 +187,7 @@ mkSyntaxToFSyntaxPatExp _ _ = undefined
 
 mkSyntaxToFSyntaxPatExpUnit :: Type -> Q (Pat, Exp)
 mkSyntaxToFSyntaxPatExpUnit (ConT con)
-  | con == ''Int || con == ''String || con == ''Bool = do
+  | con == ''Int || con == ''String || con == ''Bool || con == ''Text = do
       x <- newName "x"
       pure (VarP x, VarE x)
   | otherwise = do

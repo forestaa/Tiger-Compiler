@@ -21,11 +21,18 @@ import Data.Extensible.Effect
 import Data.Foldable
 import RIO
 import RIO.List qualified as List
+import RIO.Text qualified as T (unpack)
 
 data SemantAnalysisError
   = TranslateError TranslateError
   | TypeCheckError TypeCheckError
-  deriving (Show)
+
+instance Display SemantAnalysisError where
+  display (TranslateError e) = "failed to translate: " <> display e
+  display (TypeCheckError e) = "failed to type check: " <> display e
+
+instance Show SemantAnalysisError where
+  show = T.unpack . textDisplay
 
 instance FrontendException SemantAnalysisError where
   toFrontendException = frontendExceptionToException
@@ -122,7 +129,7 @@ translateExp (L _ (T.Let decs body)) = translateLet decs body
 translateInt :: Int -> (Exp, Type)
 translateInt i = (intExp i, typeCheckInt)
 
-translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => String -> Eff xs (Exp, Type)
+translateString :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => Text -> Eff xs (Exp, Type)
 translateString s = (,typeCheckString) <$> stringExp s
 
 translateNil :: (Exp, Type)
@@ -256,7 +263,7 @@ translateLet decs body =
     pure (letExp exps bodyExp, ty)
 
 translateDecsList :: forall f xs. HasTranslateEff xs f => [Decs] -> Eff xs [Exp]
-translateDecsList = fmap mconcat . traverse translateDecs
+translateDecsList = fmap fold . traverse translateDecs
   where
     translateDecs (VarDecs ds) = traverse translateVarDec ds
     translateDecs (FunDecs ds) = translateFunDecs ds >> pure []

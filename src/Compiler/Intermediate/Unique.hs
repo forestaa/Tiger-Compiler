@@ -2,12 +2,16 @@ module Compiler.Intermediate.Unique where
 
 import Data.Extensible
 import Data.Extensible.Effect
-import RIO
+import RIO hiding (String)
+import RIO.Text qualified as T (unpack)
 
-newtype Unique = Unique Int deriving (Eq, Ord)
+newtype Unique = Unique {int :: Int} deriving (Eq, Ord)
 
 instance Show Unique where
-  show (Unique i) = 'u' : show i
+  show = T.unpack . textDisplay
+
+instance Display Unique where
+  display (Unique i) = "u" <> display i
 
 type UniqueEff = State Unique
 
@@ -26,42 +30,48 @@ instance Lookup xs "unique" Unique => HasUnique (Record xs) where
 uniqueSeed :: Unique
 uniqueSeed = Unique 0
 
+nextUnique :: Unique -> Unique
+nextUnique (Unique i) = Unique $ i + 1
+
 evalUniqueEff :: Eff ((k >: UniqueEff) ': xs) a -> Eff xs a
 evalUniqueEff = flip evalStateEff uniqueSeed
 
 runUniqueEff :: Unique -> Eff ((k >: UniqueEff) ': xs) a -> Eff xs (a, Unique)
-runUniqueEff u = flip runStateEff u
+runUniqueEff = flip runStateEff
 
 getUniqueEff :: (HasUnique u, Lookup xs k (State u)) => Proxy k -> Eff xs Unique
 getUniqueEff k = do
-  Unique id <- getsEff k getUnique
-  modifyEff k $ putUnique (Unique (id + 1))
-  pure $ Unique id
+  unique <- getsEff k getUnique
+  modifyEff k . putUnique $ nextUnique unique
+  pure unique
 
 putUniqueEff :: Lookup xs k UniqueEff => Proxy k -> Unique -> Eff xs ()
 putUniqueEff = putEff
 
-data Temp = Temp {body :: String, unique :: Unique} deriving (Eq, Ord)
+data Temp = Temp {body :: Text, unique :: Unique} deriving (Eq, Ord)
 
 instance Show Temp where
-  show (Temp str u) = str ++ show u
+  show = T.unpack . textDisplay
+
+instance Display Temp where
+  display temp = display temp.body <> display temp.unique.int
 
 newTemp :: Lookup xs "temp" UniqueEff => Eff xs Temp
 newTemp = Temp "t" <$> getUniqueEff #temp
 
-newStringTemp :: String -> Temp
-newStringTemp s = Temp s (Unique 0)
+newUniqueTextTemp :: Text -> Temp
+newUniqueTextTemp text = Temp text (Unique 0)
 
-makeString :: Temp -> String
-makeString (Temp str (Unique n)) = str ++ show n
-
-data Label = Label {body :: String, unique :: Unique} deriving (Eq, Ord)
+data Label = Label {body :: Text, unique :: Unique} deriving (Eq, Ord)
 
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
 
-namedLabel :: Lookup xs "label" UniqueEff => String -> Eff xs Label
+namedLabel :: Lookup xs "label" UniqueEff => Text -> Eff xs Label
 namedLabel l = Label l <$> getUniqueEff #label
 
 instance Show Label where
-  show (Label s u) = s ++ show u
+  show = T.unpack . textDisplay
+
+instance Display Label where
+  display label = display label.body <> display label.unique.int

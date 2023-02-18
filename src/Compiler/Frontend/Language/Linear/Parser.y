@@ -1,16 +1,15 @@
 {
 module Compiler.Frontend.Language.Linear.Parser where
 
-import Prelude
-import RIO
-import RIO.List.Partial ((!!))
-
 import Compiler.Frontend.Id
-import Compiler.Frontend.SrcLoc
-import Compiler.Frontend.Lexer
-
-import Compiler.Frontend.Language.Linear.LSyntax
 import Compiler.Frontend.Language.Linear.Lexer
+import Compiler.Frontend.Language.Linear.LSyntax
+import Compiler.Frontend.Lexer
+import Compiler.Frontend.SrcLoc
+import Data.ByteString.Builder qualified as BB (stringUtf8)
+import Prelude hiding (GT, EQ, LT)
+import RIO (Text, Display(..), displayShow, fold, Utf8Builder(..))
+
 }
 
 %name parser
@@ -64,7 +63,7 @@ L :: { [LExp] }
 {
 
 parserError :: Lexeme -> P a
-parserError (L span tk) = failP $ concat [span.srcFile, ":", show span.srcSRow, ":", show span.srcSCol, ": parser error: token = ", show tk]
+parserError (L span tk) = failP . textDisplay $ fold [Utf8Builder (BB.stringUtf8 span.srcFile), ":", display span.srcSRow, ":", display span.srcSCol, ": parser error: token = ", display tk]
 
 
 retrieveID :: Lexeme -> LId
@@ -72,4 +71,5 @@ retrieveID (L loc (ID id)) = L loc id
 
 retrieveNUM :: Lexeme -> Int
 retrieveNUM (L _ (NUM n)) = n
+
 }

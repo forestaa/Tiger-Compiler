@@ -13,11 +13,16 @@ module Compiler.Frontend.SrcLoc
 where
 
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException, frontendExceptionFromException, frontendExceptionToException)
+import Data.ByteString.Builder qualified as BB (stringUtf8)
 import Data.Data (cast)
 import RIO
-import RIO.List
+import RIO.List (intersperse)
+import RIO.Text qualified as T (unpack)
 
 data SrcLoc = SrcLoc FilePath !Int !Int deriving (Show, Eq)
+
+instance Display SrcLoc where
+  display = displayShow
 
 mkSrcLoc :: FilePath -> SrcLoc
 mkSrcLoc file = SrcLoc file 1 1
@@ -36,7 +41,10 @@ data RealSrcSpan = RealSrcSpan
   deriving (Eq)
 
 instance Show RealSrcSpan where
-  show (RealSrcSpan f sr sc _ _) = intercalate ":" [f, show sr, show sc]
+  show = T.unpack . textDisplay
+
+instance Display RealSrcSpan where
+  display (RealSrcSpan f sr sc _ _) = mconcat $ intersperse ":" [Utf8Builder (BB.stringUtf8 f), display sr, display sc]
 
 mkRealSrcSpan :: SrcLoc -> Int -> RealSrcSpan
 mkRealSrcSpan (SrcLoc file row col) len = RealSrcSpan file row col row (col + len)
@@ -51,8 +59,11 @@ combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
 
 data RealLocated e = L RealSrcSpan e deriving (Eq, Functor)
 
-instance Show e => Show (RealLocated e) where
-  show (L loc e) = locatedMessage loc $ show e
+instance Display e => Show (RealLocated e) where
+  show = T.unpack . textDisplay
+
+instance Display e => Display (RealLocated e) where
+  display (L loc e) = locatedMessage loc $ display e
 
 unLoc :: RealLocated a -> a
 unLoc (L _ a) = a
@@ -63,8 +74,8 @@ sL1 (L span1 _) = L span1
 sL2 :: RealLocated a -> RealLocated b -> c -> RealLocated c
 sL2 (L span1 _) (L span2 _) = L (combineRealSrcSpan span1 span2)
 
-locatedMessage :: RealSrcSpan -> String -> String
-locatedMessage loc message = concat [show loc, ": ", message]
+locatedMessage :: RealSrcSpan -> Utf8Builder -> Utf8Builder
+locatedMessage loc message = mconcat [display loc, ": ", message]
 
 dummyRealLocated :: e -> RealLocated e
 dummyRealLocated = L (mkRealSrcSpan (mkSrcLoc "dummy") 0)
@@ -76,7 +87,10 @@ instance FrontendException e => FrontendException (RealLocated e) where
 data SomeRealLocatedException = SomeRealLocaltedException (RealLocated SomeFrontendException)
 
 instance Show SomeRealLocatedException where
-  show (SomeRealLocaltedException le) = show le
+  show = T.unpack . textDisplay
+
+instance Display SomeRealLocatedException where
+  display (SomeRealLocaltedException le) = display le
 
 instance FrontendException SomeRealLocatedException where
   toFrontendException = frontendExceptionToException

@@ -3,7 +3,7 @@ module Compiler.Frontend.Id where
 import Compiler.Frontend.SrcLoc
 import RIO
 
-type Id = String
+type Id = Text
 
 type LId = RealLocated Id
 

@@ -4,7 +4,6 @@ import Compiler.Backend.X86.Arch (Assembly (AddImmediate, AddRegister, MovImmedi
 import Compiler.Backend.X86.Frame (Frame (Frame), ProcedureX86 (..), allocateLocal, getAllocatedRegisters, newFrame, r10, r11, r12, r13, r14, r15, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
-import Compiler.Intermediate.Unique (newStringTemp)
 import Compiler.Intermediate.Unique qualified as U (evalUniqueEff, newLabel)
 import Data.Extensible.Effect (leaveEff)
 import RIO

@@ -49,6 +49,7 @@ common default
     NoImplicitPrelude
     OverloadedLabels
     OverloadedRecordDot
+    OverloadedStrings
     PartialTypeSignatures
     RecordWildCards
     TupleSections
@@ -106,10 +107,12 @@ library
       Compiler.Intermediate.IR
       Compiler.Intermediate.Unique
       Compiler.Utils.Coroutine
+      Compiler.Utils.Display
       Compiler.Utils.Graph.Base
       Compiler.Utils.Graph.Mutable
       Compiler.Utils.Graph.Immutable
       Compiler.Utils.Maybe
+      Compiler.Utils.String
   other-modules:
       Paths_Tiger_Compiler
 

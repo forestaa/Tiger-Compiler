@@ -4,24 +4,28 @@ import Compiler.Exception (compilerExceptionFromException, compilerExceptionToEx
 import Control.Exception
 import Data.Data (cast)
 import RIO
+import RIO.Text qualified as T (unpack)
 
 data SomeFrontendException = forall e. FrontendException e => SomeFrontendException e
 
+instance Display SomeFrontendException where
+  display (SomeFrontendException e) = display e
+
 instance Show SomeFrontendException where
-  show (SomeFrontendException e) = show e
+  show = T.unpack . textDisplay
 
 instance Exception SomeFrontendException where
   toException = compilerExceptionToException
   fromException = compilerExceptionFromException
 
-class (Typeable e, Show e) => FrontendException e where
+class (Typeable e, Display e) => FrontendException e where
   toFrontendException :: e -> SomeFrontendException
   fromFrontendException :: SomeFrontendException -> Maybe e
-  displayFrontendException :: e -> String
+  displayFrontendException :: e -> Text
 
   toFrontendException = SomeFrontendException
   fromFrontendException (SomeFrontendException e) = cast e
-  displayFrontendException = show
+  displayFrontendException = textDisplay
 
 instance FrontendException SomeFrontendException where
   toFrontendException = id

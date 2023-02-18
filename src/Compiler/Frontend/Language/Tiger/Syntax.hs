@@ -6,7 +6,7 @@ import RIO
 data Exp
   = -- literals
     Int Int
-  | String String
+  | String Text
   | Nil
   | -- array and record creation
     ArrayCreate {typeid :: Id, size :: Exp, init :: Exp}

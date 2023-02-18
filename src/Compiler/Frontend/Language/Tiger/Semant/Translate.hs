@@ -21,9 +21,9 @@ data TranslateError
   = VariableUndefined Id
   | BreakOutsideLoop
 
-instance Show TranslateError where
-  show (VariableUndefined id) = "undefined variable: " ++ show id
-  show BreakOutsideLoop = "break should be inside while or for loop"
+instance Display TranslateError where
+  display (VariableUndefined id) = "undefined variable: " <> display id
+  display BreakOutsideLoop = "break should be inside while or for loop"
 
 lookupVarAccessEff ::
   ( Lookup xs "varAccessEnv" (State (VAEnv f)),
@@ -68,7 +68,7 @@ intExp :: Int -> Exp
 intExp i = Ex $ IR.Const i
 
 -- TODO: use Frame.string
-stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => String -> Eff xs Exp
+stringExp :: (Lookup xs "label" UniqueEff, Lookup xs "fragment" (F.ProgramEff f)) => Text -> Eff xs Exp
 stringExp s = do
   label <- newLabel
   F.saveStringFragmentEff label s

@@ -7,16 +7,16 @@ module Compiler.Utils.Graph.Immutable
 where
 
 import Compiler.Utils.Graph.Base (Directional (..), Edge (..), Node (..), NodeIndex (..))
+import Compiler.Utils.String (unlines)
 import Control.Monad.State.Strict
 import Data.MultiSet qualified as Multi
 import GHC.Records (HasField (getField))
-import RIO
+import RIO hiding (unlines)
 import RIO.Map qualified as Map
 import RIO.Map.Partial qualified as Map
 import RIO.Seq (Seq ((:<|), (:|>)))
 import RIO.Seq qualified as Seq
 import RIO.Set qualified as Set
-import RIO.Text (pack)
 import RIO.Vector qualified as Vec
 import RIO.Vector.Partial qualified as Vec
 
@@ -75,30 +75,30 @@ bfs graph initials = flip evalState Set.empty $ walk (Seq.fromList initials)
 class DebugGraphviz graph where
   debugGraphviz :: graph -> Text
 
-instance (Show node, Show edge) => DebugGraphviz (IGraph 'Directional node edge) where
-  debugGraphviz graph = pack $ "digraph G{\n" ++ nodeGraphvizStatements graph ++ edgeGraphvizStatements graph ++ "}\n"
+instance (Display node, Display edge) => DebugGraphviz (IGraph 'Directional node edge) where
+  debugGraphviz graph = textDisplay $ "digraph G{\n" <> nodeGraphvizStatements graph <> edgeGraphvizStatements graph <> "}\n"
     where
-      nodeGraphvizStatements :: IGraph 'Directional node edge -> String
-      nodeGraphvizStatements graph = unlines . Vec.toList $ (\node -> concat ["  ", show node.val, ";"]) <$> getAllNodes graph
-      edgeGraphvizStatements :: IGraph 'Directional node edge -> String
-      edgeGraphvizStatements graph = concatMap (nodeToGraphviz graph) (getAllNodes graph)
+      nodeGraphvizStatements :: IGraph 'Directional node edge -> Utf8Builder
+      nodeGraphvizStatements graph = foldMap (\node -> fold ["  ", display node.val, ";\n"]) $ getAllNodes graph
+      edgeGraphvizStatements :: IGraph 'Directional node edge -> Utf8Builder
+      edgeGraphvizStatements graph = foldMap (nodeToGraphviz graph) (getAllNodes graph)
         where
-          nodeToGraphviz :: IGraph 'Directional node edge -> Node node edge -> String
+          nodeToGraphviz :: IGraph 'Directional node edge -> Node node edge -> Utf8Builder
           nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
-          edgeToGraphviz :: Node node edge -> Node node edge -> String
-          edgeToGraphviz src tgt = concat ["  ", show src.val, " -> ", show tgt.val, ";"]
+          edgeToGraphviz :: Node node edge -> Node node edge -> Utf8Builder
+          edgeToGraphviz src tgt = fold ["  ", display src.val, " -> ", display tgt.val, ";"]
 
-instance (Show node, Show edge) => DebugGraphviz (IGraph 'UnDirectional node edge) where
-  debugGraphviz graph = pack $ "graph G{\n" ++ nodeGraphvizStatements graph ++ edgeGraphvizStatements graph ++ "}\n"
+instance (Display node, Display edge) => DebugGraphviz (IGraph 'UnDirectional node edge) where
+  debugGraphviz graph = textDisplay $ "graph G{\n" <> nodeGraphvizStatements graph <> edgeGraphvizStatements graph <> "}\n"
     where
-      nodeGraphvizStatements :: IGraph 'UnDirectional node edge -> String
-      nodeGraphvizStatements graph = unlines . Vec.toList $ (\node -> concat ["  ", show node.val, ";"]) <$> getAllNodes graph
-      edgeGraphvizStatements :: IGraph 'UnDirectional node edge -> String
-      edgeGraphvizStatements graph = concatMap (nodeToGraphviz graph) (getAllNodes graph)
+      nodeGraphvizStatements :: IGraph 'UnDirectional node edge -> Utf8Builder
+      nodeGraphvizStatements graph = foldMap (\node -> fold ["  ", display node.val, ";\n"]) $ getAllNodes graph
+      edgeGraphvizStatements :: IGraph 'UnDirectional node edge -> Utf8Builder
+      edgeGraphvizStatements graph = foldMap (nodeToGraphviz graph) (getAllNodes graph)
         where
-          nodeToGraphviz :: IGraph 'UnDirectional node edge -> Node node edge -> String
+          nodeToGraphviz :: IGraph 'UnDirectional node edge -> Node node edge -> Utf8Builder
           nodeToGraphviz graph node = unlines . Vec.toList . Vec.mapMaybe (edgeToGraphviz node) $ getOutNeiborhoodsByIndex graph node.index
-          edgeToGraphviz :: Node node edge -> Node node edge -> Maybe String
+          edgeToGraphviz :: Node node edge -> Node node edge -> Maybe Utf8Builder
           edgeToGraphviz src tgt
-            | src.index <= tgt.index = Just $ concat ["  ", show src.val, " -- ", show tgt.val, ";"]
+            | src.index <= tgt.index = Just $ fold ["  ", display src.val, " -- ", display tgt.val, ";"]
             | otherwise = Nothing

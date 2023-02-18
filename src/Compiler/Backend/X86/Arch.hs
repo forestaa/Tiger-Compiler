@@ -5,10 +5,10 @@ import RIO
 
 newtype Memory = Memory Int deriving (Show, Eq)
 
-newtype Label = Label' String deriving (Show, Eq, Ord)
+newtype Label = Label' Text deriving (Show, Eq, Ord, Display)
 
 fromUniqueLabel :: U.Label -> Label
-fromUniqueLabel = Label' . show
+fromUniqueLabel = Label' . textDisplay
 
 data Register
   = RAX
@@ -78,7 +78,7 @@ data Assembly register
   | Align Int
   | Type Label -- TODO:
   | Size Label Int
-  | String String
+  | String Text
   | Zero Int
   | Long Int
   deriving (Show, Eq, Functor)

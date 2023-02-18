@@ -13,6 +13,9 @@ data Exp
   | ESeq Stm Exp
   deriving (Eq, Show)
 
+instance Display Exp where
+  display = displayShow
+
 data Stm
   = Move Exp Exp
   | Exp Exp
@@ -22,12 +25,18 @@ data Stm
   | Label U.Label
   deriving (Eq, Show)
 
+instance Display Stm where
+  display = displayShow
+
 data BinOp
   = Plus
   | Minus
   | Mul
   | Div
   deriving (Eq, Show)
+
+instance Display BinOp where
+  display = displayShow
 
 data RelOp
   = Eq
@@ -37,6 +46,9 @@ data RelOp
   | Le
   | Ge
   deriving (Eq, Show)
+
+instance Display RelOp where
+  display = displayShow
 
 seqStm :: [Stm] -> Stm
 seqStm [] = noop

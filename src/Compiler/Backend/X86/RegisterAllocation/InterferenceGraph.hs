@@ -21,6 +21,9 @@ import RIO.Vector qualified as Vec
 
 data InterferenceGraphEdgeLabel = InterferenceGraphEdgeLabel deriving (Show, Eq, Ord)
 
+instance Display InterferenceGraphEdgeLabel where
+  display = displayShow
+
 newtype InterferenceGraph var = InterferenceGraph (Immutable.IGraph 'UnDirectional var InterferenceGraphEdgeLabel) deriving (Show, Eq, Immutable.ImmutableGraph 'UnDirectional var InterferenceGraphEdgeLabel, Immutable.DebugGraphviz)
 
 newtype InterferenceMutableGraph var s = InterferenceMutableGraph (Mutable.MGraph 'UnDirectional var InterferenceGraphEdgeLabel s)

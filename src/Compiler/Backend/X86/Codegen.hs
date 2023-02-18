@@ -11,6 +11,7 @@ import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.List (singleton)
 import RIO
+import RIO.Text qualified as T (length)
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragments Frame -> Eff xs [ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)]]
 codegen fragments = do
@@ -160,7 +161,7 @@ binOpInstr IR.Minus = SubRegister
 binOpInstr IR.Mul = MulRegister
 binOpInstr _ = undefined
 
-codegenString :: U.Label -> String -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
+codegenString :: U.Label -> Text -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenString label string =
   pure
     [ L.Instruction {src = [], dst = [], val = Text},
@@ -169,12 +170,12 @@ codegenString label string =
       L.Instruction {src = [], dst = [], val = Align 16},
       L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label)},
       L.Instruction {src = [], dst = [], val = Size (fromUniqueLabel label) size},
-      L.Label {label' = (fromUniqueLabel label), val = Label (fromUniqueLabel label)},
-      L.Instruction {src = [], dst = [], val = Long (length string)},
+      L.Label {label' = fromUniqueLabel label, val = Label (fromUniqueLabel label)},
+      L.Instruction {src = [], dst = [], val = Long (T.length string)},
       L.Instruction {src = [], dst = [], val = Compiler.Backend.X86.Arch.String string},
       L.Instruction {src = [], dst = [], val = Zero padding}
     ]
   where
-    realSize = wordSize + length string + 1
+    realSize = wordSize + T.length string + 1
     size = (realSize `div` wordSize + 1) * wordSize
     padding = size - realSize

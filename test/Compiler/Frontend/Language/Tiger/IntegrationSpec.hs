@@ -20,6 +20,7 @@ import Data.Extensible.Effect (liftEff, runEitherEff)
 import Data.Extensible.Effect.Default (runIODef)
 import RIO hiding (catch)
 import RIO.List.Partial ((!!))
+import RIO.Text qualified as T
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldBe, shouldSatisfy)
 
 spec :: Spec
@@ -301,7 +302,7 @@ translateTest file = runIODef . runEitherEff @"frontendException" . U.evalUnique
 runErrorTranslateTest :: FilePath -> (SemantAnalysisError -> IO ()) -> IO ()
 runErrorTranslateTest file assert = do
   (translateTest' file >> pure ())
-    `frontendCatch` (\(ParserException msg) -> expectationFailure $ "parse error: " ++ msg)
+    `frontendCatch` (\(ParserException msg) -> expectationFailure . T.unpack . textDisplay $ "parse error: " <> msg)
     `frontendCatch` (\(L _ e) -> assert e)
   where
     frontendCatch :: (MonadThrow m, MonadCatch m, FrontendException e) => m a -> (e -> m a) -> m a

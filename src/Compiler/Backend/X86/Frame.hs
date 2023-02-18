@@ -64,63 +64,63 @@ allTempRegisters :: Set.Set U.Temp
 allTempRegisters = Set.fromList [rip, rax, rsp, rbp, rbx, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15, eflags]
 
 rip :: U.Temp
-rip = U.newStringTemp "RIP"
+rip = U.newUniqueTextTemp "RIP"
 
 rax :: U.Temp
-rax = U.newStringTemp "RAX"
+rax = U.newUniqueTextTemp "RAX"
 
 rsp :: U.Temp
-rsp = U.newStringTemp "RSP"
+rsp = U.newUniqueTextTemp "RSP"
 
 rbp :: U.Temp
-rbp = U.newStringTemp "RBP"
+rbp = U.newUniqueTextTemp "RBP"
 
 rbx :: U.Temp
-rbx = U.newStringTemp "RBX"
+rbx = U.newUniqueTextTemp "RBX"
 
 rdi :: U.Temp
-rdi = U.newStringTemp "RDI"
+rdi = U.newUniqueTextTemp "RDI"
 
 rsi :: U.Temp
-rsi = U.newStringTemp "RSI"
+rsi = U.newUniqueTextTemp "RSI"
 
 rdx :: U.Temp
-rdx = U.newStringTemp "RDX"
+rdx = U.newUniqueTextTemp "RDX"
 
 rcx :: U.Temp
-rcx = U.newStringTemp "RCX"
+rcx = U.newUniqueTextTemp "RCX"
 
 r8 :: U.Temp
-r8 = U.newStringTemp "R8"
+r8 = U.newUniqueTextTemp "R8"
 
 r9 :: U.Temp
-r9 = U.newStringTemp "R9"
+r9 = U.newUniqueTextTemp "R9"
 
 r10 :: U.Temp
-r10 = U.newStringTemp "R10"
+r10 = U.newUniqueTextTemp "R10"
 
 r11 :: U.Temp
-r11 = U.newStringTemp "R11"
+r11 = U.newUniqueTextTemp "R11"
 
 r12 :: U.Temp
-r12 = U.newStringTemp "R12"
+r12 = U.newUniqueTextTemp "R12"
 
 r13 :: U.Temp
-r13 = U.newStringTemp "R13"
+r13 = U.newUniqueTextTemp "R13"
 
 r14 :: U.Temp
-r14 = U.newStringTemp "R14"
+r14 = U.newUniqueTextTemp "R14"
 
 r15 :: U.Temp
-r15 = U.newStringTemp "R15"
+r15 = U.newUniqueTextTemp "R15"
 
 eflags :: U.Temp
-eflags = U.newStringTemp "EFLAGS"
+eflags = U.newUniqueTextTemp "EFLAGS"
 
 wordSize :: Int
 wordSize = 8
 
-externalCall :: Lookup xs "label" U.UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
+externalCall :: Lookup xs "label" U.UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall f parameters = do
   label <- U.namedLabel f -- TODO: label must be fixed and must not depend on unique
   pure $ IR.Call (IR.Name label) parameters

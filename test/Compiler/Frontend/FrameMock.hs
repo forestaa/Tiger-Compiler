@@ -57,16 +57,16 @@ exp :: AccessMock -> IR.Exp -> IR.Exp
 exp (InFrame k) e = IR.Mem (IR.BinOp IR.Plus (IR.Const k) e)
 exp (InReg t) _ = IR.Temp t
 
-externalCall :: Lookup xs "label" UniqueEff => String -> [IR.Exp] -> Eff xs IR.Exp
+externalCall :: Lookup xs "label" UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall s args = do
   label <- U.namedLabel s
   pure $ IR.Call (IR.Name label) args
 
 fp :: U.Temp
-fp = newStringTemp "fp"
+fp = newUniqueTextTemp "fp"
 
 rv :: U.Temp
-rv = newStringTemp "rv"
+rv = newUniqueTextTemp "rv"
 
 procEntryExit1 :: FrameMock -> IR.Stm -> IR.Stm
 procEntryExit1 _ = id

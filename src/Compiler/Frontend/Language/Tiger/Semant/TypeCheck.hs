@@ -1,22 +1,24 @@
 module Compiler.Frontend.Language.Tiger.Semant.TypeCheck where
 
+import Compiler.Frontend.Env qualified as E
+import Compiler.Frontend.Id
+import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
+import Compiler.Frontend.Language.Tiger.Semant.Env
+import Compiler.Frontend.Language.Tiger.Semant.Types
+import Compiler.Frontend.SrcLoc
+import Compiler.Intermediate.Unique
+import Compiler.Utils.Coroutine
+import Compiler.Utils.Display ()
 import Control.Monad.Except
 import Data.Extensible
 import Data.Extensible.Effect
 import Data.Extensible.Effect.Default
 import Data.Foldable
 import Data.Graph
-import Compiler.Frontend.Env qualified as E
-import Compiler.Frontend.Id
-import Compiler.Frontend.SrcLoc
-import Compiler.Intermediate.Unique
 import RIO
 import RIO.List qualified as List
 import RIO.Set qualified as Set
-import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
-import Compiler.Frontend.Language.Tiger.Semant.Env
-import Compiler.Frontend.Language.Tiger.Semant.Types
-import Compiler.Utils.Coroutine
+import RIO.Text qualified as T
 
 initTEnv :: TEnv
 initTEnv = E.fromList [("string", TString), ("int", TInt)]
@@ -60,43 +62,49 @@ data TypeCheckError
   | InvalidRecTypeDeclaration [RealLocated TypeDec]
   | MultiDeclaredName [LId]
   | NotDeterminedNilType
-  | NotImplemented String
+  | NotImplemented Text
 
 instance Show TypeCheckError where
-  show (VariableUndefined id) = "undefined variable: " ++ show id
-  show (VariableMismatchedWithDeclaredType id ty ty') = concat ["Couldn't match type: expression doesn't match with declared type: id = ", show id, ", declared type: ", show ty, ", actual type: ", show ty']
-  show (UnknownType id) = "undefined type: " ++ show id
-  show (ExpectedType (L _ e) ty ty') = concat ["Couldn't mach type: ", show ty, " type expected: exp = ", show e, ", actual type = ", show ty']
-  show (ExpectedTypes es types types') =
-    concat
+  show = T.unpack . textDisplay
+
+instance Display TypeCheckError where
+  display (VariableUndefined id) = "undefined variable: " <> display id
+  display (VariableMismatchedWithDeclaredType id ty ty') = fold ["Couldn't match type: expression doesn't match with declared type: id = ", display id, ", declared type: ", display ty, ", actual type: ", display ty']
+  display (UnknownType id) = "undefined type: " <> display id
+  display (ExpectedType (L _ e) ty ty') = fold ["Couldn't mach type: ", display ty, " type expected: exp = ", display e, ", actual type = ", display ty']
+  display (ExpectedTypes es types types') =
+    fold
       [ "Couldn't match types: ",
-        show types,
+        display types,
         " exptected: exps = ",
-        show es,
+        display es,
         ", actual types = ",
-        show types'
+        display types'
       ]
-  show (ExpectedUnitType (L _ e) ty) = concat ["Couldn't match type: unit type expected: exp = ", show e, ", actual type: ", show ty]
-  show (ExpectedIntType (L _ e) ty) = concat ["Couldn't match type: int type expected: exp = ", show e, ", actual type: ", show ty]
-  show (ExpectedRecordType (L _ v) ty) = concat ["Couldn't match type: record type expected: value = ", show v, ", actual type: ", show ty]
-  show (ExpectedArrayType (L _ v) ty) = concat ["Couldn't match type: array type expected: value = ", show v, ", actual type: ", show ty]
-  show (ExpectedVariable id) = concat ["Expected Variable: value = ", show id]
-  show (ExpectedExpression (L _ e)) = concat ["Expected Expression: ", show e]
-  show (ExpectedFunction id) = concat ["Expected Function: id = ", show id]
-  show (ExpectedTypeForRecordField (L _ e) id ty ty') = concat ["Couldn't match type: ", show ty, " type expected at field ", show id, ": exp = ", show e, ", actual type: ", show ty']
-  show (MissingRecordField (L _ v) ty id) = concat ["Missing record field: value = ", show v, ", type = ", show ty, ", field = ", show id]
-  show (MissingRecordFieldInConstruction (L _ v) ty id) = concat ["Missing record field in construction: value = ", show v, ", type = ", show ty, ", field = ", show id]
-  show (ExtraRecordFieldInConstruction (L _ v) ty id) = concat ["Record does not have field ", show id, ": value = ", show v, ", type = ", show ty]
-  show (InvalidRecTypeDeclaration decs) = concat ["Found circle type declarations: decs = ", show decs]
-  show (MultiDeclaredName decs) = concat ["Same name types, vars or functions declared: decs = ", show decs]
-  show NotDeterminedNilType = concat ["Couldn't determine the type of nil"]
-  show (NotImplemented msg) = "not implemented: " ++ msg
+  display (ExpectedUnitType (L _ e) ty) = fold ["Couldn't match type: unit type expected: exp = ", display e, ", actual type: ", display ty]
+  display (ExpectedIntType (L _ e) ty) = fold ["Couldn't match type: int type expected: exp = ", display e, ", actual type: ", display ty]
+  display (ExpectedRecordType (L _ v) ty) = fold ["Couldn't match type: record type expected: value = ", display v, ", actual type: ", display ty]
+  display (ExpectedArrayType (L _ v) ty) = fold ["Couldn't match type: array type expected: value = ", display v, ", actual type: ", display ty]
+  display (ExpectedVariable id) = fold ["Expected Variable: value = ", display id]
+  display (ExpectedExpression (L _ e)) = fold ["Expected Expression: ", display e]
+  display (ExpectedFunction id) = fold ["Expected Function: id = ", display id]
+  display (ExpectedTypeForRecordField (L _ e) id ty ty') = fold ["Couldn't match type: ", display ty, " type expected at field ", display id, ": exp = ", display e, ", actual type: ", display ty']
+  display (MissingRecordField (L _ v) ty id) = fold ["Missing record field: value = ", display v, ", type = ", display ty, ", field = ", display id]
+  display (MissingRecordFieldInConstruction (L _ v) ty id) = fold ["Missing record field in construction: value = ", display v, ", type = ", display ty, ", field = ", display id]
+  display (ExtraRecordFieldInConstruction (L _ v) ty id) = fold ["Record does not have field ", display id, ": value = ", display v, ", type = ", display ty]
+  display (InvalidRecTypeDeclaration decs) = fold ["Found circle type declarations: decs = ", display decs]
+  display (MultiDeclaredName decs) = fold ["Same name types, vars or functions declared: decs = ", display decs]
+  display NotDeterminedNilType = "Couldn't determine the type of nil"
+  display (NotImplemented msg) = "not implemented: " <> display msg
 
 data FunDec = FunDec {id :: LId, args :: [T.LField], rettype :: Maybe LId, body :: T.LExp}
 
 data VarDec = VarDec {id :: LId, escape :: Bool, ty :: Maybe LId, init :: T.LExp}
 
 data TypeDec = TypeDec {id :: LId, ty :: T.LType} deriving (Show)
+
+instance Display TypeDec where
+  display = displayShow
 
 data Decs = FunDecs [RealLocated FunDec] | VarDecs [RealLocated VarDec] | TypeDecs [RealLocated TypeDec]
 
