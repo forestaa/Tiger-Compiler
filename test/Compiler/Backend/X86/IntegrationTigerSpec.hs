@@ -11,6 +11,7 @@ import Compiler.Frontend.Language.Tiger.Samples (tigerTest)
 import Compiler.Intermediate.Canonical (Canonical (Canonical))
 import Compiler.Intermediate.Frame qualified as F (ProgramFragment (..))
 import Compiler.Intermediate.Unique qualified as U
+import Compiler.Intermediate.Unique.TestUtils (newNthLabel, newNthNamedLabel)
 import Compiler.Utils.Maybe ()
 import Control.Exception.Safe (throwM)
 import Data.ByteString.Lazy qualified as B
@@ -31,9 +32,10 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test01.tig" $ do
     let testcase = tigerTest "test01.tig"
     result <- compileTest testcase
-    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 12)
-        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
+    let mainLabel = fromUniqueLabel $ newNthNamedLabel "tigerMain" 12
+        label12 = fromUniqueLabel $ newNthNamedLabel "L" 12
+        label13 = fromUniqueLabel $ newNthNamedLabel "L" 13
+        initArrayLabel = newNthNamedLabel "initArray" 11
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
@@ -43,7 +45,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovImmediate 0 RCX,
           MovRegister RAX RDI,
           MovRegister RCX RSI,
-          Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11))),
+          Call (fromUniqueLabel initArrayLabel),
           MovRegister RAX RAX,
           MovRegister RAX RAX,
           Jump label13,
@@ -55,9 +57,10 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     result <- compileTest testcase
-    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 12)
-        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
+    let mainLabel = fromUniqueLabel $ newNthNamedLabel "tigerMain" 12
+        label12 = fromUniqueLabel $ newNthLabel 12
+        label13 = fromUniqueLabel $ newNthLabel 13
+        initArrayLabel = newNthNamedLabel "initArray" 11
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
@@ -67,7 +70,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovImmediate 0 RCX,
           MovRegister RAX RDI,
           MovRegister RCX RSI,
-          Call (fromUniqueLabel (U.Label "initArray" (U.Unique 11))),
+          Call (fromUniqueLabel initArrayLabel),
           MovRegister RAX RAX,
           MovRegister RAX RAX,
           Jump label13,
@@ -79,12 +82,13 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
     result <- compileTest testcase
-    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 14)
-        label11 = fromUniqueLabel $ U.Label "L" (U.Unique 11)
-        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
-        label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
-        label15 = fromUniqueLabel $ U.Label "L" (U.Unique 15)
+    let mainLabel = fromUniqueLabel $ newNthNamedLabel "tigerMain" 14
+        label11 = fromUniqueLabel $ newNthLabel 11
+        label12 = fromUniqueLabel $ newNthLabel 12
+        label13 = fromUniqueLabel $ newNthLabel 13
+        label14 = fromUniqueLabel $ newNthLabel 14
+        label15 = fromUniqueLabel $ newNthLabel 15
+        mallocLabel = newNthNamedLabel "malloc" 12
     length result `shouldBe` 3
     (result !! 0).string.body
       `shouldBe` Just
@@ -118,7 +122,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           MovRegister RSP RBP,
           MovImmediate 16 RAX,
           MovRegister RAX RDI,
-          Call (fromUniqueLabel (U.Label "malloc" (U.Unique 12))),
+          Call (fromUniqueLabel mallocLabel),
           MovRegister RAX RCX,
           Lea label11 RIP RAX,
           MovStoreIndirect RAX 0 RCX,
@@ -136,15 +140,15 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"
     result <- compileTest testcase
-    let mainLabel = fromUniqueLabel $ U.Label "tigerMain" (U.Unique 17)
-        label12 = fromUniqueLabel $ U.Label "L" (U.Unique 12)
-        label13 = fromUniqueLabel $ U.Label "L" (U.Unique 13)
-        label14 = fromUniqueLabel $ U.Label "L" (U.Unique 14)
-        label15 = fromUniqueLabel $ U.Label "L" (U.Unique 15)
-        label16 = fromUniqueLabel $ U.Label "L" (U.Unique 16)
-        label17 = fromUniqueLabel $ U.Label "L" (U.Unique 17)
-        label18 = fromUniqueLabel $ U.Label "L" (U.Unique 18)
-        nfactor = fromUniqueLabel $ U.Label "nfactor" (U.Unique 11)
+    let mainLabel = fromUniqueLabel $ newNthNamedLabel "tigerMain" 17
+        label12 = fromUniqueLabel $ newNthLabel 12
+        label13 = fromUniqueLabel $ newNthLabel 13
+        label14 = fromUniqueLabel $ newNthLabel 14
+        label15 = fromUniqueLabel $ newNthLabel 15
+        label16 = fromUniqueLabel $ newNthLabel 16
+        label17 = fromUniqueLabel $ newNthLabel 17
+        label18 = fromUniqueLabel $ newNthLabel 18
+        nfactor = fromUniqueLabel $ newNthNamedLabel "nfactor" 11
     length result `shouldBe` 2
     (result !! 0).procedure.body
       `shouldBe` Just

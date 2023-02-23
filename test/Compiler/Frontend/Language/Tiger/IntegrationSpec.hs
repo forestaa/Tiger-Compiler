@@ -2,7 +2,7 @@ module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
-import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..), isInFrame, isInRegister)
+import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..), fp, isInFrame, isInRegister, rv)
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Samples (tigerTest, validTigerTests)
 import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError)
@@ -12,6 +12,7 @@ import Compiler.Frontend.SrcLoc (RealLocated (L))
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique qualified as U
+import Compiler.Intermediate.Unique.TestUtils (newNthLabel, newNthNamedLabel, newNthTemp)
 import Compiler.Utils.Maybe
 import Control.Exception.Safe (Exception (toException), MonadCatch, MonadThrow, catch)
 import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
@@ -34,8 +35,10 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
   it "test01.tig" $ do
     let testcase = tigerTest "test01.tig"
     res <- translateTest' testcase
-    let temp0 = U.Temp "t" (U.Unique 0)
-        temp1 = U.Temp "t" (U.Unique 1)
+    let temp0 = newNthTemp 0
+        temp1 = newNthTemp 1
+        initArrayLabel = newNthNamedLabel "initArray" 11
+        tiger = newNthNamedLabel "tiger" 0
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -44,7 +47,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                   ( ( IR.Move
                         (IR.Temp temp0)
                         ( IR.Call
-                            (IR.Name (U.Label "initArray" (U.Unique 11)))
+                            (IR.Name initArrayLabel)
                             [IR.Const 10, IR.Const 0]
                         )
                     )
@@ -54,7 +57,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 `IR.ESeq` (IR.Temp temp1)
             )
         )
-    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.name `shouldBe` Just tiger
     res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
     res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
     res.main.procedure.frame.head `shouldBe` Just (-4)
@@ -63,8 +66,10 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
   it "test02.tig" $ do
     let testcase = tigerTest "test02.tig"
     res <- translateTest' testcase
-    let temp0 = U.Temp "t" (U.Unique 0)
-        temp1 = U.Temp "t" (U.Unique 1)
+    let temp0 = newNthTemp 0
+        temp1 = newNthTemp 1
+        initArrayLabel = newNthNamedLabel "initArray" 11
+        tiger = newNthNamedLabel "tiger" 0
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -73,7 +78,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 ( IR.Move
                     (IR.Temp temp0)
                     ( IR.Call
-                        (IR.Name (U.Label "initArray" (U.Unique 11)))
+                        (IR.Name initArrayLabel)
                         [IR.Const 10, IR.Const 0]
                     )
                     IR.>>& IR.Temp temp0
@@ -81,7 +86,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 IR.>>& IR.Temp temp1
             )
         )
-    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.name `shouldBe` Just tiger
     res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
     res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
     res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)
@@ -91,10 +96,12 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
   it "test03.tig" $ do
     let testcase = tigerTest "test03.tig"
     res <- translateTest' testcase
-    let temp0 = U.Temp "t" (U.Unique 0)
-        temp1 = U.Temp "t" (U.Unique 1)
-        nobody = U.Label "L" (U.Unique 11)
-        somebody = U.Label "L" (U.Unique 13)
+    let temp0 = newNthTemp 0
+        temp1 = newNthTemp 1
+        nobody = newNthLabel 11
+        somebody = newNthLabel 13
+        mallocLabel = newNthNamedLabel "malloc" 12
+        tiger = newNthNamedLabel "tiger" 0
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -103,7 +110,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 ( IR.Move
                     (IR.Temp temp0)
                     ( IR.Call
-                        (IR.Name (U.Label "malloc" (U.Unique 12)))
+                        (IR.Name mallocLabel)
                         [IR.Const 8]
                     )
                     IR.>> IR.Move
@@ -120,7 +127,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                 IR.>>& IR.Temp temp1
             )
         )
-    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.name `shouldBe` Just tiger
     res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
     res.main.procedure.frame.numberOfLocals `shouldBe` Just 2
     res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)
@@ -134,19 +141,18 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"
     res <- translateTest' testcase
-    let temp0 = U.Temp "t" (U.Unique 0)
-        temp1 = U.Temp "t" (U.Unique 1)
-        fp = U.Temp "fp" (U.Unique 0)
-        rv = U.Temp "rv" (U.Unique 0)
-        label12 = U.Label "L" (U.Unique 12)
-        label13 = U.Label "L" (U.Unique 13)
-        label14 = U.Label "L" (U.Unique 14)
-        nfactor = U.Label "nfactor" (U.Unique 11)
+    let temp0 = newNthTemp 0
+        temp1 = newNthTemp 1
+        label12 = newNthLabel 12
+        label13 = newNthLabel 13
+        label14 = newNthLabel 14
+        nfactor = newNthNamedLabel "nfactor" 11
+        tiger = newNthNamedLabel "tiger" 0
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10])
         )
-    res.main.procedure.frame.name.body `shouldBe` Just "tiger"
+    res.main.procedure.frame.name `shouldBe` Just tiger
     res.main.procedure.frame.formals `shouldBe` Just [InFrame 0]
     res.main.procedure.frame.numberOfLocals `shouldBe` Just 0
     res.main.procedure.frame.head `shouldBe` Just (-4)
@@ -177,7 +183,7 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                   IR.>>& (IR.Temp temp1)
             )
         )
-    (res.fragments !! 0).procedure.frame.name.body `shouldBe` Just "nfactor"
+    (res.fragments !! 0).procedure.frame.name `shouldBe` Just nfactor
     (res.fragments !! 0).procedure.frame.formals `shouldBe` Just [InFrame 0, InReg temp0]
     (res.fragments !! 0).procedure.frame.numberOfLocals `shouldBe` Just 1
     res.main.procedure.frame.localVariables `shouldSatisfy` maybe False (all isInRegister)

@@ -1,4 +1,20 @@
-module Compiler.Intermediate.Unique where
+module Compiler.Intermediate.Unique
+  ( Unique,
+    type UniqueEff,
+    HasUnique (..),
+    uniqueSeed,
+    evalUniqueEff,
+    runUniqueEff,
+    getUniqueEff,
+    putUniqueEff,
+    Temp,
+    newTemp,
+    newUniqueTextTemp,
+    Label,
+    newLabel,
+    namedLabel,
+  )
+where
 
 import Data.Extensible
 import Data.Extensible.Effect

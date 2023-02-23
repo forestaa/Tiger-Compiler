@@ -6,7 +6,7 @@ import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
 import Compiler.Intermediate.Frame qualified as F (Frame (..), Procedure (..), ProgramFragment (..), ProgramFragments (..), StringFragment (..))
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique qualified as U (Label (..), Temp, UniqueEff, namedLabel)
+import Compiler.Intermediate.Unique qualified as U (Label, Temp, UniqueEff, namedLabel)
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.List (singleton)
