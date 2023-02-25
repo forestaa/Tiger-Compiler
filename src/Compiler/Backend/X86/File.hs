@@ -85,4 +85,5 @@ writeLabel :: Label -> Utf8Builder
 writeLabel (Label' label') = display label'
 
 writeRegisterIndirectAccess :: Int -> Register -> Utf8Builder
-writeRegisterIndirectAccess i register = fold [display i, "(", writeRegister register ,")" ]
+writeRegisterIndirectAccess 0 register = fold ["(", writeRegister register, ")"]
+writeRegisterIndirectAccess i register = fold [display i, "(", writeRegister register, ")"]
