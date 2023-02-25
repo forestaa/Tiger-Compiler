@@ -222,6 +222,10 @@ instance HasField "string" (ProgramFragmentX86 body) (Maybe (StringFragmentX86 b
   getField (Compiler.Backend.X86.Frame.String string) = Just string
   getField _ = Nothing
 
+instance HasField "body" (ProgramFragmentX86 body) body where
+  getField (Proc procedure) = procedure.body
+  getField (Compiler.Backend.X86.Frame.String string) = string.body
+
 instance Frame.Frame Frame where
   type Access Frame = Access
   newFrame = newFrame

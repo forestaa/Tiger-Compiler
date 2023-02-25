@@ -70,6 +70,7 @@ library
       Compiler.Backend.X86.Arch
       Compiler.Backend.X86.Codegen
       Compiler.Backend.X86.Frame
+      Compiler.Backend.X86.File
       Compiler.Backend.X86.Liveness
       Compiler.Backend.X86.RegisterAllocation
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraph
