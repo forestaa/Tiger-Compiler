@@ -37,8 +37,8 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res <- translateTest' testcase
     let temp0 = newNthTemp 0
         temp1 = newNthTemp 1
-        initArrayLabel = newNthNamedLabel "initArray" 11
-        tiger = newNthNamedLabel "tiger" 0
+        initArrayLabel = newNthNamedLabel "initArray" 10
+        tiger = U.mainLabel "tigermain"
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -68,8 +68,8 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res <- translateTest' testcase
     let temp0 = newNthTemp 0
         temp1 = newNthTemp 1
-        initArrayLabel = newNthNamedLabel "initArray" 11
-        tiger = newNthNamedLabel "tiger" 0
+        initArrayLabel = newNthNamedLabel "initArray" 10
+        tiger = U.mainLabel "tigermain"
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -98,10 +98,10 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res <- translateTest' testcase
     let temp0 = newNthTemp 0
         temp1 = newNthTemp 1
-        nobody = newNthLabel 11
-        somebody = newNthLabel 13
-        mallocLabel = newNthNamedLabel "malloc" 12
-        tiger = newNthNamedLabel "tiger" 0
+        nobody = newNthLabel 10
+        somebody = newNthLabel 12
+        mallocLabel = newNthNamedLabel "malloc" 11
+        tiger = U.mainLabel "tigermain"
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp
@@ -143,11 +143,11 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res <- translateTest' testcase
     let temp0 = newNthTemp 0
         temp1 = newNthTemp 1
+        label11 = newNthLabel 11
         label12 = newNthLabel 12
         label13 = newNthLabel 13
-        label14 = newNthLabel 14
-        nfactor = newNthNamedLabel "nfactor" 11
-        tiger = newNthNamedLabel "tiger" 0
+        nfactor = newNthNamedLabel "nfactor" 10
+        tiger = U.mainLabel "tigermain"
     res.main.procedure.body
       `shouldBe` Just
         ( IR.Exp (IR.Call (IR.Name nfactor) [IR.Temp fp, IR.Const 10])
@@ -161,11 +161,11 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
       `shouldBe` Just
         ( IR.Move
             (IR.Temp rv)
-            ( IR.CJump IR.Eq (IR.Temp temp0) (IR.Const 0) label12 label13
-                IR.>> IR.Label label12
+            ( IR.CJump IR.Eq (IR.Temp temp0) (IR.Const 0) label11 label12
+                IR.>> IR.Label label11
                 IR.>> IR.Move (IR.Temp temp1) (IR.Const 1)
-                IR.>> IR.Jump (IR.Name label14) [label14]
-                IR.>> IR.Label label13
+                IR.>> IR.Jump (IR.Name label13) [label13]
+                IR.>> IR.Label label12
                 IR.>> IR.Move
                   (IR.Temp temp1)
                   ( IR.BinOp
@@ -178,8 +178,8 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
                           ]
                       )
                   )
-                IR.>> IR.Jump (IR.Name label14) [label14]
-                IR.>> IR.Label label14
+                IR.>> IR.Jump (IR.Name label13) [label13]
+                IR.>> IR.Label label13
                   IR.>>& (IR.Temp temp1)
             )
         )

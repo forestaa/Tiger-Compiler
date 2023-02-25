@@ -6,7 +6,7 @@ import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..))
 import Compiler.Intermediate (Intermediate, processIntermediate)
 import Compiler.Intermediate.Frame qualified as F (Frame (..), Procedure (..), ProgramFragment (..), ProgramFragments (..), StringFragment (..))
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique qualified as U (Label, Temp, UniqueEff, namedLabel)
+import Compiler.Intermediate.Unique qualified as U (Label, Temp, UniqueEff, mainLabel)
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.List (singleton)
@@ -21,7 +21,7 @@ codegen fragments = do
 
 codegenMain :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragment Frame -> Eff xs (ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
 codegenMain (F.Proc procedure) = do
-  mainLabel <- U.namedLabel "tigerMain"
+  let mainLabel = U.mainLabel "tigermain"
   codegenFragment @im (F.Proc (procedure {F.frame = procedure.frame {name = mainLabel}}))
 codegenMain _ = undefined
 

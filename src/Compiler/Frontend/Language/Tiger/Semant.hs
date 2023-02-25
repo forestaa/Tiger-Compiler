@@ -81,7 +81,7 @@ runTranslateEff = fmap join . (fmap (Bi.first (fmap TranslateError)) . runEither
 translateProgram :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => T.LExp -> Eff xs (Either (RealLocated SemantAnalysisError) (F.ProgramFragments f))
 translateProgram ast = do
   result <- castEff . runTranslateEff @f $ do
-    label <- namedLabel "tiger"
+    let label = mainLabel "tigermain"
     insertInitVAEnv
     insertInitVTEnv
     withNewLevelEff label [] $ do

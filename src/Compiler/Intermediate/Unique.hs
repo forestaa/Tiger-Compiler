@@ -13,6 +13,7 @@ module Compiler.Intermediate.Unique
     Label,
     newLabel,
     namedLabel,
+    mainLabel,
   )
 where
 
@@ -78,16 +79,23 @@ newTemp = Temp "t" <$> getUniqueEff #temp
 newUniqueTextTemp :: Text -> Temp
 newUniqueTextTemp text = Temp text (Unique 0)
 
-data Label = Label {body :: Text, unique :: Unique} deriving (Eq, Ord)
+data Label
+  = Label {body :: Text, unique :: Unique}
+  | Main {body :: Text}
+  deriving (Eq, Ord)
 
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
 
 namedLabel :: Lookup xs "label" UniqueEff => Text -> Eff xs Label
-namedLabel l = Label l <$> getUniqueEff #label
+namedLabel text = Label text <$> getUniqueEff #label
+
+mainLabel :: Text -> Label
+mainLabel = Main
 
 instance Show Label where
   show = T.unpack . textDisplay
 
 instance Display Label where
-  display label = display label.body <> display label.unique.int
+  display (Label {body, unique}) = display body <> display unique.int
+  display (Main body) = display body
