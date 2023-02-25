@@ -30,6 +30,8 @@ common deps
     , extensible-skeleton
     , multiset
     , mtl
+    , optparse-applicative
+    , path
     , primitive
     , rio
     , safe-exceptions
