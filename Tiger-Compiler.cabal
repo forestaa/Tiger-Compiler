@@ -67,6 +67,8 @@ library
     , template-haskell
   build-tool-depends: alex:alex, happy:happy
   exposed-modules:
+      Compiler.Backend
+      Compiler.Backend.X86
       Compiler.Backend.X86.Arch
       Compiler.Backend.X86.Codegen
       Compiler.Backend.X86.Frame
