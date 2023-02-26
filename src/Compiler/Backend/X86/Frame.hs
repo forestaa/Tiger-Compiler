@@ -142,10 +142,12 @@ parameterTempRegisters = [rdi, rsi, rdx, rcx, r8, r9]
 prologue :: Frame -> [Assembly Register]
 prologue frame
   | numberOfFrameAllocatedVariables frame == 0 =
-      [ MovRegister RSP RBP
+      [ PushRegister RBP,
+        MovRegister RSP RBP
       ]
   | otherwise =
-      [ MovRegister RSP RBP,
+      [ PushRegister RBP,
+        MovRegister RSP RBP,
         SubImmediate (wordSize * numberOfFrameAllocatedVariables frame) RSP
       ]
 

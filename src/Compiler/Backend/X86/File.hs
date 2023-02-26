@@ -23,6 +23,7 @@ writeAssembly (Call label) = fold [delimeter, "call", delimeter, writeLabel labe
 writeAssembly (MovStoreIndirect source offset base) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeRegisterIndirectAccess offset base]
 writeAssembly (CmpImmediate source i) = fold [delimeter, "cmpq", delimeter, writeImmediate i, ", ", writeRegister source]
 writeAssembly (JumpIfEqual label) = fold [delimeter, "je", delimeter, writeLabel label]
+writeAssembly (PushRegister source) = fold [delimeter, "pushq", delimeter, writeRegister source]
 writeAssembly Leave = fold [delimeter, "leave"]
 writeAssembly Ret = fold [delimeter, "ret"]
 writeAssembly (Global label) = fold [delimeter, ".globl", delimeter, writeLabel label]
