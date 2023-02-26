@@ -6,7 +6,7 @@ import Compiler.Utils.String (unlines)
 import RIO hiding (unlines)
 
 writeAssemblyFile :: [F.ProgramFragmentX86 [Assembly Register]] -> Utf8Builder
-writeAssemblyFile fragments = unlines $ writeProgramFragment <$> fragments
+writeAssemblyFile fragments = mconcat $ writeProgramFragment <$> fragments
 
 writeProgramFragment :: F.ProgramFragmentX86 [Assembly Register] -> Utf8Builder
 writeProgramFragment fragment = unlines $ writeAssembly <$> fragment.body
