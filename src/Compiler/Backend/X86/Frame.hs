@@ -27,7 +27,7 @@ isInFrame (InFrame _) = True
 isInFrame _ = False
 
 emptyFrame :: U.Label -> Frame
-emptyFrame label = Frame label [] [] 0
+emptyFrame label = Frame label [] [] (-wordSize)
 
 newFrame :: Lookup xs "temp" U.UniqueEff => U.Label -> [Bool] -> Eff xs Frame
 newFrame label parameters = foldM allocateParameter (emptyFrame label) parameters
