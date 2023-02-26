@@ -25,6 +25,7 @@ writeAssembly (CmpImmediate source i) = fold [delimeter, "cmpl", delimeter, writ
 writeAssembly (JumpIfEqual label) = fold [delimeter, "je", delimeter, writeLabel label]
 writeAssembly Leave = fold [delimeter, "leave"]
 writeAssembly Ret = fold [delimeter, "ret"]
+writeAssembly (Global label) = fold [delimeter, ".globl", delimeter, writeLabel label]
 
 -- writeAssembly (MovImmediateLabel Label register)
 -- writeAssembly MovLoad Memory register

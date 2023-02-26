@@ -38,7 +38,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Label mainLabel,
+        [ Global mainLabel,
+          Label mainLabel,
           MovRegister RSP RBP,
           MovImmediate 10 RAX,
           MovImmediate 0 RCX,
@@ -62,7 +63,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Label mainLabel,
+        [ Global mainLabel,
+          Label mainLabel,
           MovRegister RSP RBP,
           MovImmediate 10 RAX,
           MovImmediate 0 RCX,
@@ -114,7 +116,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         ]
     (result !! 2).procedure.body
       `shouldBe` Just
-        [ Label mainLabel,
+        [ Global mainLabel,
+          Label mainLabel,
           MovRegister RSP RBP,
           MovImmediate 16 RAX,
           MovRegister RAX RDI,
@@ -147,7 +150,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 2
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Label label12,
+        [ Global nfactor,
+          Label label11,
           MovImmediate 1 RAX,
           Label label13,
           MovRegister RAX RAX,
@@ -180,7 +184,8 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         ]
     (result !! 1).procedure.body
       `shouldBe` Just
-        [ Label mainLabel,
+        [ Global mainLabel,
+          Label mainLabel,
           MovRegister RSP RBP,
           MovRegister RBP RAX,
           MovImmediate 10 RCX,

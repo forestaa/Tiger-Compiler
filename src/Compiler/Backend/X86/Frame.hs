@@ -244,6 +244,9 @@ type FrameEff = State Frame
 runFrameEff :: Eff (("frame" >: FrameEff) ': xs) a -> Frame -> Eff xs (a, Frame)
 runFrameEff = runStateEff @"frame"
 
+getFrameEff :: (Lookup xs "frame" FrameEff) => Eff xs Frame
+getFrameEff = getEff #frame
+
 modifyFrameEff :: (Lookup xs "frame" FrameEff) => (Frame -> Frame) -> Eff xs ()
 modifyFrameEff = modifyEff #frame
 

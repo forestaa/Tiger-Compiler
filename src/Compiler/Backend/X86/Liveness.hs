@@ -29,6 +29,7 @@ data ControlFlow var val
   | Jump {jumps :: [Label], val :: val}
   | CJump {jumps :: [Label], val :: val}
   | Label {label' :: Label, val :: val}
+  | Meta {val :: val}
   deriving (Show, Eq, Ord)
 
 instance HasField "sources" (ControlFlow var val) [var] where
