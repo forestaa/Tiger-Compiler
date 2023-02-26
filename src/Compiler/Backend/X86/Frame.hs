@@ -11,6 +11,7 @@ import GHC.Records (HasField (..))
 import RIO hiding (exp)
 import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
+import RIO.Map.Partial qualified as Map
 import RIO.Set qualified as Set
 
 data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int} deriving (Show)
@@ -62,6 +63,9 @@ exp SpilledOut _ = undefined
 
 allTempRegisters :: Set.Set U.Temp
 allTempRegisters = Set.fromList [rip, rax, rsp, rbp, rbx, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15, eflags]
+
+callerSaveTempRegisters :: [U.Temp]
+callerSaveTempRegisters = (registerTempMap Map.!) <$> callerSaveRegisters
 
 rip :: U.Temp
 rip = U.newUniqueTextTemp "RIP"

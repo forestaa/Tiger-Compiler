@@ -2,7 +2,7 @@ module Compiler.Backend.X86.CodegenSpec (spec) where
 
 import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
-import Compiler.Backend.X86.Frame (ProcedureX86 (..), emptyFrame, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
+import Compiler.Backend.X86.Frame (ProcedureX86 (..), emptyFrame, r10, r11, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.IntermediateMock (IntermediateMock (IntermediateMock))
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Intermediate.Frame qualified as F
@@ -329,7 +329,7 @@ codegenSpec = describe "codegen spec" $ do
           L.Instruction {src = [temps !! 7, rbp], dst = [], val = MovStoreIndirect (temps !! 7) 16 rbp},
           L.Instruction {src = [temps !! 8, rbp], dst = [], val = MovStoreIndirect (temps !! 8) 24 rbp},
           L.Instruction {src = [temps !! 9, rbp], dst = [], val = MovStoreIndirect (temps !! 9) 32 rbp},
-          L.Instruction {src = take 10 temps, dst = [rax], val = Call (Label' "f0")}
+          L.Instruction {src = take 10 temps, dst = [rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11], val = Call (Label' "f0")}
         ]
 
   it "Move Temp (1+1); f(Temp) -> " $ do
@@ -348,7 +348,7 @@ codegenSpec = describe "codegen spec" $ do
           L.Instruction {src = [t''], dst = [t''], val = AddImmediate 2 t''},
           L.Instruction {src = [t''], dst = [t], val = MovRegister t'' t},
           L.Instruction {src = [t], dst = [rdi], val = MovRegister t rdi},
-          L.Instruction {src = [t], dst = [rax], val = Call (Label' "f0")}
+          L.Instruction {src = [t], dst = [rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11], val = Call (Label' "f0")}
         ]
 
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]
