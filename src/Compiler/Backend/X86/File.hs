@@ -12,15 +12,15 @@ writeProgramFragment :: F.ProgramFragmentX86 [Assembly Register] -> Utf8Builder
 writeProgramFragment fragment = unlines $ writeAssembly <$> fragment.body
 
 writeAssembly :: Assembly Register -> Utf8Builder
-writeAssembly (MovImmediate i target) = fold [delimeter, "movl", delimeter, writeImmediate i, ", ", writeRegister target]
+writeAssembly (MovImmediate i target) = fold [delimeter, "movq", delimeter, writeImmediate i, ", ", writeRegister target]
 writeAssembly (MovRegister source target) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeRegister target]
 writeAssembly (Jump label) = fold [delimeter, "jmp", delimeter, writeLabel label]
 writeAssembly (Label label) = fold [writeLabel label, ":"]
-writeAssembly (MovLoadIndirect offset base target) = fold [delimeter, "movl", delimeter, writeRegisterIndirectAccess offset base, ", ", writeRegister target]
+writeAssembly (MovLoadIndirect offset base target) = fold [delimeter, "movq", delimeter, writeRegisterIndirectAccess offset base, ", ", writeRegister target]
 writeAssembly (SubImmediate offset target) = fold [delimeter, "subq", delimeter, writeImmediate offset, ", ", writeRegister target]
 writeAssembly (MulRegister source target) = fold [delimeter, "imul", delimeter, writeRegister source, ", ", writeRegister target]
-writeAssembly (Call label) = fold [delimeter, "call" , delimeter, writeLabel label]
-writeAssembly (MovStoreIndirect source offset base) = fold [delimeter, "movl", delimeter, writeRegister source, ", ", writeRegisterIndirectAccess offset base]
+writeAssembly (Call label) = fold [delimeter, "call", delimeter, writeLabel label]
+writeAssembly (MovStoreIndirect source offset base) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeRegisterIndirectAccess offset base]
 writeAssembly (CmpImmediate source i) = fold [delimeter, "cmpl", delimeter, writeRegister source, ", ", writeImmediate i]
 writeAssembly (JumpIfEqual label) = fold [delimeter, "je", delimeter, writeLabel label]
 writeAssembly Leave = fold [delimeter, "leave"]
