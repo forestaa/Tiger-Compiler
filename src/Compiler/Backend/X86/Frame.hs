@@ -220,6 +220,15 @@ data StringFragmentX86 body = StringFragment {body :: body} deriving (Show)
 
 data ProgramFragmentX86 body = Proc (ProcedureX86 body) | String (StringFragmentX86 body) deriving (Show)
 
+instance Show body => Display (ProcedureX86 body) where
+  display = displayShow
+
+instance Show body => Display (StringFragmentX86 body) where
+  display = displayShow
+
+instance Show body => Display (ProgramFragmentX86 body) where
+  display = displayShow
+
 instance HasField "procedure" (ProgramFragmentX86 body) (Maybe (ProcedureX86 body)) where
   getField (Proc procedure) = Just procedure
   getField _ = Nothing
