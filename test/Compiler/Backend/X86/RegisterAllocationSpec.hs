@@ -1,7 +1,7 @@
 module Compiler.Backend.X86.RegisterAllocationSpec (spec) where
 
 import Compiler.Backend.X86.Arch (Assembly (AddImmediate, AddRegister, MovImmediate, MovLoadIndirect, MovRegister, MovStoreIndirect), Register (..), callerSaveRegisters)
-import Compiler.Backend.X86.Frame (Frame (Frame), ProcedureX86 (..), allocateLocal, getAllocatedRegisters, newFrame, r10, r11, r12, r13, r14, r15, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
+import Compiler.Backend.X86.Frame (Frame (..), ProcedureX86 (..), allocateLocal, getAllocatedRegisters, newFrame, r10, r11, r12, r13, r14, r15, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.Liveness qualified as L
 import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
 import Compiler.Intermediate.Unique qualified as U (evalUniqueEff, newLabel)
@@ -126,6 +126,7 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                    AddRegister RCX RAX,
                    MovStoreIndirect RAX (-8) RBP
                  ]
+    result.frame.head `shouldBe` -32
 
   it "precolored" $ do
     let result = leaveEff . U.evalUniqueEff @"temp" . U.evalUniqueEff @"label" $ do

@@ -54,7 +54,7 @@ getAllocatedRegisters :: Frame -> [U.Temp]
 getAllocatedRegisters frame = fmap (\case InRegister t -> t; _ -> undefined) . filter isInRegister $ frame.parameters ++ frame.localVariables
 
 numberOfFrameAllocatedVariables :: Frame -> Int
-numberOfFrameAllocatedVariables frame = length $ filter isInFrame frame.localVariables
+numberOfFrameAllocatedVariables frame = length . filter isInFrame $ frame.localVariables ++ frame.parameters
 
 exp :: Access -> IR.Exp -> IR.Exp
 exp (InRegister t) _ = IR.Temp t
