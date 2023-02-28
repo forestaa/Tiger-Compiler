@@ -1,6 +1,6 @@
 module Compiler.Backend.X86.File (writeAssemblyFile) where
 
-import Compiler.Backend.X86.Arch (Assembly (..), Label (..), Register (..))
+import Compiler.Backend.X86.Arch (Assembly (..), Label (..), Memory (..), Register (..))
 import Compiler.Backend.X86.Frame qualified as F (ProgramFragmentX86)
 import Compiler.Utils.String (unlines)
 import RIO hiding (unlines)
@@ -13,49 +13,45 @@ writeProgramFragment fragment = unlines $ writeAssembly <$> fragment.body
 
 writeAssembly :: Assembly Register -> Utf8Builder
 writeAssembly (MovImmediate i target) = fold [delimeter, "movq", delimeter, writeImmediate i, ", ", writeRegister target]
+writeAssembly (MovImmediateLabel label target) = fold [delimeter, "movq", writeImmediate label, ", ", writeRegister target]
 writeAssembly (MovRegister source target) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeRegister target]
-writeAssembly (Jump label) = fold [delimeter, "jmp", delimeter, writeLabel label]
-writeAssembly (Label label) = fold [writeLabel label, ":"]
+writeAssembly (MovLoad memory register) = fold [delimeter, "movq", delimeter, writeMemory memory, ", ", writeRegister register]
 writeAssembly (MovLoadIndirect offset base target) = fold [delimeter, "movq", delimeter, writeRegisterIndirectAccess offset base, ", ", writeRegister target]
-writeAssembly (SubImmediate offset target) = fold [delimeter, "subq", delimeter, writeImmediate offset, ", ", writeRegister target]
-writeAssembly (MulRegister source target) = fold [delimeter, "imul", delimeter, writeRegister source, ", ", writeRegister target]
-writeAssembly (Call label) = fold [delimeter, "call", delimeter, writeLabel label]
+writeAssembly (MovLoadDisplacement offset base1 base2 scale target) = fold [delimeter, "movq", delimeter, writeDisplacement offset base1 base2 scale, ", ", writeRegister target]
+writeAssembly (MovStore source target) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeMemory target]
 writeAssembly (MovStoreIndirect source offset base) = fold [delimeter, "movq", delimeter, writeRegister source, ", ", writeRegisterIndirectAccess offset base]
+writeAssembly (Lea label base target) = fold [delimeter, "leaq", delimeter, writeLabel label, "(", writeRegister base, ")", ", ", writeRegister target]
+writeAssembly (AddImmediate offset target) = fold [delimeter, "addq", delimeter, writeImmediate offset, ", ", writeRegister target]
+writeAssembly (AddRegister source target) = fold [delimeter, "addq", delimeter, writeRegister source, ", ", writeRegister target]
+writeAssembly (SubImmediate offset target) = fold [delimeter, "subq", delimeter, writeImmediate offset, ", ", writeRegister target]
+writeAssembly (SubRegister source target) = fold [delimeter, "subq", delimeter, writeRegister source, ", ", writeRegister target]
+writeAssembly (MulImmediate offset target) = fold [delimeter, "imul", delimeter, writeImmediate offset, ", ", writeRegister target]
+writeAssembly (MulRegister source target) = fold [delimeter, "imul", delimeter, writeRegister source, ", ", writeRegister target]
 writeAssembly (CmpImmediate source i) = fold [delimeter, "cmpq", delimeter, writeImmediate i, ", ", writeRegister source]
+writeAssembly (CmpRegister left right) = fold [delimeter, "cmpq", delimeter, writeRegister left, ", ", writeRegister right]
+writeAssembly (Jump label) = fold [delimeter, "jmp", delimeter, writeLabel label]
 writeAssembly (JumpIfEqual label) = fold [delimeter, "je", delimeter, writeLabel label]
-writeAssembly (PushRegister source) = fold [delimeter, "pushq", delimeter, writeRegister source]
+writeAssembly (JumpIfNotEqual label) = fold [delimeter, "jne", delimeter, writeLabel label]
+writeAssembly (JumpIfGreaterThan label) = fold [delimeter, "jg", delimeter, writeLabel label]
+writeAssembly (JumpIfLessThan label) = fold [delimeter, "jl", delimeter, writeLabel label]
+writeAssembly (JumpIfEqualOrGreaterThan label) = fold [delimeter, "jge", delimeter, writeLabel label]
+writeAssembly (JumpIfEqualOrLessThan label) = fold [delimeter, "jle", delimeter, writeLabel label]
+writeAssembly (Call label) = fold [delimeter, "call", delimeter, writeLabel label]
 writeAssembly Leave = fold [delimeter, "leave"]
 writeAssembly Ret = fold [delimeter, "ret"]
+writeAssembly (PushImmediate i) = fold [delimeter, "pushq", delimeter, writeImmediate i]
+writeAssembly (PushRegister source) = fold [delimeter, "pushq", delimeter, writeRegister source]
+writeAssembly (Pop target) = fold [delimeter, "popq", delimeter, writeRegister target]
+writeAssembly (Label label) = fold [writeLabel label, ":"]
 writeAssembly (Global label) = fold [delimeter, ".globl", delimeter, writeLabel label]
-
--- writeAssembly (MovImmediateLabel Label register)
--- writeAssembly MovLoad Memory register
--- writeAssembly MovLoadDisplacement Int register register Integer register
--- writeAssembly MovStore register Memory
--- writeAssembly Lea Label register register
--- writeAssembly AddImmediate Int register
--- writeAssembly AddRegister register register
--- writeAssembly SubRegister register register
--- writeAssembly MulImmediate Int register
--- writeAssembly CmpRegister register register
--- writeAssembly JumpIfNotEqual Label
--- writeAssembly JumpIfLessThan Label
--- writeAssembly JumpIfGreaterThan Label
--- writeAssembly JumpIfEqualOrLessThan Label
--- writeAssembly JumpIfEqualOrGreaterThan Label
--- writeAssembly PushImmediate Int
--- writeAssembly PushRegister register
--- writeAssembly Pop register
--- writeAssembly Label Label
--- writeAssembly Global Label
--- writeAssembly Data
--- writeAssembly Text
--- writeAssembly Align Int
--- writeAssembly Type Label -- TODO:
--- writeAssembly Size Label Int
--- writeAssembly String String
--- writeAssembly Zero Int
--- writeAssembly Long Int
+writeAssembly Data = fold [delimeter, ".data"]
+writeAssembly Text = fold [delimeter, ".text"]
+writeAssembly (Align i) = fold [delimeter, ".align", delimeter, display i]
+writeAssembly (Type label) = fold [delimeter, ".type", " ", writeLabel label] -- missing type
+writeAssembly (Size label size) = fold [delimeter, ".size", " ", writeLabel label, " .", display size]
+writeAssembly (String text) = fold [delimeter, ".string", " ", display text]
+writeAssembly (Zero n) = fold [delimeter, ".zero", " ", display n]
+writeAssembly (Long i) = fold [delimeter, ".long", " ", display i]
 
 delimeter :: Utf8Builder
 delimeter = "\t"
@@ -80,12 +76,19 @@ writeRegister R15 = "%r15"
 writeRegister RIP = "%rip"
 writeRegister EFLAGS = "%eflags"
 
-writeImmediate :: Int -> Utf8Builder
+writeImmediate :: Display a => a -> Utf8Builder
 writeImmediate i = "$" <> display i
 
 writeLabel :: Label -> Utf8Builder
 writeLabel (Label' label') = display label'
 
+writeMemory :: Memory -> Utf8Builder
+writeMemory (Memory memory) = display memory
+
 writeRegisterIndirectAccess :: Int -> Register -> Utf8Builder
 writeRegisterIndirectAccess 0 register = fold ["(", writeRegister register, ")"]
-writeRegisterIndirectAccess i register = fold [display i, "(", writeRegister register, ")"]
+writeRegisterIndirectAccess offset register = fold [display offset, "(", writeRegister register, ")"]
+
+writeDisplacement :: Int -> Register -> Register -> Int -> Utf8Builder
+writeDisplacement 0 base1 base2 scale = fold ["(", writeRegister base1, ",", writeRegister base2, ", ", display scale, ")"]
+writeDisplacement offset base1 base2 scale = fold [display offset, "(", writeRegister base1, ",", writeRegister base2, ", ", display scale, ")"]

@@ -46,7 +46,7 @@ data Assembly register
   | MovRegister register register
   | MovLoad Memory register
   | MovLoadIndirect Int register register
-  | MovLoadDisplacement Int register register Integer register
+  | MovLoadDisplacement Int register register Int register
   | MovStore register Memory
   | MovStoreIndirect register Int register
   | Lea Label register register
