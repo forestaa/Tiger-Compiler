@@ -17,6 +17,7 @@ import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique
+import Compiler.Intermediate.Unique qualified as U
 import Compiler.Intermediate.Unique.TestUtils (newNthLabel, newNthNamedLabel, newNthTemp, newNthUnique)
 import Compiler.Utils.Maybe
 import Data.Extensible
@@ -375,7 +376,7 @@ translateBinOpSpec = describe "translate binop test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
-        genstm true false `shouldBe` IR.CJump IR.Ne (IR.Call (IR.Name (newNthNamedLabel "stringEqual" 3)) [IR.Name (newNthLabel 1), IR.Name (newNthLabel 2)]) (IR.Const 0) true false
+        genstm true false `shouldBe` IR.CJump IR.Ne (IR.Call (IR.Name (U.externalLabel "stringEqual")) [IR.Name (newNthLabel 1), IR.Name (newNthLabel 2)]) (IR.Const 0) true false
         ty `shouldBe` TInt
       Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
 
@@ -387,7 +388,7 @@ translateBinOpSpec = describe "translate binop test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((Cx genstm, ty), _), _) -> do
         let (true, false) = fetchTwoLabel
-        genstm true false `shouldBe` IR.CJump IR.Eq (IR.Call (IR.Name (newNthNamedLabel "stringEqual" 3)) [IR.Name (newNthLabel 1), IR.Name (newNthLabel 2)]) (IR.Const 0) true false
+        genstm true false `shouldBe` IR.CJump IR.Eq (IR.Call (IR.Name (U.externalLabel "stringEqual")) [IR.Name (newNthLabel 1), IR.Name (newNthLabel 2)]) (IR.Const 0) true false
         ty `shouldBe` TInt
       Right ret -> expectationFailure $ "should return Cx, but got " ++ show ret
 
@@ -628,7 +629,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 1
+            malloc = U.externalLabel "malloc"
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const 0])) (IR.Temp t))
         ty `shouldBe` TRecord {id = id, map = []}
@@ -644,7 +645,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 1
+            malloc = U.externalLabel "malloc"
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const (F.wordSize @FrameMock)])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 0))) (IR.Const 1))) (IR.Temp t))
         ty `shouldBe` TRecord {id = id, map = [("x", TInt)]}
@@ -660,7 +661,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 2
+            malloc = U.externalLabel "malloc"
             l = newNthLabel 1
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const (2 * (F.wordSize @FrameMock))])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const (F.wordSize @FrameMock)))) (IR.Name l)))) (IR.Temp t))
@@ -677,7 +678,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 2
+            malloc = U.externalLabel "malloc"
             l = newNthLabel 1
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const (2 * (F.wordSize @FrameMock))])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 0))) (IR.Const 1)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const (F.wordSize @FrameMock)))) (IR.Name l)))) (IR.Temp t))
@@ -697,7 +698,7 @@ translateRecordCreationSpec = describe "translate record creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 1
+            malloc = U.externalLabel "malloc"
             id1 = newNthUnique 0
             id2 = newNthUnique 1
         exp `shouldBe` Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const (F.wordSize @FrameMock)])) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 0))) (IR.Const 0))) (IR.Temp t))
@@ -769,7 +770,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            initArray = newNthNamedLabel "initArray" 1
+            initArray = U.externalLabel "initArray"
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.Call (IR.Name initArray) [IR.Const 0, IR.Const 1])) (IR.Temp t))
         ty `shouldBe` TArray {id = id, range = TInt}
@@ -788,7 +789,7 @@ translateArrayCreationSpec = describe "translate array creation test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
         let t = newNthTemp 0
-            initArray = newNthNamedLabel "initArray" 1
+            initArray = U.externalLabel "initArray"
             id1 = newNthUnique 0
             id2 = newNthUnique 1
         exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.Call (IR.Name initArray) [IR.Const 0, IR.Const 0])) (IR.Temp t))
@@ -1333,7 +1334,7 @@ translateLetSpec = describe "translate let test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 1
+            malloc = U.externalLabel "malloc"
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const 0])) (IR.Temp t))
         ty `shouldBe` TRecord {id = id, map = []}
@@ -1347,7 +1348,7 @@ translateLetSpec = describe "translate let test" $ do
       Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         let t = newNthTemp 0
-            malloc = newNthNamedLabel "malloc" 2
+            malloc = U.externalLabel "malloc"
             l = newNthLabel 1
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Seq (IR.Move (IR.Temp t) (IR.Call (IR.Name malloc) [IR.Const (2 * (F.wordSize @FrameMock))])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t) (IR.Const (F.wordSize @FrameMock)))) (IR.Name l)))) (IR.Temp t))
@@ -1511,7 +1512,7 @@ translateLetSpec = describe "translate let test" $ do
       Right (((exp, ty), _), _) -> do
         let t0 = newNthTemp 0
             t1 = newNthTemp 1
-            malloc = newNthNamedLabel "malloc" 1
+            malloc = U.externalLabel "malloc"
             id = newNthUnique 0
         exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t1) (IR.ESeq (IR.Seq (IR.Move (IR.Temp t0) (IR.Call (IR.Name malloc) [IR.Const (2 * (F.wordSize @FrameMock))])) (IR.Seq (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t0) (IR.Const 0))) (IR.Const 0)) (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Temp t0) (IR.Const (F.wordSize @FrameMock)))) (IR.Const 0)))) (IR.Temp t0))) (IR.Temp t1))
         ty `shouldBe` TRecord {id = id, map = [("hd", TInt), ("tl", TName (dummyRealLocated "intlist"))]}

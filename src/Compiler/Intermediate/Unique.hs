@@ -13,7 +13,7 @@ module Compiler.Intermediate.Unique
     Label,
     newLabel,
     namedLabel,
-    mainLabel,
+    externalLabel,
   )
 where
 
@@ -80,22 +80,22 @@ newUniqueTextTemp :: Text -> Temp
 newUniqueTextTemp text = Temp text (Unique 0)
 
 data Label
-  = Label {body :: Text, unique :: Unique}
-  | Main {body :: Text}
+  = PrivateLabel {body :: Text, unique :: Unique}
+  | PublicLabel {body :: Text}
   deriving (Eq, Ord)
 
 newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
 newLabel = namedLabel "L"
 
 namedLabel :: Lookup xs "label" UniqueEff => Text -> Eff xs Label
-namedLabel text = Label text <$> getUniqueEff #label
+namedLabel text = PrivateLabel text <$> getUniqueEff #label
 
-mainLabel :: Text -> Label
-mainLabel = Main
+externalLabel :: Text -> Label
+externalLabel = PublicLabel
 
 instance Show Label where
   show = T.unpack . textDisplay
 
 instance Display Label where
-  display (Label {body, unique}) = display body <> display unique.int
-  display (Main body) = display body
+  display (PrivateLabel {body, unique}) = display body <> display unique.int
+  display (PublicLabel body) = display body

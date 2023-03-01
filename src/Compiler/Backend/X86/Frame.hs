@@ -126,7 +126,7 @@ wordSize = 8
 
 externalCall :: Lookup xs "label" U.UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall f parameters = do
-  label <- U.namedLabel f -- TODO: label must be fixed and must not depend on unique
+  let label = U.externalLabel f
   pure $ IR.Call (IR.Name label) parameters
 
 parameterReceiving :: Frame -> IR.Stm

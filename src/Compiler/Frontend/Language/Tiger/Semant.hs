@@ -43,7 +43,7 @@ insertInitVAEnv = mapM_ insertFunAccess initVEnv
   where
     insertFunAccess :: Id -> Eff xs ()
     insertFunAccess name = do
-      label <- namedLabel name
+      let label = externalLabel name
       insertVarAccess name $ FunAccess label TopLevel
     initVEnv =
       [ "print",
@@ -81,7 +81,7 @@ runTranslateEff = fmap join . (fmap (Bi.first (fmap TranslateError)) . runEither
 translateProgram :: forall f xs. (F.Frame f, Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => T.LExp -> Eff xs (Either (RealLocated SemantAnalysisError) (F.ProgramFragments f))
 translateProgram ast = do
   result <- castEff . runTranslateEff @f $ do
-    let label = mainLabel "tigermain"
+    let label = externalLabel "tigermain"
     insertInitVAEnv
     insertInitVTEnv
     withNewLevelEff label [] $ do

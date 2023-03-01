@@ -59,7 +59,7 @@ exp (InReg t) _ = IR.Temp t
 
 externalCall :: Lookup xs "label" UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall s args = do
-  label <- U.namedLabel s
+  let label = U.externalLabel s
   pure $ IR.Call (IR.Name label) args
 
 fp :: U.Temp
