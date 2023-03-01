@@ -1,5 +1,7 @@
 module Compiler.Frontend.Language.Tiger.Semant.Exp where
 
+import Compiler.Frontend.Language.Tiger.Semant.Level (NestingLevelEff, allocateTempOnCurrentLevel)
+import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
 import Compiler.Intermediate.Unique
 import Data.Extensible
@@ -27,24 +29,24 @@ instance Display Exp where
 instance Show Exp where
   show = T.unpack . textDisplay
 
-unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Eff xs IR.Exp
+unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
 unEx (Nx _) = pure $ IR.Const 0
 unEx (Cx genstm) = do
-  r <- newTemp
+  r <- allocateTempOnCurrentLevel
   t <- newLabel
   f <- newLabel
   pure $
     IR.ESeq
       ( IR.seqStm
-          [ IR.Move (IR.Temp r) (IR.Const 1),
+          [ IR.Move r (IR.Const 1),
             genstm t f,
             IR.Label f,
-            IR.Move (IR.Temp r) (IR.Const 0),
+            IR.Move r (IR.Const 0),
             IR.Label t
           ]
       )
-      (IR.Temp r)
+      r
 
 unNx :: Lookup xs "label" UniqueEff => Exp -> Eff xs IR.Stm
 unNx (Ex e) = pure $ IR.Exp e

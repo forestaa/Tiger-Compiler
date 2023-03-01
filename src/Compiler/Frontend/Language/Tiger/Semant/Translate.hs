@@ -130,7 +130,9 @@ binOpExp ::
   forall f xs.
   ( F.Frame f,
     Lookup xs "label" UniqueEff,
-    Lookup xs "temp" UniqueEff
+    Lookup xs "temp" UniqueEff,
+    F.Frame f,
+    Lookup xs "nestingLevel" (NestingLevelEff f)
   ) =>
   Type ->
   T.LOp' ->
@@ -140,7 +142,7 @@ binOpExp ::
 binOpExp TString op left right = stringOpExp @f op left right
 binOpExp _ op left right = intOpExp op left right
 
-intOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => T.LOp' -> Exp -> Exp -> Eff xs Exp
+intOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => T.LOp' -> Exp -> Exp -> Eff xs Exp
 intOpExp op left right
   | isArithmetic op = arithmeticOpExp (arithmeticOpConvert op) left right
   | otherwise = condOpExp (relOpConvert op) left right
@@ -165,13 +167,13 @@ intOpExp op left right
     relOpConvert T.Ge = IR.Ge
     relOpConvert _ = undefined
 
-arithmeticOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => IR.BinOp -> Exp -> Exp -> Eff xs Exp
+arithmeticOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => IR.BinOp -> Exp -> Exp -> Eff xs Exp
 arithmeticOpExp op left right = do
   lefte <- unEx left
   righte <- unEx right
   pure . Ex $ IR.BinOp op lefte righte
 
-condOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => IR.RelOp -> Exp -> Exp -> Eff xs Exp
+condOpExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => IR.RelOp -> Exp -> Exp -> Eff xs Exp
 condOpExp op left right = do
   lefte <- unEx left
   righte <- unEx right
@@ -386,14 +388,14 @@ funApplyExp func exps =
       Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
     VarAccess _ -> undefined
 
-assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff) => Exp -> Exp -> Eff xs Exp
+assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Exp -> Exp -> Eff xs Exp
 assignExp (Ex var) exp = Nx . IR.Move var <$> unEx exp
 assignExp _ _ = undefined
 
 varInitExp :: (F.Frame f, Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, Lookup xs "nestingLevel" (NestingLevelEff f)) => Access f -> Exp -> Eff xs Exp
 varInitExp access e = flip assignExp e =<< valueIdExp access
 
-seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff) => [Exp] -> Eff xs Exp
+seqExp :: (Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => [Exp] -> Eff xs Exp
 seqExp es = case List.splitAt (length es - 1) es of
   ([], []) -> pure unitExp
   ([], [e]) -> pure e
