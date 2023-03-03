@@ -14,6 +14,7 @@ module Compiler.Intermediate.Unique
     newLabel,
     namedLabel,
     externalLabel,
+    externalName,
   )
 where
 
@@ -92,6 +93,10 @@ namedLabel text = PrivateLabel text <$> getUniqueEff #label
 
 externalLabel :: Text -> Label
 externalLabel = PublicLabel
+
+externalName :: Label -> Text
+externalName (PublicLabel body) = body
+externalName _ = undefined
 
 instance Show Label where
   show = T.unpack . textDisplay

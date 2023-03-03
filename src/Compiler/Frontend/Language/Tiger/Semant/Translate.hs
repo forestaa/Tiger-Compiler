@@ -11,7 +11,7 @@ import Compiler.Frontend.Language.Tiger.Semant.Types
 import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified as IR
-import Compiler.Intermediate.Unique (UniqueEff, namedLabel, newLabel)
+import Compiler.Intermediate.Unique (UniqueEff, externalName, namedLabel, newLabel)
 import Data.Extensible
 import Data.Extensible.Effect
 import RIO
@@ -371,6 +371,7 @@ breakExp loc =
     Nothing -> throwEff #translateError $ L loc BreakOutsideLoop
 
 funApplyExp ::
+  forall f xs.
   ( F.Frame f,
     Lookup xs "varAccessEnv" (State (VAEnv f)),
     Lookup xs "nestingLevel" (NestingLevelEff f),
@@ -383,9 +384,14 @@ funApplyExp ::
   Eff xs Exp
 funApplyExp func exps =
   lookupVarAccessEff func >>= \case
-    FunAccess {..} -> do
-      staticLink <- pullInStaticLinksEff parent
-      Ex . IR.Call (IR.Name label) . (:) staticLink <$> mapM unEx exps
+    FunAccess {..} -> case parent of
+      TopLevel -> do
+        arguments <- mapM unEx exps
+        Ex <$> F.externalCall @f (externalName label) arguments
+      _ -> do
+        staticLink <- pullInStaticLinksEff parent
+        arguments <- (:) staticLink <$> mapM unEx exps
+        pure . Ex $ IR.Call (IR.Name label) arguments
     VarAccess _ -> undefined
 
 assignExp :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Exp -> Exp -> Eff xs Exp

@@ -1048,6 +1048,15 @@ translateFunApplySpec = describe "translate fun application test" $ do
         let f = newNthLabel 1
         exp `shouldBe` Ex (IR.Call (IR.Name f) [IR.Temp fp, IR.Const 0])
         ty `shouldBe` TNil
+  it "external(1)" $ do
+    let ast = T.expToLExp $ T.FunApply "external" [T.Int 0]
+        result = runEff $ translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure . T.unpack $ textDisplay e
+      Right (((exp, ty), _), _) -> do
+        let external = U.externalLabel "external"
+        exp `shouldBe` Ex (IR.Call (IR.Name external) [IR.Const 0])
+        ty `shouldBe` TInt
 
   it "f: int -> (); f('hoge')" $ do
     let ast = T.expToLExp $ T.FunApply "f" [T.String "hoge"]
@@ -1621,6 +1630,7 @@ runEff ::
   Either (RealLocated SemantAnalysisError) ((a, NestingLevel FrameMock), F.ProgramFragments FrameMock)
 runEff a = fst . fst . leaveEff . runUniqueEff @"label" uniqueSeed . runUniqueEff @"temp" uniqueSeed . runTranslateEff $ do
   label <- newLabel
+  initExternalFun
   withNewLevelEff label [] a
 
 allocateLocalVariableAndInsertType ::
@@ -1652,3 +1662,13 @@ insertFun ::
 insertFun name label parent domains codomain = do
   insertVarAccess name $ FunAccess label parent
   insertVarType name $ FunType domains codomain
+
+initExternalFun ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  ) =>
+  Eff xs ()
+initExternalFun = do
+  let label = externalLabel "external"
+  insertFun "external" label TopLevel [TInt] TInt
