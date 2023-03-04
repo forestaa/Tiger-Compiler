@@ -2,6 +2,7 @@ module Compiler.Utils.Graph.Immutable
   ( IGraph (..),
     ImmutableGraph (..),
     bfs,
+    isEmpty,
     DebugGraphviz (..),
   )
 where
@@ -58,6 +59,9 @@ instance ImmutableGraph d node edge (IGraph d node edge) where
   getInNeiborhoodsByIndex graph index =
     let node = getNodeByIndex graph index
      in getNodeByIndex graph <$> node.inIndexes
+
+isEmpty :: forall graph d node edge. ImmutableGraph d node edge graph => graph -> Bool
+isEmpty = null . getAllNodes
 
 bfs :: forall graph d node edge. ImmutableGraph d node edge graph => graph -> [Node node edge] -> [Node node edge]
 bfs graph initials = flip evalState Set.empty $ walk (Seq.fromList initials)

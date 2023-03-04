@@ -3,6 +3,7 @@ module Compiler.Utils.Graph.Mutable
     MutableGraph (..),
     freeze,
     thaw,
+    isEmpty,
   )
 where
 
@@ -425,3 +426,6 @@ thaw :: PrimMonad m => Immutable.IGraph d node edge -> m (MGraph d node edge (Pr
 thaw graph = do
   vertices <- GV.thaw =<< mapM thawNode graph.vertices
   MGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeCount})
+
+isEmpty :: (MutableGraph d node edge graph, PrimMonad m, MonadThrow m, Ord node) => graph (PrimState m) -> m Bool
+isEmpty = fmap null . getAllNodes
