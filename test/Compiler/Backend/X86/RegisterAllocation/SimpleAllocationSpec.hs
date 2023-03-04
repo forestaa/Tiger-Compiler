@@ -1,9 +1,10 @@
-module Compiler.Backend.X86.RegisterAllocationSpec (spec) where
+module Compiler.Backend.X86.RegisterAllocation.SimpleAllocationSpec (spec) where
 
 import Compiler.Backend.X86.Arch (Assembly (AddImmediate, AddRegister, MovImmediate, MovLoadIndirect, MovRegister, MovStoreIndirect), Register (..), callerSaveRegisters)
 import Compiler.Backend.X86.Frame (Frame (..), ProcedureX86 (..), allocateLocal, getAllocatedRegisters, newFrame, r10, r11, r12, r13, r14, r15, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.Liveness qualified as L
-import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
+import Compiler.Backend.X86.RegisterAllocation (RegisterAllocation (..))
+import Compiler.Backend.X86.RegisterAllocation.SimpleAllocation (SimpleAllocation)
 import Compiler.Intermediate.Unique qualified as U (evalUniqueEff, newLabel)
 import Data.Extensible.Effect (leaveEff)
 import RIO
@@ -39,7 +40,7 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                   L.Instruction {src = [t2, t3], dst = [t3], val = AddRegister t2 t3},
                   L.Instruction {src = [t3, t4], dst = [t4], val = AddRegister t3 t4}
                 ]
-          allocateRegisters Procedure {body = body, frame = frame}
+          allocateRegisters @SimpleAllocation Procedure {body = body, frame = frame}
     result.body
       `shouldBe` [ MovImmediate 0 RAX,
                    MovImmediate 1 RCX,
@@ -94,7 +95,7 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                   L.Instruction {src = [t7, t8], dst = [t8], val = AddRegister t7 t8},
                   L.Instruction {src = [t8, t9], dst = [t9], val = AddRegister t8 t9}
                 ]
-          allocateRegisters Procedure {body = body, frame = frame}
+          allocateRegisters @SimpleAllocation Procedure {body = body, frame = frame}
     result.body
       `shouldBe` [ MovImmediate 0 RCX,
                    MovImmediate 1 RDX,
@@ -150,7 +151,7 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                   L.Instruction {src = [], dst = [rdx], val = MovImmediate 1 rdx},
                   L.Instruction {src = [], dst = [rcx], val = MovImmediate 1 rcx}
                 ]
-          allocateRegisters Procedure {body = body, frame = frame}
+          allocateRegisters @SimpleAllocation Procedure {body = body, frame = frame}
     result.body
       `shouldBe` [ MovImmediate 1 R8,
                    MovImmediate 1 R9,

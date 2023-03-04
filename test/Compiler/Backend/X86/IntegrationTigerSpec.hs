@@ -4,7 +4,8 @@ import Compiler.Backend.X86.Arch
 import Compiler.Backend.X86.Codegen (codegen)
 import Compiler.Backend.X86.Frame (Frame, ProcedureX86 (..), ProgramFragmentX86 (..), StringFragmentX86 (..), procEntryExit3, r8, r9, rax, rbp, rcx, rdi, rdx, rip, rsi, rsp)
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (val))
-import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
+import Compiler.Backend.X86.RegisterAllocation (RegisterAllocation (..))
+import Compiler.Backend.X86.RegisterAllocation.SimpleAllocation (SimpleAllocation)
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
 import Compiler.Frontend.Language.Tiger.Samples (tigerTest)
@@ -218,5 +219,5 @@ compileTest file = (=<<) (either throwM pure) . runIODef . U.evalUniqueEff @"lab
   mapM allocateRegisterOverFragments fragments
   where
     allocateRegisterOverFragments :: Lookup xs "temp" U.UniqueEff => ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProgramFragmentX86 [Assembly Register])
-    allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters procedure
+    allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters @SimpleAllocation procedure
     allocateRegisterOverFragments (Compiler.Backend.X86.Frame.String (StringFragment strings)) = pure . Compiler.Backend.X86.Frame.String . StringFragment $ fmap (replaceRegister undefined . getField @"val") strings

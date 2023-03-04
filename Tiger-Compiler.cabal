@@ -79,6 +79,7 @@ library
       Compiler.Backend.X86.RegisterAllocation
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraph
       Compiler.Backend.X86.RegisterAllocation.RegisterAllocator
+      Compiler.Backend.X86.RegisterAllocation.SimpleAllocation
       Compiler.Exception
       Compiler.Frontend
       Compiler.Frontend.AbstSyntax
@@ -150,7 +151,7 @@ test-suite compiler-test
       Compiler.Backend.X86.IntermediateMock
       Compiler.Backend.X86.LivenessSpec
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraphSpec
-      Compiler.Backend.X86.RegisterAllocationSpec
+      Compiler.Backend.X86.RegisterAllocation.SimpleAllocationSpec
       Compiler.Frontend.FrameMock
       Compiler.Frontend.Language.Linear.EvalSpec
       Compiler.Frontend.Language.Linear.LexerSpec
