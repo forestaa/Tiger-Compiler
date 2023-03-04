@@ -41,37 +41,37 @@ simpleColoring colors procedure =
       stacks = simplifyAndSpill colors graph
    in select colors graph stacks
 
-type SpilledStack = [U.Temp]
+type SimplfyStack = [U.Temp]
 
-data ColoringResult = Spilled SpilledStack | Colored Allocation
+data ColoringResult = Spilled [U.Temp] | Colored Allocation
 
-simplifyAndSpill :: AvailableColors -> InterferenceGraph U.Temp -> SpilledStack
-simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop =<< thaw graph
+simplifyAndSpill :: AvailableColors -> InterferenceGraph U.Temp -> SimplfyStack
+simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop [] =<< thaw graph
   where
-    simplifyAndSpillLoop :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph U.Temp (PrimState m) -> m SpilledStack
-    simplifyAndSpillLoop graph = do
+    simplifyAndSpillLoop :: (PrimMonad m, MonadThrow m) => SimplfyStack -> InterferenceMutableGraph U.Temp (PrimState m) -> m SimplfyStack
+    simplifyAndSpillLoop stack graph = do
       nodes <- Mutable.getAllNodes graph
       let node = V.minimumBy (comparing (\n -> length n.outEdges)) nodes
       if
-          | V.null nodes -> pure []
+          | V.null nodes -> pure stack
           | length node.outEdges < length colors -> do
               -- colored
               Mutable.removeNode graph node
-              (:) node.val <$> simplifyAndSpillLoop graph
+              simplifyAndSpillLoop (node.val : stack) graph
           | otherwise -> do
               -- possibly spilled
               let node = V.maximumBy (comparing (\n -> length n.outEdges)) nodes
               Mutable.removeNode graph node
-              (:) node.val <$> simplifyAndSpillLoop graph
+              simplifyAndSpillLoop (node.val : stack) graph
 
-select :: AvailableColors -> InterferenceGraph U.Temp -> SpilledStack -> ColoringResult
+select :: AvailableColors -> InterferenceGraph U.Temp -> SimplfyStack -> ColoringResult
 select colors graph stack =
   let (missed, allocator) = runRegisterAllocatorState graph colors $ selectLoop stack
    in if List.null missed
         then Colored allocator.allocation
         else Spilled missed
   where
-    selectLoop :: SpilledStack -> State RegisterAllocator SpilledStack
+    selectLoop :: SimplfyStack -> State RegisterAllocator SimplfyStack
     selectLoop = filterM (fmap not . allocateEff)
 
 startOver :: Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> U.Temp -> Eff xs (ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)])

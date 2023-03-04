@@ -42,16 +42,16 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                 ]
           allocateRegisters @SimpleAllocation Procedure {body = body, frame = frame}
     result.body
-      `shouldBe` [ MovImmediate 0 RAX,
-                   MovImmediate 1 RCX,
+      `shouldBe` [ MovImmediate 0 RDI,
+                   MovImmediate 1 RSI,
                    MovImmediate 2 RDX,
-                   MovImmediate 3 RSI,
-                   MovImmediate 4 RDI,
-                   AddImmediate 1 RAX,
-                   AddRegister RAX RCX,
-                   AddRegister RCX RDX,
-                   AddRegister RDX RSI,
-                   AddRegister RSI RDI
+                   MovImmediate 3 RCX,
+                   MovImmediate 4 RAX,
+                   AddImmediate 1 RDI,
+                   AddRegister RDI RSI,
+                   AddRegister RSI RDX,
+                   AddRegister RDX RCX,
+                   AddRegister RCX RAX
                  ]
 
   it "possibly spilled, but colored" $ do
@@ -97,35 +97,38 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                 ]
           allocateRegisters @SimpleAllocation Procedure {body = body, frame = frame}
     result.body
-      `shouldBe` [ MovImmediate 0 RCX,
-                   MovImmediate 1 RDX,
-                   MovImmediate 2 RSI,
-                   MovImmediate 3 RDI,
-                   MovImmediate 4 R8,
-                   MovImmediate 5 R9,
-                   MovImmediate 6 R10,
-                   MovImmediate 7 R11,
-                   MovImmediate 8 RAX,
-                   MovStoreIndirect RAX (-24) RBP,
-                   MovImmediate 9 RAX,
-                   MovStoreIndirect RAX (-16) RBP, -- These store and load are redundant, and collapsing is expected to remove these redundant instructions
-                   MovLoadIndirect (-16) RBP RAX,
+      `shouldBe` [ MovImmediate 0 RAX,
                    MovStoreIndirect RAX (-8) RBP,
-                   AddImmediate 1 RCX,
-                   AddRegister RCX RDX,
-                   AddRegister RDX RSI,
-                   AddRegister RSI RDI,
-                   AddRegister RDI R8,
-                   AddRegister R8 R9,
-                   AddRegister R9 R10,
-                   AddRegister R10 R11,
-                   MovLoadIndirect (-24) RBP RAX,
-                   AddRegister R11 RAX,
+                   MovImmediate 1 RAX,
+                   MovStoreIndirect RAX (-16) RBP,
+                   MovImmediate 2 RAX,
                    MovStoreIndirect RAX (-24) RBP,
+                   MovImmediate 3 R11,
+                   MovImmediate 4 R10,
+                   MovImmediate 5 R9,
+                   MovImmediate 6 R8,
+                   MovImmediate 7 RDI,
+                   MovImmediate 8 RSI,
+                   MovImmediate 9 RDX,
                    MovLoadIndirect (-8) RBP RAX,
-                   MovLoadIndirect (-24) RBP RCX,
+                   AddImmediate 1 RAX,
+                   MovStoreIndirect RAX (-8) RBP,
+                   MovLoadIndirect (-8) RBP RCX,
+                   MovLoadIndirect (-16) RBP RAX,
                    AddRegister RCX RAX,
-                   MovStoreIndirect RAX (-8) RBP
+                   MovStoreIndirect RAX (-16) RBP,
+                   MovLoadIndirect (-16) RBP RCX,
+                   MovLoadIndirect (-24) RBP RAX,
+                   AddRegister RCX RAX,
+                   MovStoreIndirect RAX (-24) RBP,
+                   MovLoadIndirect (-24) RBP RAX,
+                   AddRegister RAX R11,
+                   AddRegister R11 R10,
+                   AddRegister R10 R9,
+                   AddRegister R9 R8,
+                   AddRegister R8 RDI,
+                   AddRegister RDI RSI,
+                   AddRegister RSI RDX
                  ]
     result.frame.head `shouldBe` -32
 
