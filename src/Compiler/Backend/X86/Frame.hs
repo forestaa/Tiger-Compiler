@@ -11,7 +11,6 @@ import GHC.Records (HasField (..))
 import RIO hiding (exp)
 import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
-import RIO.Map.Partial qualified as Map
 import RIO.Set qualified as Set
 
 data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int} deriving (Show)
@@ -65,7 +64,7 @@ allTempRegisters :: Set.Set U.Temp
 allTempRegisters = Set.fromList [rip, rax, rsp, rbp, rbx, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15, eflags]
 
 callerSaveTempRegisters :: [U.Temp]
-callerSaveTempRegisters = (registerTempMap Map.!) <$> callerSaveRegisters
+callerSaveTempRegisters = registerTempMap <$> callerSaveRegisters
 
 rip :: U.Temp
 rip = U.newUniqueTextTemp "RIP"
@@ -168,28 +167,25 @@ procEntryExit3 procedure =
       flows = concat [prefix, prologue procedure.frame, suffix, epilogue]
    in Procedure {body = flows, frame = procedure.frame}
 
-registerTempMap :: Map Register U.Temp
-registerTempMap =
-  Map.fromList
-    [ (RAX, rax),
-      (RDI, rdi),
-      (RSI, rsi),
-      (RDX, rdx),
-      (RCX, rcx),
-      (RBP, rbp),
-      (RSP, rsp),
-      (RBX, rbx),
-      (R8, r8),
-      (R9, r9),
-      (R10, r10),
-      (R11, r11),
-      (R12, r12),
-      (R13, r13),
-      (R14, r14),
-      (R15, r15),
-      (RIP, r10),
-      (EFLAGS, eflags)
-    ]
+registerTempMap :: Register -> U.Temp
+registerTempMap RAX = rax
+registerTempMap RDI = rdi
+registerTempMap RSI = rsi
+registerTempMap RDX = rdx
+registerTempMap RCX = rcx
+registerTempMap RBP = rbp
+registerTempMap RSP = rsp
+registerTempMap RBX = rbx
+registerTempMap R8 = r8
+registerTempMap R9 = r9
+registerTempMap R10 = r10
+registerTempMap R11 = r11
+registerTempMap R12 = r12
+registerTempMap R13 = r13
+registerTempMap R14 = r14
+registerTempMap R15 = r15
+registerTempMap RIP = r10
+registerTempMap EFLAGS = eflags
 
 inverseRegisterTempMap :: Map U.Temp Register
 inverseRegisterTempMap =

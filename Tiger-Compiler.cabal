@@ -77,6 +77,12 @@ library
       Compiler.Backend.X86.File
       Compiler.Backend.X86.Liveness
       Compiler.Backend.X86.RegisterAllocation
+      Compiler.Backend.X86.RegisterAllocation.CoalesceAllocation
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.RegisterAllocator
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraph
       Compiler.Backend.X86.RegisterAllocation.RegisterAllocator
       Compiler.Backend.X86.RegisterAllocation.SimpleAllocation
@@ -150,6 +156,7 @@ test-suite compiler-test
       Compiler.Backend.X86.IntegrationTigerSpec
       Compiler.Backend.X86.IntermediateMock
       Compiler.Backend.X86.LivenessSpec
+      Compiler.Backend.X86.RegisterAllocation.CoalesceAllocationSpec
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraphSpec
       Compiler.Backend.X86.RegisterAllocation.SimpleAllocationSpec
       Compiler.Frontend.FrameMock
