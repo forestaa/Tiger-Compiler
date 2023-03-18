@@ -13,7 +13,7 @@ import Compiler.Backend.X86.Frame (inverseRegisterTempMap)
 import Compiler.Backend.X86.RegisterAllocation.InterferenceGraph (InterferenceGraph)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
-import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..), getNode, getNodeByIndex)
+import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..), getNode)
 import Data.Vector qualified as V
 import GHC.Records (HasField (..))
 import RIO
@@ -49,7 +49,7 @@ newRegisterAllocator graph availableColors = RegisterAllocator {graph, available
 allocate :: RegisterAllocator -> U.Temp -> (Bool, RegisterAllocator)
 allocate allocator temp =
   let node = Immutable.getNode allocator.graph temp
-      neiborhoods = V.toList $ fmap (getField @"val" . Immutable.getNodeByIndex allocator.graph) node.outIndexes
+      neiborhoods = V.toList . fmap (getField @"val") $ Immutable.getOutNeiborhoodsByIndex allocator.graph node.index
       allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
    in case (isAllocated allocator.allocation temp, List.headMaybe allocatableColors) of
         (True, _) -> (True, allocator)
