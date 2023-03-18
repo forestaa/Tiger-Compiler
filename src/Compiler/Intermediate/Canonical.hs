@@ -1,5 +1,5 @@
 module Compiler.Intermediate.Canonical
-  ( Canonical (Canonical),
+  ( Canonical,
     Block (..),
     linearize,
     basicBlocks,
@@ -20,7 +20,7 @@ import RIO hiding (Const)
 import RIO.Lens (_1)
 import RIO.List (headMaybe)
 
-data Canonical = Canonical
+data Canonical
 
 instance Intermediate Canonical where
   processIntermediate = linearize >=> basicBlocks >=> traceSchedule

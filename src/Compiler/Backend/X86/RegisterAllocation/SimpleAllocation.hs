@@ -20,7 +20,7 @@ import RIO.Partial (fromJust)
 import RIO.Set qualified as Set
 import RIO.State (State)
 
-data SimpleAllocation = SimpleAllocation
+data SimpleAllocation
 
 instance R.RegisterAllocation SimpleAllocation where
   allocateRegisters = allocateRegisters

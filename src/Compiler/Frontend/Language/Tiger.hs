@@ -1,4 +1,4 @@
-module Compiler.Frontend.Language.Tiger where
+module Compiler.Frontend.Language.Tiger (Tiger) where
 
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (toFrontendException), SomeFrontendException)
@@ -9,7 +9,7 @@ import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff, EitherEff, throwEff)
 import RIO
 
-data Tiger = Tiger
+data Tiger
 
 instance Frontend Tiger where
   processFrontend file bs = do

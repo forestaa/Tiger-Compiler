@@ -3,7 +3,7 @@ module Compiler.Frontend.Language.Tiger.IntegrationSpec (spec) where
 import Compiler.Frontend (Frontend (processFrontend))
 import Compiler.Frontend.Exception (FrontendException (fromFrontendException, toFrontendException), SomeFrontendException (SomeFrontendException))
 import Compiler.Frontend.FrameMock (AccessMock (InFrame, InReg), FrameMock (..), fp, isInFrame, isInRegister, rv)
-import Compiler.Frontend.Language.Tiger (Tiger (Tiger))
+import Compiler.Frontend.Language.Tiger (Tiger)
 import Compiler.Frontend.Language.Tiger.Samples (tigerTest, validTigerTests)
 import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError)
 import Compiler.Frontend.Language.Tiger.TestUtils
