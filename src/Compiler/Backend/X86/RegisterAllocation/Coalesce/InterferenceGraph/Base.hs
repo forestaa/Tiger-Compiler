@@ -15,7 +15,7 @@ import GHC.Records (HasField (..))
 import RIO
 import RIO.Set qualified as Set (Set, filter, fromList, insert, singleton, union)
 
-data InterferenceGraphNode var = InterferenceGraphNode {vars :: Set.Set var, moves :: Set (Move var)} deriving (Show)
+data InterferenceGraphNode var = InterferenceGraphNode {vars :: Set.Set var, moves :: Set (Move var)} deriving (Show, Eq, Ord)
 
 instance HasField "isMoveRelated" (InterferenceGraphNode var) Bool where
   getField node = any (getField @"isCoalesceable") node.moves
