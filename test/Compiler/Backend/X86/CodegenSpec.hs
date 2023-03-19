@@ -43,7 +43,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t'], dst = [t], val = MovRegister t' t}
+        [ L.Move {src = [t'], dst = [t], val = MovRegister t' t}
         ]
 
   it "Move Temp Name -> lea label %rip %rax" $ do
@@ -57,7 +57,7 @@ codegenSpec = describe "codegen spec" $ do
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
         [ L.Instruction {src = [rip], dst = [t], val = Lea (fromUniqueLabel label) rip t},
-          L.Instruction {src = [t], dst = [t'], val = MovRegister t t'}
+          L.Move {src = [t], dst = [t'], val = MovRegister t t'}
         ]
 
   it "Move Temp (Temp + Temp) -> mov %rbx %rax; add %rcx %rax; mov %rax %rdx" $ do
@@ -71,9 +71,9 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t'], dst = [dst], val = MovRegister t' dst},
+        [ L.Move {src = [t'], dst = [dst], val = MovRegister t' dst},
           L.Instruction {src = [dst, t''], dst = [dst], val = AddRegister t'' dst},
-          L.Instruction {src = [dst], dst = [t], val = MovRegister dst t}
+          L.Move {src = [dst], dst = [t], val = MovRegister dst t}
         ]
 
   it "Mem (Const 0) -> mov $0x0 %rax" $ do
@@ -159,7 +159,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
+        [ L.Move {src = [t], dst = [dst], val = MovRegister t dst},
           L.Instruction {src = [dst, t'], dst = [dst], val = AddRegister t' dst},
           L.Instruction {src = [dst, t''], dst = [], val = MovStoreIndirect t'' 0 dst}
         ]
@@ -173,7 +173,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
+        [ L.Move {src = [t], dst = [dst], val = MovRegister t dst},
           L.Instruction {src = [dst], dst = [dst], val = AddImmediate 1 dst}
         ]
 
@@ -187,7 +187,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t], dst = [dst], val = MovRegister t dst},
+        [ L.Move {src = [t], dst = [dst], val = MovRegister t dst},
           L.Instruction {src = [dst, t'], dst = [dst], val = AddRegister t' dst}
         ]
 
@@ -319,12 +319,12 @@ codegenSpec = describe "codegen spec" $ do
           L.Instruction {src = [], dst = [temps !! 7], val = MovImmediate 8 (temps !! 7)},
           L.Instruction {src = [], dst = [temps !! 8], val = MovImmediate 9 (temps !! 8)},
           L.Instruction {src = [], dst = [temps !! 9], val = MovImmediate 10 (temps !! 9)},
-          L.Instruction {src = [temps !! 0], dst = [rdi], val = MovRegister (temps !! 0) rdi},
-          L.Instruction {src = [temps !! 1], dst = [rsi], val = MovRegister (temps !! 1) rsi},
-          L.Instruction {src = [temps !! 2], dst = [rdx], val = MovRegister (temps !! 2) rdx},
-          L.Instruction {src = [temps !! 3], dst = [rcx], val = MovRegister (temps !! 3) rcx},
-          L.Instruction {src = [temps !! 4], dst = [r8], val = MovRegister (temps !! 4) r8},
-          L.Instruction {src = [temps !! 5], dst = [r9], val = MovRegister (temps !! 5) r9},
+          L.Move {src = [temps !! 0], dst = [rdi], val = MovRegister (temps !! 0) rdi},
+          L.Move {src = [temps !! 1], dst = [rsi], val = MovRegister (temps !! 1) rsi},
+          L.Move {src = [temps !! 2], dst = [rdx], val = MovRegister (temps !! 2) rdx},
+          L.Move {src = [temps !! 3], dst = [rcx], val = MovRegister (temps !! 3) rcx},
+          L.Move {src = [temps !! 4], dst = [r8], val = MovRegister (temps !! 4) r8},
+          L.Move {src = [temps !! 5], dst = [r9], val = MovRegister (temps !! 5) r9},
           L.Instruction {src = [temps !! 6, rbp], dst = [], val = MovStoreIndirect (temps !! 6) 8 rbp},
           L.Instruction {src = [temps !! 7, rbp], dst = [], val = MovStoreIndirect (temps !! 7) 16 rbp},
           L.Instruction {src = [temps !! 8, rbp], dst = [], val = MovStoreIndirect (temps !! 8) 24 rbp},
@@ -344,10 +344,10 @@ codegenSpec = describe "codegen spec" $ do
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
         [ L.Instruction {src = [], dst = [t'], val = MovImmediate 3 t'},
-          L.Instruction {src = [t'], dst = [t''], val = MovRegister t' t''},
+          L.Move {src = [t'], dst = [t''], val = MovRegister t' t''},
           L.Instruction {src = [t''], dst = [t''], val = AddImmediate 2 t''},
-          L.Instruction {src = [t''], dst = [t], val = MovRegister t'' t},
-          L.Instruction {src = [t], dst = [rdi], val = MovRegister t rdi},
+          L.Move {src = [t''], dst = [t], val = MovRegister t'' t},
+          L.Move {src = [t], dst = [rdi], val = MovRegister t rdi},
           L.Instruction {src = [t], dst = [rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11], val = Call (Label' "f0")}
         ]
 

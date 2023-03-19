@@ -46,10 +46,10 @@ codegenStm (IR.Move (IR.Mem (IR.Const i)) e) = do
   pure $ flows ++ [L.Instruction {src = [t], dst = [], val = MovStore t (Memory i)}]
 codegenStm (IR.Move (IR.Mem e1) e2) = codegenStm (IR.Move (IR.Mem (IR.BinOp IR.Plus (IR.Const 0) e1)) e2)
 codegenStm (IR.Move (IR.Temp t) (IR.Const i)) = pure [L.Instruction {src = [], dst = [t], val = MovImmediate i t}]
-codegenStm (IR.Move (IR.Temp t1) (IR.Temp t2)) = pure [L.Instruction {src = [t2], dst = [t1], val = MovRegister t2 t1}]
+codegenStm (IR.Move (IR.Temp t1) (IR.Temp t2)) = pure [L.Move {src = [t2], dst = [t1], val = MovRegister t2 t1}]
 codegenStm (IR.Move (IR.Temp t) e) = do
   (flows', t') <- codegenExp e
-  pure $ flows' ++ [L.Instruction {src = [t'], dst = [t], val = MovRegister t' t}]
+  pure $ flows' ++ [L.Move {src = [t'], dst = [t], val = MovRegister t' t}]
 codegenStm (IR.Move _ _) = undefined
 codegenStm (IR.Exp e) = fst <$> codegenExp e
 codegenStm (IR.Jump (IR.Name label) labels) = pure [L.Jump {jumps = fromUniqueLabel <$> labels, val = Jump (fromUniqueLabel label)}]
@@ -89,7 +89,7 @@ codegenExp (IR.BinOp op e (IR.Const i)) = do
   t' <- allocateNonEscapedLocalEff
   let flows' =
         flows
-          ++ [ L.Instruction {src = [t], dst = [t'], val = MovRegister t t'},
+          ++ [ L.Move {src = [t], dst = [t'], val = MovRegister t t'},
                L.Instruction {src = [t'], dst = [t'], val = (binOpImmediateInstr op) i t'}
              ]
   pure (flows', t')
@@ -101,7 +101,7 @@ codegenExp (IR.BinOp op e1 e2) = do
   let flows =
         flows1
           ++ flows2
-          ++ [ L.Instruction {src = [t1], dst = [t], val = MovRegister t1 t},
+          ++ [ L.Move {src = [t1], dst = [t], val = MovRegister t1 t},
                L.Instruction {src = [t, t2], dst = [t], val = (binOpInstr op) t2 t}
              ]
   pure (flows, t)
@@ -140,7 +140,7 @@ codegenParameters es = do
   let parameterPassingInstrs = zipWith ($) (parameterPassingByRegisters ++ parameterPassingByMemory) dsts
   pure (flows ++ parameterPassingInstrs, dsts)
   where
-    parameterPassingByRegisters = (\register dst -> L.Instruction {src = [dst], dst = [register], val = MovRegister dst register}) <$> parameterTempRegisters
+    parameterPassingByRegisters = (\register dst -> L.Move {src = [dst], dst = [register], val = MovRegister dst register}) <$> parameterTempRegisters
     parameterPassingByMemory = (\i dst -> L.Instruction {src = [dst, rbp], dst = [], val = MovStoreIndirect dst ((i - 6) * wordSize) rbp}) <$> [7 ..] -- TODO: use pushq
 
 jumpInstr :: forall register. IR.RelOp -> Label -> Assembly register
