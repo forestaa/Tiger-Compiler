@@ -7,13 +7,14 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base
     coalesceMove,
     freezeMove,
     constrainMove,
+    removeNode,
     newMove,
   )
 where
 
 import GHC.Records (HasField (..))
 import RIO
-import RIO.Set qualified as Set (Set, filter, fromList, insert, singleton, union)
+import RIO.Set qualified as Set (Set, filter, fromList, insert, notMember, singleton, union)
 
 data InterferenceGraphNode var = InterferenceGraphNode {vars :: Set.Set var, moves :: Set (Move var)} deriving (Show, Eq, Ord)
 
@@ -37,6 +38,9 @@ freezeMove move node = node {moves = Set.insert (freeze move) node.moves}
 
 constrainMove :: Ord var => Move var -> InterferenceGraphNode var -> InterferenceGraphNode var
 constrainMove move node = node {moves = Set.insert (constrain move) node.moves}
+
+removeNode :: Ord var => InterferenceGraphNode var -> InterferenceGraphNode var -> InterferenceGraphNode var
+removeNode removed current = current {moves = Set.filter (\move -> move.source `Set.notMember` removed.vars && move.destination `Set.notMember` removed.vars) current.moves}
 
 data Move var = Move {source :: var, destination :: var, status :: MoveStatus} deriving (Show)
 

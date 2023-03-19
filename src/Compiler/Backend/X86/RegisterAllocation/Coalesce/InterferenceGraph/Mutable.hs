@@ -22,7 +22,7 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutabl
   )
 where
 
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), InterferenceGraphNode (..), Move (destination, source), coalesceMove, freezeMove, newInterferenceGraphNode)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), InterferenceGraphNode (..), Move (destination, source), coalesceMove, freezeMove, newInterferenceGraphNode, removeNode)
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable qualified as Immutable (InterferenceGraph (..))
 import Compiler.Utils.Graph.Base (Edge (..), EdgeIndex (..), GraphException (..), Node (..), NodeIndex (..))
 import Data.Primitive.MutVar
@@ -175,7 +175,8 @@ removeNode mgraph removedNode = do
       then pure ()
       else do
         node <- readMNodeVar =<< GV.read graph.vertices index
-        _ <- addNodeInternal newGraph node.val
+        let newNode = B.removeNode removedNode.val node.val
+        _ <- addNodeInternal newGraph newNode
         pure ()
 
   let newIndex (NodeIndex i) = if i < removedIndex then NodeIndex i else NodeIndex (i - 1)
