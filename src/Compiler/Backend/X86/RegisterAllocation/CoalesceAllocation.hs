@@ -14,6 +14,7 @@ import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
+import Data.Foldable (maximumBy)
 import Data.Vector qualified as V
 import GHC.Records (HasField (..))
 import RIO
@@ -82,16 +83,16 @@ simplify :: (PrimMonad m, MonadThrow m, MonadState SelectStack m, MonadReader Av
 simplify graph = do
   k <- asks length
   nodes <- getCandidatesOfSimplifying graph k
-  if List.null nodes
+  if null nodes
     then pure NotExecuted
     else do
-      forM_ nodes $ \node -> do
-        modify $ push node.val.vars
-        Mutable.removeNode graph node
+      let node = maximumBy (comparing (getField @"outDegree")) nodes
+      modify $ push node.val.vars
+      Mutable.removeNode graph node
       pure Executed
   where
-    getCandidatesOfSimplifying :: (PrimMonad m, MonadThrow m, Ord var) => Mutable.InterferenceMutableGraph var (PrimState m) -> Int -> m [Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel]
-    getCandidatesOfSimplifying mgraph k = List.sortOn (getField @"outDegree") . filter (\node -> not node.val.isMoveRelated) . filter (\node -> node.outDegree < k) . V.toList <$> Mutable.getAllNodes mgraph
+    getCandidatesOfSimplifying :: (PrimMonad m, MonadThrow m, Ord var) => Mutable.InterferenceMutableGraph var (PrimState m) -> Int -> m (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+    getCandidatesOfSimplifying mgraph k = V.filter (\node -> node.outDegree < k && not node.val.isMoveRelated) <$> Mutable.getAllNodes mgraph
 
 coalesce :: (PrimMonad m, MonadThrow m, MonadState SelectStack m, MonadReader AvailableColors m) => Mutable.InterferenceMutableGraph U.Temp (PrimState m) -> m StepResult
 coalesce graph = do
