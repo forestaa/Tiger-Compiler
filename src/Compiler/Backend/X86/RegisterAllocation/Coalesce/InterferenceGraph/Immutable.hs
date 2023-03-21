@@ -5,6 +5,7 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immuta
     getAllNodes,
     getOutNeiborhoodsByIndex,
     getInNeiborhoodsByIndex,
+    isEmpty,
   )
 where
 
@@ -49,3 +50,6 @@ getInNeiborhoodsByIndex :: InterferenceGraph var -> NodeIndex -> Vector (Node (I
 getInNeiborhoodsByIndex graph index =
   let node = getNodeByIndex graph index
    in getNodeByIndex graph <$> node.inIndexes
+
+isEmpty :: InterferenceGraph var -> Bool
+isEmpty = null . getAllNodes
