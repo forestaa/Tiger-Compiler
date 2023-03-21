@@ -2,7 +2,6 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutabl
   ( InterferenceMutableGraph,
     empty,
     getAllNodes,
-    getNodesUnderDegree,
     getNode,
     getNodeByIndex,
     getEdges,
@@ -62,10 +61,6 @@ getAllNodes :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph 
 getAllNodes mgraph = do
   graph <- readMGraphVar mgraph
   V.mapM freezeMNode =<< GV.freeze graph.vertices
-
--- | sort by outDegree
-getNodesUnderDegree :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> Int -> m [Node (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel]
-getNodesUnderDegree mgraph k = List.sortOn (getField @"outDegree") . V.toList . V.filter (\node -> node.outDegree < k) <$> getAllNodes mgraph
 
 getEdges :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> var -> var -> m (Vector (Edge B.InterferenceGraphEdgeLabel))
 getEdges mgraph srcN tgtN = do
