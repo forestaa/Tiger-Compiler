@@ -16,12 +16,14 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutabl
     freeze,
     thaw,
     isEmpty,
+    addMove,
+    constrainMove,
     coalesceMove,
     freezeMove,
   )
 where
 
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), InterferenceGraphNode (..), Move (destination, source), coalesceMove, freezeMove, newInterferenceGraphNode, removeNode)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), InterferenceGraphNode (..), Move (destination, source), addMove, coalesceMove, constrainMove, freezeMove, newInterferenceGraphNode, removeNode)
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable qualified as Immutable (InterferenceGraph (..))
 import Compiler.Utils.Graph.Base (Edge (..), EdgeIndex (..), GraphException (..), Node (..), NodeIndex (..))
 import Data.Primitive.MutVar
@@ -282,6 +284,24 @@ getAllIndexes :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> 
 getAllIndexes mgraph = do
   len <- size mgraph
   pure $ NodeIndex <$> [0 .. len - 1]
+
+addMove :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> B.Move var -> m ()
+addMove graph move = do
+  src <- getNode graph move.source
+  tgt <- getNode graph move.destination
+  let srcVal = B.addMove move src.val
+      tgtVal = B.addMove move tgt.val
+  updateNode graph src.index srcVal
+  updateNode graph tgt.index tgtVal
+
+constrainMove :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> B.Move var -> m ()
+constrainMove graph move = do
+  source <- getNode graph move.source
+  target <- getNode graph move.destination
+  let srcVal = B.constrainMove move source.val
+      tgtVal = B.constrainMove move target.val
+  updateNode graph source.index srcVal
+  updateNode graph target.index tgtVal
 
 coalesceMove :: (Ord var, PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> B.Move var -> m ()
 coalesceMove graph move = do

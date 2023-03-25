@@ -5,9 +5,9 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph
 where
 
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFlowGraph, ControlFlowNode (..), newControlFlowGraph, solveDataFlowEquation)
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), addMove, constrainMove, newMove)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base qualified as B (InterferenceGraphEdgeLabel (..), newMove)
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable (InterferenceGraph)
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable qualified as Mutable (InterferenceMutableGraph, addEdge, addNode, empty, freeze, getEdges, getEdgesByIndex, getNode, updateNode)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable qualified as Mutable (InterferenceMutableGraph, addEdge, addMove, addNode, constrainMove, empty, freeze, getEdges)
 import Compiler.Utils.Graph.Base (Node (..))
 import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..))
 import GHC.Records (HasField (getField))
@@ -44,16 +44,13 @@ newInterferenceGraph vars cfGraph =
     addMove :: (PrimMonad m, Ord var, MonadThrow m) => Mutable.InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()
     addMove graph cnode
       | cnode.isMove = do
-          srcs <- mapM (\src -> (src,) <$> Mutable.getNode graph src) $ Set.toList cnode.usedVariables
-          dests <- mapM (\dest -> (dest,) <$> Mutable.getNode graph dest) $ Set.toList cnode.definedVariables
-          forM_ srcs $ \(src, srcNode) ->
-            forM_ dests $ \(dest, destNode) -> do
-              edges <- Mutable.getEdgesByIndex graph srcNode.index destNode.index
+          forM_ cnode.usedVariables $ \src ->
+            forM_ cnode.definedVariables $ \dest -> do
+              edges <- Mutable.getEdges graph src dest
               let move = B.newMove src dest
-                  newSrcNode = if null edges then B.addMove move srcNode.val else B.constrainMove move srcNode.val
-                  newDestNode = if null edges then B.addMove move destNode.val else B.constrainMove move destNode.val
-              Mutable.updateNode graph srcNode.index newSrcNode
-              Mutable.updateNode graph destNode.index newDestNode
+              if null edges
+                then Mutable.addMove graph move
+                else Mutable.constrainMove graph move
       | otherwise = pure ()
 
 buildInterfereceGraph :: (Ord var) => Set.Set var -> [L.ControlFlow var val] -> InterferenceGraph var

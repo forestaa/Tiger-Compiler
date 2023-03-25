@@ -162,10 +162,7 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       let move = B.newMove 1 2
-          newNode1 = B.addMove move node1.val
-          newNode2 = B.addMove move node2.val
-      updateNode graph node1.index newNode1
-      updateNode graph node2.index newNode2
+      addMove graph move
       nodes <- getAllNodes graph
       pure nodes
     fmap (.val.vars) nodes `shouldBe` V.fromList [Set.singleton 1, Set.singleton 2]
@@ -177,10 +174,7 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       let move = B.newMove 1 2
-          newNode1 = B.constrainMove move node1.val
-          newNode2 = B.constrainMove move node2.val
-      updateNode graph node1.index newNode1
-      updateNode graph node2.index newNode2
+      constrainMove graph move
       nodes <- getAllNodes graph
       pure nodes
     fmap (.val.vars) nodes `shouldBe` V.fromList [Set.singleton 1, Set.singleton 2]
