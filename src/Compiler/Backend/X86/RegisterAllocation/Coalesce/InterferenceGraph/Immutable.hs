@@ -11,6 +11,8 @@ where
 
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base (InterferenceGraphEdgeLabel (..), InterferenceGraphNode)
 import Compiler.Utils.Graph.Base (Edge (..), Node (..), NodeIndex (..))
+import Compiler.Utils.Graph.Immutable (DebugGraphviz (debugGraphviz))
+import Compiler.Utils.String (unlines)
 import Data.MultiSet qualified as Multi
 import GHC.Records (HasField (getField))
 import RIO hiding (unlines)
@@ -54,3 +56,16 @@ getInNeiborhoodsByIndex graph index =
 
 isEmpty :: InterferenceGraph var -> Bool
 isEmpty = null . getAllNodes
+
+instance (Display var) => DebugGraphviz (InterferenceGraph var) where
+  debugGraphviz graph = textDisplay $ "digraph G{\n" <> nodeGraphvizStatements graph <> edgeGraphvizStatements graph <> "}\n"
+    where
+      nodeGraphvizStatements :: InterferenceGraph var -> Utf8Builder
+      nodeGraphvizStatements graph = foldMap (\node -> fold ["  ", display node.val, ";\n"]) $ getAllNodes graph
+      edgeGraphvizStatements :: InterferenceGraph var -> Utf8Builder
+      edgeGraphvizStatements graph = foldMap (nodeToGraphviz graph) (getAllNodes graph)
+        where
+          nodeToGraphviz :: InterferenceGraph var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
+          nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
+          edgeToGraphviz :: Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
+          edgeToGraphviz src tgt = fold ["  ", display src.val, " -> ", display tgt.val, ";"]

@@ -18,6 +18,9 @@ import RIO.Set qualified as Set (Set, filter, fromList, insert, notMember, singl
 
 data InterferenceGraphNode var = InterferenceGraphNode {vars :: Set.Set var, moves :: Set (Move var)} deriving (Show, Eq, Ord)
 
+instance (Display var) => Display (InterferenceGraphNode var) where
+  display node = "{" <> foldr (\var acc -> display var <> acc) "}" node.vars
+
 instance HasField "isMoveRelated" (InterferenceGraphNode var) Bool where
   getField node = any (getField @"isCoalesceable") node.moves
 
