@@ -13,12 +13,13 @@ import Compiler.Intermediate.Frame qualified as F (fp)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
 import Data.Extensible (Lookup, type (>:))
-import Data.Extensible.Effect (Eff, EitherEff, ReaderEff, State, asksEff, castEff, execStateEff, leaveEff, modifyEff, runEitherEff, runReaderEff, throwEff)
+import Data.Extensible.Effect (Eff, ReaderEff, State, asksEff, castEff, execStateEff, leaveEff, modifyEff, runReaderEff)
 import Data.Foldable (maximumBy)
 import Data.Vector qualified as V
 import GHC.Records (HasField (..))
 import RIO
-import RIO.List qualified as List (headMaybe, null, sortOn, uncons)
+import RIO.List qualified as List (null, sortOn, uncons)
+import RIO.List.Partial as List (head)
 import RIO.Partial (fromJust)
 import RIO.Set qualified as Set
 import RIO.State qualified as S (State)
@@ -45,7 +46,7 @@ allocateRegisters procedure = case coloring callerSaveRegisters procedure of
 
 data ColoringResult = Spilled [U.Temp] | Colored Allocation
 
-newtype SelectStack = SelectStack {stack :: [Set.Set U.Temp]}
+newtype SelectStack = SelectStack {stack :: [Set.Set U.Temp]} deriving (Show)
 
 newSelectStack :: SelectStack
 newSelectStack = SelectStack []
@@ -64,50 +65,59 @@ coloring colors procedure =
   where
     simplifyCoalesceFreezeSpillLoop :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
     simplifyCoalesceFreezeSpillLoop graph = do
-      result <- castEff . runEitherEff @"result" $ do
-        simplify graph
-        coalesce graph
-        freeze graph
-        spill graph
-        unless (Immutable.isEmpty graph) $ error "graph is expected to be empty here" :: Eff '["result" >: EitherEff (Immutable.InterferenceGraph U.Temp), "select" >: State SelectStack, "colors" >: ReaderEff AvailableColors] ()
-      case result of
-        Right () -> pure ()
-        Left graph -> simplifyCoalesceFreezeSpillLoop graph
+      nextStep <- determineNextStep graph
+      case nextStep of
+        Simplify candidates -> simplify graph candidates >>= simplifyCoalesceFreezeSpillLoop
+        Coalesce candidates -> coalesce graph candidates >>= simplifyCoalesceFreezeSpillLoop
+        Freeze candidates -> freeze graph candidates >>= simplifyCoalesceFreezeSpillLoop
+        Spill candidates -> spill graph candidates >>= simplifyCoalesceFreezeSpillLoop
+        Finished -> pure ()
 
-simplify :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "result" (EitherEff (Immutable.InterferenceGraph U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
-simplify graph = do
+data NextStep var
+  = Simplify (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+  | Coalesce [Move var]
+  | Freeze [Move var]
+  | Spill (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+  | Finished
+
+determineNextStep :: Lookup xs "colors" (ReaderEff AvailableColors) => Immutable.InterferenceGraph U.Temp -> Eff xs (NextStep U.Temp)
+determineNextStep graph = do
+  simpifyCandidates <- getCandidatesOfSimplify graph
+  coalesceCandidates <- getCandidatesOfCoalesce graph
+  freezeCandidates <- getCandidatesOfFreeze graph
+  spillCandidates <- getCandidatesOfSpill graph
+  if
+      | not (null simpifyCandidates) -> pure $ Simplify simpifyCandidates
+      | not (null coalesceCandidates) -> pure $ Coalesce coalesceCandidates
+      | not (null freezeCandidates) -> pure $ Freeze freezeCandidates
+      | not (null spillCandidates) -> pure $ Spill spillCandidates
+      | not (Immutable.isEmpty graph) -> error "graph is expected to be empty here"
+      | otherwise -> pure Finished
+
+getCandidatesOfSimplify :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+getCandidatesOfSimplify graph = do
   k <- asksEff #colors length
-  let nodes = getCandidatesOfSimplifying graph k
-  if null nodes
-    then pure ()
-    else do
-      let node = maximumBy (comparing (getField @"outDegree")) nodes
-      modifyEff #select $ push node.val.vars
-      throwEff #result $ runST $ do
-        mgraph <- Mutable.thaw graph
-        Mutable.removeNode mgraph node
-        Mutable.freeze mgraph
-  where
-    getCandidatesOfSimplifying :: (Ord var) => Immutable.InterferenceGraph var -> Int -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
-    getCandidatesOfSimplifying graph k = V.filter (\node -> node.outDegree < k && not node.val.isMoveRelated) $ Immutable.getAllNodes graph
+  pure . V.filter (\node -> node.outDegree < k && not node.val.isMoveRelated) $ Immutable.getAllNodes graph
 
-coalesce :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "result" (EitherEff (Immutable.InterferenceGraph U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
-coalesce graph = do
+simplify :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
+simplify graph candidates = do
+  let node = maximumBy (comparing (getField @"outDegree")) candidates
+  modifyEff #select $ push node.val.vars
+  pure $ runST $ do
+    mgraph <- Mutable.thaw graph
+    Mutable.removeNode mgraph node
+    Mutable.freeze mgraph
+
+getCandidatesOfCoalesce :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
+getCandidatesOfCoalesce graph = do
   let coalesceableMoves = Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) $ Immutable.getAllNodes graph
-  candidates <- filterM (isBriggs graph `or` isGeorge graph) coalesceableMoves
-  case List.headMaybe candidates of
-    Nothing -> pure ()
-    Just move -> do
-      throwEff #result $ runST $ do
-        mgraph <- Mutable.thaw graph
-        Mutable.coalesceMove mgraph move
-        Mutable.freeze mgraph
+  filterM (isBriggs graph `or` isGeorge graph) coalesceableMoves
   where
     or :: (Monad m) => (a -> m Bool) -> (a -> m Bool) -> a -> m Bool
     or cond1 cond2 a = (||) <$> cond1 a <*> cond2 a
 
 -- | http://www.cs.cmu.edu/afs/cs/academic/class/15745-s19/www/lectures/L23-Register-Coalescing.pdf
-isBriggs :: (Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Move U.Temp -> Eff xs Bool
+isBriggs :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Move var -> Eff xs Bool
 isBriggs graph move = do
   k <- asksEff #colors length
   let source = Immutable.getNode graph move.source
@@ -117,7 +127,7 @@ isBriggs graph move = do
   pure $ V.length overDegreeNeiborhoods < k
 
 -- | http://www.cs.cmu.edu/afs/cs/academic/class/15745-s19/www/lectures/L23-Register-Coalescing.pdf
-isGeorge :: (Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Move U.Temp -> Eff xs Bool
+isGeorge :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Move var -> Eff xs Bool
 isGeorge graph move = do
   k <- asksEff #colors length
   let source = Immutable.getNode graph move.source
@@ -126,31 +136,38 @@ isGeorge graph move = do
       neighborhoods = Immutable.getNodeByIndex graph <$> lower.outIndexes
   pure $ all (\node -> V.elem upper.index node.outIndexes || node.outDegree < k) neighborhoods
 
-freeze :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "result" (EitherEff (Immutable.InterferenceGraph U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
-freeze graph = do
-  k <- asksEff #colors length
-  let coalesceableMoves = Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) . V.filter (\node -> node.val.isMoveRelated && node.outDegree < k) $ Immutable.getAllNodes graph
-  case List.headMaybe coalesceableMoves of -- TODO: 選び方
-    Nothing -> pure ()
-    Just move -> do
-      throwEff #result $ runST $ do
-        mgraph <- Mutable.thaw graph
-        Mutable.freezeMove mgraph move
-        Mutable.freeze mgraph
+coalesce :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> [Move U.Temp] -> Eff xs (Immutable.InterferenceGraph U.Temp)
+coalesce graph candidates = pure $ runST $ do
+  let move = List.head candidates
+  mgraph <- Mutable.thaw graph
+  Mutable.coalesceMove mgraph move
+  Mutable.freeze mgraph
 
-spill :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "result" (EitherEff (Immutable.InterferenceGraph U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
-spill graph = do
+getCandidatesOfFreeze :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
+getCandidatesOfFreeze graph = do
   k <- asksEff #colors length
-  let candidates = V.filter (\node -> node.outDegree >= k) $ Immutable.getAllNodes graph
-  if V.null candidates
-    then pure ()
-    else do
-      let node = V.maximumBy (comparing (getField @"outDegree")) candidates -- TODO: 選び方
-      modifyEff #select $ push node.val.vars
-      throwEff #result $ runST $ do
-        mgraph <- Mutable.thaw graph
-        Mutable.removeNode mgraph node
-        Mutable.freeze mgraph
+  pure . Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) . V.filter (\node -> node.val.isMoveRelated && node.outDegree < k) $ Immutable.getAllNodes graph
+
+freeze :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> [Move U.Temp] -> Eff xs (Immutable.InterferenceGraph U.Temp)
+freeze graph candidates = pure $ runST $ do
+  let move = List.head candidates
+  mgraph <- Mutable.thaw graph
+  Mutable.freezeMove mgraph move
+  Mutable.freeze mgraph
+
+getCandidatesOfSpill :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+getCandidatesOfSpill graph = do
+  k <- asksEff #colors length
+  pure . V.filter (\node -> node.outDegree >= k) $ Immutable.getAllNodes graph
+
+spill :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
+spill graph candidates = do
+  let node = V.maximumBy (comparing (getField @"outDegree")) candidates -- TODO: 選び方
+  modifyEff #select $ push node.val.vars
+  pure $ runST $ do
+    mgraph <- Mutable.thaw graph
+    Mutable.removeNode mgraph node
+    Mutable.freeze mgraph
 
 select :: AvailableColors -> Immutable.InterferenceGraph U.Temp -> SelectStack -> ColoringResult
 select colors graph stack =
