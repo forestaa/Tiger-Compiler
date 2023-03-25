@@ -156,6 +156,7 @@ test-suite compiler-test
       Compiler.Backend.X86.IntegrationTigerSpec
       Compiler.Backend.X86.IntermediateMock
       Compiler.Backend.X86.LivenessSpec
+      Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.MutableSpec
       Compiler.Backend.X86.RegisterAllocation.CoalesceAllocationSpec
       Compiler.Backend.X86.RegisterAllocation.InterferenceGraphSpec
       Compiler.Backend.X86.RegisterAllocation.SimpleAllocationSpec

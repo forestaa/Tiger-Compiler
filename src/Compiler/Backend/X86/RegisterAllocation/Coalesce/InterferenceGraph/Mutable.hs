@@ -27,17 +27,18 @@ import Compiler.Utils.Graph.Base (Edge (..), EdgeIndex (..), GraphException (..)
 import Data.Primitive.MutVar
 import Data.Vector qualified as V
 import Data.Vector.Growable qualified as GV
-import GHC.Records (HasField (..))
 import RIO
-import RIO.List qualified as List (sortOn)
+import RIO.List qualified as List
 import RIO.Map qualified as Map
 
-data MNodeState node edge s = MNodeState {index :: NodeIndex, val :: node, outEdges :: GV.GrowableVector s (Edge edge), inEdges :: GV.GrowableVector s (Edge edge)}
+-- | no inEdges to save memory
+data MNodeState node edge s = MNodeState {index :: NodeIndex, val :: node, outEdges :: GV.GrowableVector s (Edge edge)}
 
 newtype MNode node edge s = MNode (MutVar s (MNodeState node edge s))
 
 data MGraphState var edge s = MGraphState {vertices :: GV.GrowableVector s (MNode (B.InterferenceGraphNode var) edge s), nodeMap :: Map.Map var NodeIndex, edgeIndexCounter :: !Int}
 
+-- | no inEdges to save memory
 newtype InterferenceMutableGraph var s = InterferenceMutableGraph (MutVar s (MGraphState var B.InterferenceGraphEdgeLabel s))
 
 empty :: PrimMonad m => m (InterferenceMutableGraph var (PrimState m))
@@ -76,11 +77,9 @@ getEdgesByIndex mgraph srcIndex tgtIndex = do
   pure $ V.filter (\edge -> edge.target == tgtNode.index) srcNode.outEdges
 
 addNode :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> var -> m (Node (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel)
-addNode mgraph var = addNodeInternal mgraph (B.newInterferenceGraphNode var [])
-
-addNodeInternal :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> B.InterferenceGraphNode var -> m (Node (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel)
-addNodeInternal mgraph node = do
+addNode mgraph var = do
   graph <- readMGraphVar mgraph
+  let node = B.newInterferenceGraphNode var []
   if any (\var -> isJust $ graph.nodeMap Map.!? var) node.vars
     then throwM KeyAlradyExist
     else do
@@ -105,10 +104,8 @@ addEdgeByIndex mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) label = do
   tgtNode <- readMNodeVar =<< GV.read graph.vertices tgtIndex
   let outEdge = Edge (EdgeIndex graph.edgeIndexCounter) (NodeIndex srcIndex) (NodeIndex tgtIndex) label
   GV.push srcNode.outEdges outEdge
-  GV.push tgtNode.inEdges outEdge
   when (srcIndex /= tgtIndex) $ do
     let inEdge = Edge (EdgeIndex graph.edgeIndexCounter) (NodeIndex tgtIndex) (NodeIndex srcIndex) label
-    GV.push srcNode.inEdges inEdge
     GV.push tgtNode.outEdges inEdge
   writeMGraphVar mgraph $ graph {Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable.edgeIndexCounter = graph.edgeIndexCounter + 1}
   pure outEdge
@@ -118,7 +115,7 @@ putEdgeByIndex mgraph srcIndex tgtIndex label = do
   edges <- getEdgesByIndex mgraph srcIndex tgtIndex
   case edges V.!? 0 of
     Nothing -> pure ()
-    Just edge -> removeEdge mgraph edge.source edge.target edge.index
+    Just edge -> removeEdge mgraph edge
   addEdgeByIndex mgraph srcIndex tgtIndex label
 
 updateNode :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> B.InterferenceGraphNode var -> m ()
@@ -132,6 +129,7 @@ updateNode mgraph (NodeIndex index) newNode = do
   writeMNodeVar mnode newVertex
   writeMGraphVar mgraph newGraph
 
+-- TODO: throw KeyNotFound if edgeIndex is not found
 updateEdge :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> B.InterferenceGraphEdgeLabel -> m ()
 updateEdge mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) edgeIndex val = do
   graph <- readMGraphVar mgraph
@@ -142,86 +140,77 @@ updateEdge mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) edgeIndex val = do
     edge <- GV.read srcNode.outEdges index
     when (edge.index == edgeIndex) $ GV.write srcNode.outEdges index (edge {val = val} :: Edge B.InterferenceGraphEdgeLabel)
 
-  len <- GV.length srcNode.inEdges
-  forM_ [0 .. len - 1] $ \index -> do
-    edge <- GV.read srcNode.inEdges index
-    when (edge.index == edgeIndex) $ GV.write srcNode.inEdges index (edge {val = val} :: Edge B.InterferenceGraphEdgeLabel)
-
   when (srcIndex /= tgtIndex) $ do
     tgtNode <- readMNodeVar =<< GV.read graph.vertices tgtIndex
-    len <- GV.length tgtNode.inEdges
-    forM_ [0 .. len - 1] $ \index -> do
-      edge <- GV.read tgtNode.inEdges index
-      when (edge.index == edgeIndex) $ GV.write tgtNode.inEdges index (edge {val = val} :: Edge B.InterferenceGraphEdgeLabel)
-
     len <- GV.length tgtNode.outEdges
     forM_ [0 .. len - 1] $ \index -> do
       edge <- GV.read tgtNode.outEdges index
       when (edge.index == edgeIndex) $ GV.write tgtNode.outEdges index (edge {val = val} :: Edge B.InterferenceGraphEdgeLabel)
 
-removeNode :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> Node (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel -> m ()
+removeNode :: forall m var. (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> Node (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel -> m ()
 removeNode mgraph removedNode = do
+  indexes <- List.delete removedNode.index <$> getAllIndexes mgraph
+  nodeMapVar <- newMutVar Map.empty
+  forM_ indexes $ \index -> do
+    node <- readMNode mgraph index
+    let newNode = B.removeNode removedNode.val node.val
+        index' = newIndex index
+    updateRelatedEdges node
+    writeMNode mgraph index' (node {index = index', val = newNode} :: MNodeState (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel (PrimState m))
+    forM_ newNode.vars $ \var -> modifyMutVar' nodeMapVar $ Map.insert var index'
+
   graph <- readMGraphVar mgraph
-  len <- GV.length graph.vertices
-  let NodeIndex removedIndex = removedNode.index
-  newGraph :: InterferenceMutableGraph _ _ <- empty
-  forM_ [0 .. len - 1] $ \index ->
-    if index == removedIndex
-      then pure ()
-      else do
-        node <- readMNodeVar =<< GV.read graph.vertices index
-        let newNode = B.removeNode removedNode.val node.val
-        _ <- addNodeInternal newGraph newNode
-        pure ()
-
-  let newIndex (NodeIndex i) = if i < removedIndex then NodeIndex i else NodeIndex (i - 1)
-  forM_ [0 .. len - 1] $ \index ->
-    when (index /= removedIndex) $ do
-      node <- readMNodeVar =<< GV.read graph.vertices index
-
-      outEdgeLength <- GV.length node.outEdges
-      forM_ [0 .. outEdgeLength - 1] $ \edgeIndex -> do
+  _ <- GV.pop graph.vertices
+  nodeMap <- readMutVar nodeMapVar
+  writeMGraphVar mgraph $ graph {nodeMap = nodeMap}
+  pure ()
+  where
+    newIndex :: NodeIndex -> NodeIndex
+    newIndex (NodeIndex i) =
+      let NodeIndex removedIndex = removedNode.index
+       in if i < removedIndex then NodeIndex i else NodeIndex (i - 1)
+    updateRelatedEdges :: (PrimMonad m) => MNodeState (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel (PrimState m) -> m ()
+    updateRelatedEdges node = do
+      edgeLength <- GV.length node.outEdges
+      removedEdgesVar <- newMutVar 0
+      forM_ [0 .. edgeLength - 1] $ \edgeIndex -> do
         edge <- GV.read node.outEdges edgeIndex
-        when (edge.target /= removedNode.index) $ do
-          let sourceIndex = newIndex edge.source
-              targetIndex = newIndex edge.target
-          whenM (V.all (\edge' -> edge.index /= edge'.index) <$> getEdgesByIndex newGraph sourceIndex targetIndex) $ do
-            _ <- addEdgeByIndex newGraph sourceIndex targetIndex edge.val
-            pure ()
+        if edge.target == removedNode.index
+          then modifyMutVar' removedEdgesVar $ (+) 1
+          else do
+            let newEdge = edge {source = newIndex edge.source, target = newIndex edge.target}
+            removedEdgesLength <- readMutVar removedEdgesVar
+            GV.write node.outEdges (edgeIndex - removedEdgesLength) newEdge
+      removedEdgesLength <- readMutVar removedEdgesVar
+      forM_ [1 .. removedEdgesLength] $ \_ -> GV.pop node.outEdges
 
-  writeMGraphVar mgraph =<< readMGraphVar newGraph
-
-removeEdge :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> NodeIndex -> EdgeIndex -> m ()
-removeEdge mgraph (NodeIndex srcIndex) (NodeIndex tgtIndex) edgeIndex = do
-  graph <- readMGraphVar mgraph
-
-  srcMNode <- GV.read graph.vertices srcIndex
-  srcNode <- readMNodeVar srcMNode
-  newOutEdges <- GV.new
+removeEdge :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> Edge B.InterferenceGraphEdgeLabel -> m ()
+removeEdge mgraph removedEdge = do
+  srcNode <- readMNode mgraph removedEdge.source
   len <- GV.length srcNode.outEdges
+  afterRemovedVar <- newMutVar False
   forM_ [0 .. len - 1] $ \index -> do
     edge <- GV.read srcNode.outEdges index
-    when (edge.index /= edgeIndex) $ GV.push newOutEdges edge
-  newInEdges <- GV.new
-  len <- GV.length srcNode.inEdges
-  forM_ [0 .. len - 1] $ \index -> do
-    edge <- GV.read srcNode.inEdges index
-    when (edge.index /= edgeIndex) $ GV.push newInEdges edge
-  writeMNodeVar srcMNode srcNode {Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable.outEdges = newOutEdges, Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable.inEdges = newInEdges}
+    afterRemoved <- readMutVar afterRemovedVar
+    if
+        | edge.index == removedEdge.index -> writeMutVar afterRemovedVar True
+        | afterRemoved -> GV.write srcNode.outEdges (index - 1) edge
+        | otherwise -> pure ()
+  _ <- GV.pop srcNode.outEdges
 
-  tgtMNode <- GV.read graph.vertices tgtIndex
-  tgtNode <- readMNodeVar tgtMNode
-  newOutEdges <- GV.new
+  tgtNode <- readMNode mgraph removedEdge.target
   len <- GV.length tgtNode.outEdges
+  afterRemovedVar <- newMutVar False
   forM_ [0 .. len - 1] $ \index -> do
     edge <- GV.read tgtNode.outEdges index
-    when (edge.index /= edgeIndex) $ GV.push newOutEdges edge
-  newInEdges <- GV.new
-  len <- GV.length tgtNode.inEdges
-  forM_ [0 .. len - 1] $ \index -> do
-    edge <- GV.read tgtNode.inEdges index
-    when (edge.index /= edgeIndex) $ GV.push newInEdges edge
-  writeMNodeVar tgtMNode tgtNode {Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable.outEdges = newOutEdges, Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable.inEdges = newInEdges}
+    afterRemoved <- readMutVar afterRemovedVar
+    if
+        | edge.index == removedEdge.index -> writeMutVar afterRemovedVar True
+        | afterRemoved -> GV.write tgtNode.outEdges (index - 1) edge
+        | otherwise -> pure ()
+  _ <- GV.pop tgtNode.outEdges
+
+  pure ()
 
 readMNodeVar :: PrimMonad m => MNode node edge (PrimState m) -> m (MNodeState node edge (PrimState m))
 readMNodeVar (MNode var) = readMutVar var
@@ -235,24 +224,33 @@ writeMNodeVar (MNode var) = writeMutVar var
 writeMGraphVar :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> MGraphState var B.InterferenceGraphEdgeLabel (PrimState m) -> m ()
 writeMGraphVar (InterferenceMutableGraph var) = writeMutVar var
 
+readMNode :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> m (MNodeState (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel (PrimState m))
+readMNode (InterferenceMutableGraph var) (NodeIndex index) = do
+  graph <- readMutVar var
+  mnode <- GV.read graph.vertices index
+  readMNodeVar mnode
+
+writeMNode :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> MNodeState (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel (PrimState m) -> m ()
+writeMNode (InterferenceMutableGraph var) (NodeIndex index) node = do
+  graph <- readMutVar var
+  mnode <- GV.read graph.vertices index
+  writeMNodeVar mnode node
+
 newMNode :: PrimMonad m => NodeIndex -> node -> m (MNode node edge (PrimState m))
 newMNode index val = do
   outEdges <- GV.new
-  inEdges <- GV.new
-  MNode <$> newMutVar (MNodeState {index = index, val = val, outEdges = outEdges, inEdges = inEdges})
+  MNode <$> newMutVar (MNodeState {index = index, val = val, outEdges = outEdges})
 
 freezeMNode :: PrimMonad m => MNode (B.InterferenceGraphNode var) edge (PrimState m) -> m (Node (B.InterferenceGraphNode var) edge)
 freezeMNode (MNode var) = do
   mn <- readMutVar var
   outEdges <- GV.freeze mn.outEdges
-  inEdges <- GV.freeze mn.inEdges
-  pure $ Node {index = mn.index, val = mn.val, outEdges = outEdges, inEdges = inEdges}
+  pure $ Node {index = mn.index, val = mn.val, outEdges = outEdges, inEdges = V.empty}
 
 thawMNode :: PrimMonad m => Node (B.InterferenceGraphNode var) edge -> m (MNode (B.InterferenceGraphNode var) edge (PrimState m))
 thawMNode node = do
   outEdges <- GV.thaw node.outEdges
-  inEdges <- GV.thaw node.inEdges
-  MNode <$> newMutVar (MNodeState {index = node.index, val = node.val, outEdges = outEdges, inEdges = inEdges})
+  MNode <$> newMutVar (MNodeState {index = node.index, val = node.val, outEdges = outEdges})
 
 freeze :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> m (Immutable.InterferenceGraph var)
 freeze (InterferenceMutableGraph var) = do
@@ -262,8 +260,7 @@ freeze (InterferenceMutableGraph var) = do
       ( \(MNode var) -> do
           node <- readMutVar var
           outEdges <- GV.freeze node.outEdges
-          inEdges <- GV.freeze node.inEdges
-          pure $ Node {index = node.index, val = node.val, outEdges = outEdges, inEdges = inEdges}
+          pure $ Node {index = node.index, val = node.val, outEdges = outEdges, inEdges = V.empty}
       )
       =<< GV.freeze graph.vertices
   pure $ Immutable.InterferenceGraph vertices graph.edgeIndexCounter graph.nodeMap
@@ -273,8 +270,18 @@ thaw graph = do
   vertices <- GV.thaw =<< mapM thawMNode graph.vertices
   InterferenceMutableGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeCount})
 
+size :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> m Int
+size mgraph = do
+  graph <- readMGraphVar mgraph
+  GV.length graph.vertices
+
 isEmpty :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> m Bool
 isEmpty = fmap null . getAllNodes
+
+getAllIndexes :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> m [NodeIndex]
+getAllIndexes mgraph = do
+  len <- size mgraph
+  pure $ NodeIndex <$> [0 .. len - 1]
 
 coalesceMove :: (Ord var, PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> B.Move var -> m ()
 coalesceMove graph move = do

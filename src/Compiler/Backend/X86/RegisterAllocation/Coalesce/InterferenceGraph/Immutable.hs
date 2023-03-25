@@ -20,6 +20,7 @@ import RIO.Set qualified as Set
 import RIO.Vector qualified as Vec
 import RIO.Vector.Partial qualified as Vec
 
+-- | no inEdges to save memory
 data InterferenceGraph var = InterferenceGraph {vertices :: Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel), edgeCount :: !Int, nodeMap :: Map.Map var NodeIndex} deriving (Show)
 
 instance (Ord var) => Eq (InterferenceGraph var) where
