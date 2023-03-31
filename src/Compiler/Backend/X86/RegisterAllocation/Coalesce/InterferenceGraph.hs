@@ -10,7 +10,6 @@ import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immuta
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Mutable qualified as Mutable (InterferenceMutableGraph, addEdge, addMove, addNode, constrainMove, empty, freeze, getEdges)
 import Compiler.Utils.Graph.Base (Node (..))
 import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..))
-import GHC.Records (HasField (getField))
 import RIO
 import RIO.Set qualified as Set
 import RIO.Vector qualified as Vec
@@ -20,7 +19,7 @@ newInterferenceGraph vars cfGraph =
   runST $ do
     graph <- Mutable.empty
     forM_ vars $ Mutable.addNode graph
-    let allNodes = getField @"val" <$> Immutable.getAllNodes cfGraph
+    let allNodes = (.val) <$> Immutable.getAllNodes cfGraph
     forM_ allNodes $ addInterferenceGraphEdges graph
     forM_ allNodes $ addMove graph
     Mutable.freeze graph

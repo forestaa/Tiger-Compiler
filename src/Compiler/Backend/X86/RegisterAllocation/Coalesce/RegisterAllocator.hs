@@ -52,7 +52,7 @@ newRegisterAllocator graph availableColors = RegisterAllocator {graph, available
 allocate :: RegisterAllocator -> Set.Set U.Temp -> (Bool, RegisterAllocator)
 allocate allocator temp =
   let precolors = catMaybes . Set.toList $ Set.map (getColor allocator.allocation) temp
-      neiborhoods = Set.toList $ foldMap (Set.unions . fmap (getField @"vars" . getField @"val") . Immutable.getOutNeiborhoods allocator.graph) temp
+      neiborhoods = Set.toList $ foldMap (Set.unions . fmap ((.val.vars)) . Immutable.getOutNeiborhoods allocator.graph) temp
       allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
    in case (precolors, List.headMaybe allocatableColors) of
         ([color], _) -> (True, allocator {allocation = putColors allocator.allocation temp color})

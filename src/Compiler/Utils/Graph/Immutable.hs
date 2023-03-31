@@ -11,7 +11,6 @@ import Compiler.Utils.Graph.Base (Directional (..), Edge (..), Node (..), NodeIn
 import Compiler.Utils.String (unlines)
 import Control.Monad.State.Strict
 import Data.MultiSet qualified as Multi
-import GHC.Records (HasField (getField))
 import RIO hiding (unlines)
 import RIO.Map qualified as Map
 import RIO.Map.Partial qualified as Map
@@ -27,9 +26,9 @@ instance (Ord node, Ord edge) => Eq (IGraph d node edge) where
   graph1 == graph2 = (vertices graph1 == vertices graph2) && (edges graph1 == edges graph2)
     where
       vertices :: IGraph d node edge -> Set.Set node
-      vertices graph = Set.fromList . Vec.toList $ Vec.map (getField @"val") graph.vertices
+      vertices graph = Set.fromList . Vec.toList $ Vec.map (.val) graph.vertices
       edges :: IGraph d node edge -> Multi.MultiSet (node, node, edge)
-      edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (getField @"outEdges") graph.vertices
+      edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (.outEdges) graph.vertices
 
 class ImmutableGraph (d :: Directional) node edge graph | graph -> d, graph -> node, graph -> edge where
   getNode :: Ord node => graph -> node -> Node node edge

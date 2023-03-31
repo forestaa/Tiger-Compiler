@@ -187,7 +187,7 @@ solveDataFlowEquationStep graph =
 dataFlowEquation :: (Ord var, PrimMonad m, MonadThrow m) => ControlFlowMutableGraph var val (PrimState m) -> NodeIndex -> m (ControlFlowNode var val)
 dataFlowEquation mgraph index = do
   node <- Mutable.getNodeByIndex mgraph index
-  successors <- mapM (Mutable.getNodeByIndex mgraph . getField @"target") node.outEdges
+  successors <- mapM (Mutable.getNodeByIndex mgraph . (.target)) node.outEdges
   let input = node.val.usedVariables `Set.union` (node.val.liveOutVariables Set.\\ node.val.definedVariables)
-      output = Set.unions $ (\node -> node.val.liveInVariables) <$> successors
+      output = Set.unions $ (.val.liveInVariables) <$> successors
   pure node.val {liveInVariables = input, liveOutVariables = output}

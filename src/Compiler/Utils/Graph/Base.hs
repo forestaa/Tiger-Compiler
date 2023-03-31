@@ -35,10 +35,10 @@ instance Eq (Edge edge) where
   edge1 == edge2 = edge1.index == edge2.index
 
 instance HasField "outIndexes" (Node node edge) (Vector NodeIndex) where
-  getField node = fmap (\edge -> edge.target) node.outEdges
+  getField node = fmap (.target) node.outEdges
 
 instance HasField "inIndexes" (Node node edge) (Vector NodeIndex) where
-  getField node = fmap (\edge -> edge.target) node.inEdges
+  getField node = fmap (.target) node.inEdges
 
 instance HasField "outDegree" (Node node edge) Int where
   getField node = length node.outEdges

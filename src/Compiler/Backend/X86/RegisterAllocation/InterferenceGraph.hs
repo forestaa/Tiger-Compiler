@@ -14,7 +14,6 @@ import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), ControlFl
 import Compiler.Utils.Graph.Base (Directional (..), Edge, EdgeIndex, Node (..), NodeIndex)
 import Compiler.Utils.Graph.Immutable qualified as Immutable (DebugGraphviz, IGraph, ImmutableGraph (..))
 import Compiler.Utils.Graph.Mutable qualified as Mutable (MGraph, MutableGraph (..), freeze, thaw)
-import GHC.Records (HasField (getField))
 import RIO
 import RIO.Set qualified as Set
 import RIO.Vector qualified as Vec
@@ -82,7 +81,7 @@ newInterferenceGraph vars cfGraph =
   runST $ do
     graph <- Mutable.empty
     forM_ vars $ Mutable.addNode graph
-    forM_ (getField @"val" <$> Immutable.getAllNodes cfGraph) $ addInterferenceGraphEdges graph
+    forM_ ((.val) <$> Immutable.getAllNodes cfGraph) $ addInterferenceGraphEdges graph
     freeze graph
   where
     addInterferenceGraphEdges :: (PrimMonad m, Ord var, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()

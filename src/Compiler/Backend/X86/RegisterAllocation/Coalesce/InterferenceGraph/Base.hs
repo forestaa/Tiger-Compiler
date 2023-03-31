@@ -22,10 +22,10 @@ instance (Display var) => Display (InterferenceGraphNode var) where
   display node = "{" <> foldr (\var acc -> display var <> acc) "}" node.vars
 
 instance HasField "isMoveRelated" (InterferenceGraphNode var) Bool where
-  getField node = any (getField @"isCoalesceable") node.moves
+  getField node = any (.isCoalesceable) node.moves
 
 instance HasField "getCoalesceableMoves" (InterferenceGraphNode var) (Set (Move var)) where
-  getField node = Set.filter (getField @"isCoalesceable") node.moves
+  getField node = Set.filter (.isCoalesceable) node.moves
 
 newInterferenceGraphNode :: Ord var => var -> [Move var] -> InterferenceGraphNode var
 newInterferenceGraphNode var moves = InterferenceGraphNode {vars = Set.singleton var, moves = Set.fromList moves}

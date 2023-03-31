@@ -35,7 +35,7 @@ allocateRegisters procedure = case coloring callerSaveRegisters procedure of
     procedure <- foldM startOver procedure spilled
     allocateRegisters procedure
   Colored allocation ->
-    let body = getField @"val" <$> procedure.body
+    let body = (.val) <$> procedure.body
         allocatedBody = eliminateRedundantMove $ mapRegister allocation body
      in pure Procedure {body = allocatedBody, frame = procedure.frame}
     where
@@ -115,7 +115,7 @@ getCandidatesOfSimplify graph = do
 
 simplify :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
 simplify graph candidates = do
-  let node = maximumBy (comparing (getField @"outDegree")) candidates
+  let node = maximumBy (comparing (.outDegree)) candidates
   modifyEff #select $ push node.val.vars
   pure $ runST $ do
     mgraph <- Mutable.thaw graph
@@ -124,7 +124,7 @@ simplify graph candidates = do
 
 getCandidatesOfCoalesce :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
 getCandidatesOfCoalesce graph = do
-  coalesceableMoves <- filterM isNotPrecoloredMove . Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) $ Immutable.getAllNodes graph
+  coalesceableMoves <- filterM isNotPrecoloredMove . Set.toList . foldMap (.val.getCoalesceableMoves) $ Immutable.getAllNodes graph
   filterM (isBriggs graph `or` isGeorge graph) coalesceableMoves
   where
     or :: (Monad m) => (a -> m Bool) -> (a -> m Bool) -> a -> m Bool
@@ -146,7 +146,7 @@ isGeorge graph move = do
   k <- asksEff #colors length
   let source = Immutable.getNode graph move.source
       target = Immutable.getNode graph move.destination
-      [lower, upper] = List.sortOn (getField @"outDegree") [source, target]
+      [lower, upper] = List.sortOn (.outDegree) [source, target]
       neighborhoods = Immutable.getNodeByIndex graph <$> lower.outIndexes
   pure $ all (\node -> V.elem upper.index node.outIndexes || node.outDegree < k) neighborhoods
 
@@ -176,7 +176,7 @@ getCandidatesOfSpill graph = do
 
 spill :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
 spill graph candidates = do
-  let node = V.maximumBy (comparing (getField @"outDegree")) candidates -- TODO: select by rank, which is computed by count to be used the variable, or something
+  let node = V.maximumBy (comparing (.outDegree)) candidates -- TODO: select by rank, which is computed by count to be used the variable, or something
   modifyEff #select $ push node.val.vars
   pure $ runST $ do
     mgraph <- Mutable.thaw graph

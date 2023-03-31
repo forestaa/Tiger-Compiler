@@ -14,7 +14,6 @@ import Compiler.Utils.Graph.Base (Edge (..), Node (..), NodeIndex (..))
 import Compiler.Utils.Graph.Immutable (DebugGraphviz (debugGraphviz))
 import Compiler.Utils.String (unlines)
 import Data.MultiSet qualified as Multi
-import GHC.Records (HasField (getField))
 import RIO hiding (unlines)
 import RIO.Map qualified as Map
 import RIO.Map.Partial qualified as Map
@@ -29,9 +28,9 @@ instance (Ord var) => Eq (InterferenceGraph var) where
   graph1 == graph2 = (vertices graph1 == vertices graph2) && (edges graph1 == edges graph2)
     where
       vertices :: InterferenceGraph var -> Set.Set (InterferenceGraphNode var)
-      vertices graph = Set.fromList . Vec.toList $ Vec.map (getField @"val") graph.vertices
+      vertices graph = Set.fromList . Vec.toList $ Vec.map (.val) graph.vertices
       edges :: InterferenceGraph var -> Multi.MultiSet (InterferenceGraphNode var, InterferenceGraphNode var, InterferenceGraphEdgeLabel)
-      edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (getField @"outEdges") graph.vertices
+      edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (.outEdges) graph.vertices
 
 getNode :: Ord var => InterferenceGraph var -> var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel
 getNode graph node =

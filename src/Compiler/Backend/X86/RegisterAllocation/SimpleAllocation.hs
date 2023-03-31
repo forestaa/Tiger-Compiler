@@ -31,7 +31,7 @@ allocateRegisters procedure = case simpleColoring callerSaveRegisters procedure 
     procedure <- foldM startOver procedure spilled
     allocateRegisters procedure
   Colored allocation ->
-    let body = getField @"val" <$> procedure.body
+    let body = (.val) <$> procedure.body
         allocatedBody = replaceRegister (fromJust . getColor allocation) <$> body
      in pure Procedure {body = allocatedBody, frame = procedure.frame}
 
@@ -51,7 +51,7 @@ simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop [] =<< thaw graph
     simplifyAndSpillLoop :: (PrimMonad m, MonadThrow m) => SimplfyStack -> InterferenceMutableGraph U.Temp (PrimState m) -> m SimplfyStack
     simplifyAndSpillLoop stack graph = do
       nodes <- Mutable.getAllNodes graph
-      let node = V.minimumBy (comparing (getField @"outDegree")) nodes
+      let node = V.minimumBy (comparing (.outDegree)) nodes
       if
           | V.null nodes -> pure stack
           | length node.outEdges < length colors -> do
@@ -60,7 +60,7 @@ simplifyAndSpill colors graph = runST $ simplifyAndSpillLoop [] =<< thaw graph
               simplifyAndSpillLoop (node.val : stack) graph
           | otherwise -> do
               -- possibly spilled
-              let node = V.maximumBy (comparing (getField @"outDegree")) nodes
+              let node = V.maximumBy (comparing (.outDegree)) nodes
               Mutable.removeNode graph node
               simplifyAndSpillLoop (node.val : stack) graph
 

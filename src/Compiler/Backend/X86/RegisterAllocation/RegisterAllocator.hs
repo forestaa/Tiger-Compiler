@@ -49,7 +49,7 @@ newRegisterAllocator graph availableColors = RegisterAllocator {graph, available
 allocate :: RegisterAllocator -> U.Temp -> (Bool, RegisterAllocator)
 allocate allocator temp =
   let node = Immutable.getNode allocator.graph temp
-      neiborhoods = V.toList . fmap (getField @"val") $ Immutable.getOutNeiborhoodsByIndex allocator.graph node.index
+      neiborhoods = V.toList . fmap (.val) $ Immutable.getOutNeiborhoodsByIndex allocator.graph node.index
       allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
    in case (isAllocated allocator.allocation temp, List.headMaybe allocatableColors) of
         (True, _) -> (True, allocator)
