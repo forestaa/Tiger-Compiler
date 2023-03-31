@@ -11,7 +11,7 @@ where
 import Compiler.Backend.X86.Arch (Register (..))
 import Compiler.Backend.X86.Frame (inverseRegisterTempMap)
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base (InterferenceGraphNode (vars))
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable qualified as Immutable (InterferenceGraph, getNode, getOutNeiborhoodsByIndex)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable qualified as Immutable (InterferenceGraph, getOutNeiborhoods)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
 import GHC.Records (HasField (..))
@@ -51,13 +51,14 @@ newRegisterAllocator graph availableColors = RegisterAllocator {graph, available
 
 allocate :: RegisterAllocator -> Set.Set U.Temp -> (Bool, RegisterAllocator)
 allocate allocator temp =
-  let indexes = Set.map (getField @"index" . Immutable.getNode allocator.graph) temp
-      neiborhoods = Set.toList $ foldMap (Set.unions . fmap (getField @"vars" . getField @"val") . Immutable.getOutNeiborhoodsByIndex allocator.graph) indexes
+  let precolors = catMaybes . Set.toList $ Set.map (getColor allocator.allocation) temp
+      neiborhoods = Set.toList $ foldMap (Set.unions . fmap (getField @"vars" . getField @"val") . Immutable.getOutNeiborhoods allocator.graph) temp
       allocatableColors = allocator.availableColors List.\\ getColors allocator.allocation neiborhoods
-   in case (any (isAllocated allocator.allocation) temp, List.headMaybe allocatableColors) of
-        (True, _) -> (True, allocator)
-        (False, Nothing) -> (False, allocator)
-        (False, Just color) -> (True, allocator {allocation = putColors allocator.allocation temp color})
+   in case (precolors, List.headMaybe allocatableColors) of
+        ([color], _) -> (True, allocator {allocation = putColors allocator.allocation temp color})
+        ([], Nothing) -> (False, allocator)
+        ([], Just color) -> (True, allocator {allocation = putColors allocator.allocation temp color})
+        (_, _) -> error "different colors are assigned to coalesced nodes"
 
 allocateEff :: (MonadState RegisterAllocator m) => Set.Set U.Temp -> m Bool
 allocateEff temp = state (`allocate` temp)

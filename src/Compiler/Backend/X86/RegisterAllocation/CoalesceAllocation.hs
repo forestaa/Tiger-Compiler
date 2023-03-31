@@ -13,7 +13,7 @@ import Compiler.Intermediate.Frame qualified as F (fp)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
 import Data.Extensible (Lookup, type (>:))
-import Data.Extensible.Effect (Eff, ReaderEff, State, asksEff, castEff, execStateEff, leaveEff, modifyEff, runReaderEff)
+import Data.Extensible.Effect (Eff, ReaderEff, State, askEff, asksEff, castEff, execStateEff, leaveEff, modifyEff, runReaderEff)
 import Data.Foldable (maximumBy)
 import Data.Vector qualified as V
 import GHC.Records (HasField (..))
@@ -60,10 +60,10 @@ pop stack = second SelectStack <$> List.uncons stack.stack
 coloring :: AvailableColors -> ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> ColoringResult
 coloring colors procedure =
   let graph = buildInterfereceGraph (allTempRegisters `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
-      stack = leaveEff . flip (execStateEff @"select") newSelectStack . flip (runReaderEff @"colors") colors $ simplifyCoalesceFreezeSpillLoop graph
+      stack = leaveEff . flip (execStateEff @"select") newSelectStack . flip (runReaderEff @"precolored") allTempRegisters . flip (runReaderEff @"colors") colors $ simplifyCoalesceFreezeSpillLoop graph
    in select colors graph stack
   where
-    simplifyCoalesceFreezeSpillLoop :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
+    simplifyCoalesceFreezeSpillLoop :: (Lookup xs "select" (State SelectStack), Lookup xs "precolored" (ReaderEff (Set.Set U.Temp)), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Eff xs ()
     simplifyCoalesceFreezeSpillLoop graph = do
       nextStep <- determineNextStep graph
       case nextStep of
@@ -71,7 +71,9 @@ coloring colors procedure =
         Coalesce candidates -> coalesce graph candidates >>= simplifyCoalesceFreezeSpillLoop
         Freeze candidates -> freeze graph candidates >>= simplifyCoalesceFreezeSpillLoop
         Spill candidates -> spill graph candidates >>= simplifyCoalesceFreezeSpillLoop
-        Finished -> pure ()
+        Finished ->
+          forM_ (Immutable.getAllNodes graph) $ \node -> do
+            modifyEff #select $ push node.val.vars
 
 data NextStep var
   = Simplify (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
@@ -80,24 +82,36 @@ data NextStep var
   | Spill (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
   | Finished
 
-determineNextStep :: Lookup xs "colors" (ReaderEff AvailableColors) => Immutable.InterferenceGraph U.Temp -> Eff xs (NextStep U.Temp)
+determineNextStep :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs (NextStep U.Temp)
 determineNextStep graph = do
   simpifyCandidates <- getCandidatesOfSimplify graph
   coalesceCandidates <- getCandidatesOfCoalesce graph
   freezeCandidates <- getCandidatesOfFreeze graph
   spillCandidates <- getCandidatesOfSpill graph
+  notColored <- getNotPrecoloredNode graph
   if
       | not (null simpifyCandidates) -> pure $ Simplify simpifyCandidates
       | not (null coalesceCandidates) -> pure $ Coalesce coalesceCandidates
       | not (null freezeCandidates) -> pure $ Freeze freezeCandidates
       | not (null spillCandidates) -> pure $ Spill spillCandidates
-      | not (Immutable.isEmpty graph) -> error "graph is expected to be empty here"
-      | otherwise -> pure Finished
+      | null notColored -> pure Finished
+      | otherwise -> error "graph is expected to be precolored here"
+  where
+    getNotPrecoloredNode :: Lookup xs "precolored" (ReaderEff (Set.Set U.Temp)) => Immutable.InterferenceGraph U.Temp -> Eff xs (Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel))
+    getNotPrecoloredNode graph = V.filterM isNotPrecoloredNode $ Immutable.getAllNodes graph
 
-getCandidatesOfSimplify :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+isNotPrecoloredNode :: (Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Node (InterferenceGraphNode var) label -> Eff xs Bool
+isNotPrecoloredNode node = asksEff #precolored $ Set.null . Set.intersection node.val.vars
+
+isNotPrecoloredMove :: (Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Move var -> Eff xs Bool
+isNotPrecoloredMove move = do
+  precolored <- askEff #precolored
+  pure $ move.source `Set.notMember` precolored || move.destination `Set.notMember` precolored
+
+getCandidatesOfSimplify :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
 getCandidatesOfSimplify graph = do
   k <- asksEff #colors length
-  pure . V.filter (\node -> node.outDegree < k && not node.val.isMoveRelated) $ Immutable.getAllNodes graph
+  V.filterM isNotPrecoloredNode . V.filter (\node -> node.outDegree < k && not node.val.isMoveRelated) $ Immutable.getAllNodes graph
 
 simplify :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
 simplify graph candidates = do
@@ -108,9 +122,9 @@ simplify graph candidates = do
     Mutable.removeNode mgraph node
     Mutable.freeze mgraph
 
-getCandidatesOfCoalesce :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
+getCandidatesOfCoalesce :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
 getCandidatesOfCoalesce graph = do
-  let coalesceableMoves = Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) $ Immutable.getAllNodes graph
+  coalesceableMoves <- filterM isNotPrecoloredMove . Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) $ Immutable.getAllNodes graph
   filterM (isBriggs graph `or` isGeorge graph) coalesceableMoves
   where
     or :: (Monad m) => (a -> m Bool) -> (a -> m Bool) -> a -> m Bool
@@ -143,10 +157,10 @@ coalesce graph candidates = pure $ runST $ do
   Mutable.coalesceMove mgraph move
   Mutable.freeze mgraph
 
-getCandidatesOfFreeze :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
+getCandidatesOfFreeze :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Immutable.InterferenceGraph var -> Eff xs [Move var]
 getCandidatesOfFreeze graph = do
   k <- asksEff #colors length
-  pure . Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) . V.filter (\node -> node.val.isMoveRelated && node.outDegree < k) $ Immutable.getAllNodes graph
+  filterM isNotPrecoloredMove . Set.toList . foldMap (\node -> node.val.getCoalesceableMoves) . V.filter (\node -> node.val.isMoveRelated && node.outDegree < k) $ Immutable.getAllNodes graph
 
 freeze :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> [Move U.Temp] -> Eff xs (Immutable.InterferenceGraph U.Temp)
 freeze graph candidates = pure $ runST $ do
@@ -155,14 +169,14 @@ freeze graph candidates = pure $ runST $ do
   Mutable.freezeMove mgraph move
   Mutable.freeze mgraph
 
-getCandidatesOfSpill :: (Lookup xs "colors" (ReaderEff AvailableColors), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
+getCandidatesOfSpill :: (Lookup xs "colors" (ReaderEff AvailableColors), Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Immutable.InterferenceGraph var -> Eff xs (Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel))
 getCandidatesOfSpill graph = do
   k <- asksEff #colors length
-  pure . V.filter (\node -> node.outDegree >= k) $ Immutable.getAllNodes graph
+  V.filterM isNotPrecoloredNode . V.filter (\node -> node.outDegree >= k) $ Immutable.getAllNodes graph
 
 spill :: (Lookup xs "select" (State SelectStack), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel) -> Eff xs (Immutable.InterferenceGraph U.Temp)
 spill graph candidates = do
-  let node = V.maximumBy (comparing (getField @"outDegree")) candidates -- TODO: 選び方
+  let node = V.maximumBy (comparing (getField @"outDegree")) candidates -- TODO: select by rank, which is computed by count to be used the variable, or something
   modifyEff #select $ push node.val.vars
   pure $ runST $ do
     mgraph <- Mutable.thaw graph

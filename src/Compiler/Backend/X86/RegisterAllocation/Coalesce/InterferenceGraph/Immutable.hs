@@ -3,8 +3,8 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immuta
     getNode,
     getNodeByIndex,
     getAllNodes,
+    getOutNeiborhoods,
     getOutNeiborhoodsByIndex,
-    getInNeiborhoodsByIndex,
     isEmpty,
   )
 where
@@ -44,15 +44,13 @@ getNodeByIndex graph (NodeIndex index) = graph.vertices Vec.! index
 getAllNodes :: InterferenceGraph var -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
 getAllNodes graph = graph.vertices
 
+getOutNeiborhoods :: Ord var => InterferenceGraph var -> var -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
+getOutNeiborhoods graph var = getOutNeiborhoodsByIndex graph (graph.nodeMap Map.! var)
+
 getOutNeiborhoodsByIndex :: InterferenceGraph var -> NodeIndex -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
 getOutNeiborhoodsByIndex graph index =
   let node = getNodeByIndex graph index
    in getNodeByIndex graph <$> node.outIndexes
-
-getInNeiborhoodsByIndex :: InterferenceGraph var -> NodeIndex -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
-getInNeiborhoodsByIndex graph index =
-  let node = getNodeByIndex graph index
-   in getNodeByIndex graph <$> node.inIndexes
 
 isEmpty :: InterferenceGraph var -> Bool
 isEmpty = null . getAllNodes
