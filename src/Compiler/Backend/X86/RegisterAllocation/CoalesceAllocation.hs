@@ -59,8 +59,8 @@ pop stack = second SelectStack <$> List.uncons stack.stack
 
 coloring :: AvailableColors -> ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> ColoringResult
 coloring colors procedure =
-  let graph = buildInterfereceGraph (allTempRegisters `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
-      stack = leaveEff . flip (execStateEff @"select") newSelectStack . flip (runReaderEff @"precolored") allTempRegisters . flip (runReaderEff @"colors") colors $ simplifyCoalesceFreezeSpillLoop graph
+  let graph = buildInterfereceGraph (Set.fromList allTempRegisters `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
+      stack = leaveEff . flip (execStateEff @"select") newSelectStack . flip (runReaderEff @"precolored") (Set.fromList allTempRegisters) . flip (runReaderEff @"colors") colors $ simplifyCoalesceFreezeSpillLoop graph
    in select colors graph stack
   where
     simplifyCoalesceFreezeSpillLoop :: (Lookup xs "select" (State SelectStack), Lookup xs "precolored" (ReaderEff (Set.Set U.Temp)), Lookup xs "colors" (ReaderEff AvailableColors)) => Immutable.InterferenceGraph U.Temp -> Eff xs ()

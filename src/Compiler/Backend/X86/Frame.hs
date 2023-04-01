@@ -60,8 +60,8 @@ exp (InRegister t) _ = IR.Temp t
 exp (InFrame offset) base = IR.Mem (IR.BinOp IR.Plus base (IR.Const offset))
 exp SpilledOut _ = undefined
 
-allTempRegisters :: Set.Set U.Temp
-allTempRegisters = Set.fromList [rip, rax, rsp, rbp, rbx, rdi, rsi, rdx, rcx, r8, r9, r10, r11, r12, r13, r14, r15, eflags]
+allTempRegisters :: [U.Temp]
+allTempRegisters = registerTempMap <$> allTemporaryRegisters
 
 callerSaveTempRegisters :: [U.Temp]
 callerSaveTempRegisters = registerTempMap <$> callerSaveRegisters
