@@ -65,25 +65,20 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
     shouldThrow
       ( do
           graph <- empty
-          addEdge graph 1 2 B.InterferenceGraphEdgeLabel
+          addEdge graph 1 2
       )
       (KeyNotFound ==)
 
-  it "empty -> addNode*3 -> addEdge*2 -> getEdges" $ do
-    (node1, node2, node3, edges, edges') <- do
+  it "empty -> addNode*3 -> addEdge -> getEdge" $ do
+    (node1, node2, edges) <- do
       graph <- empty
       node1 <- addNode graph 1
       node2 <- addNode graph 2
-      node3 <- addNode graph 3
-      addEdge graph 1 2 B.InterferenceGraphEdgeLabel
-      addEdge graph 1 2 B.InterferenceGraphEdgeLabel
-      edges <- getEdgesByIndex graph node1.index node2.index
-      edges' <- getEdgesByIndex graph node2.index node1.index
-      pure (node1, node2, node3, edges, edges')
+      addEdge graph 1 2
+      edges <- getEdgeByIndex graph node1.index node2.index
+      pure (node1, node2, edges)
     fmap extractEdge edges
-      `shouldBe` V.fromList [(node1.index, node2.index, B.InterferenceGraphEdgeLabel), (node1.index, node2.index, B.InterferenceGraphEdgeLabel)]
-    fmap extractEdge edges'
-      `shouldBe` V.fromList [(node2.index, node1.index, B.InterferenceGraphEdgeLabel), (node2.index, node1.index, B.InterferenceGraphEdgeLabel)]
+      `shouldBe` Just (node1.index, node2.index, B.InterferenceGraphEdgeLabel)
 
   it "empty -> addNode*3 -> addEdgeByIndex*3 -> node.outEdges" $ do
     (node1, node2, node3, newNode1, newNode2, newNode3) <- do
@@ -91,9 +86,9 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node1.index node3.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node2.index node2.index B.InterferenceGraphEdgeLabel
+      addEdgeByIndex graph node1.index node2.index
+      addEdgeByIndex graph node1.index node3.index
+      addEdgeByIndex graph node2.index node2.index
       newNode1 <- getNodeByIndex graph node1.index
       newNode2 <- getNodeByIndex graph node2.index
       newNode3 <- getNodeByIndex graph node3.index
@@ -106,17 +101,17 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       `shouldBe` V.fromList [(node3.index, node1.index, B.InterferenceGraphEdgeLabel)]
 
   it "empty -> addNode*3 -> addEdgeByIndex*2 -> getEdges" $ do
-    (node1, node2, node3, edges) <- do
+    (node1, node2, node3, edge) <- do
       graph <- empty
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      edges <- getEdgesByIndex graph node1.index node2.index
-      pure (node1, node2, node3, edges)
-    fmap extractEdge edges
-      `shouldBe` V.fromList [(node1.index, node2.index, B.InterferenceGraphEdgeLabel), (node1.index, node2.index, B.InterferenceGraphEdgeLabel)]
+      addEdgeByIndex graph node1.index node2.index
+      addEdgeByIndex graph node1.index node2.index
+      edge <- getEdgeByIndex graph node1.index node2.index
+      pure (node1, node2, node3, edge)
+    fmap extractEdge edge
+      `shouldBe` Just (node1.index, node2.index, B.InterferenceGraphEdgeLabel)
 
   it "empty -> addNode*3 -> addEdgeByIndex*3 -> removeNode -> getNode" $ do
     (node1, node3) <- do
@@ -124,9 +119,9 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node1.index node3.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node2.index node3.index B.InterferenceGraphEdgeLabel
+      addEdgeByIndex graph node1.index node2.index
+      addEdgeByIndex graph node1.index node3.index
+      addEdgeByIndex graph node2.index node3.index
       removeNode graph node2
       node1 <- getNode graph 1
       node3 <- getNode graph 3
@@ -142,9 +137,9 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      edge <- addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node1.index node3.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node2.index node3.index B.InterferenceGraphEdgeLabel
+      edge <- addEdgeByIndex graph node1.index node2.index
+      addEdgeByIndex graph node1.index node3.index
+      addEdgeByIndex graph node2.index node3.index
       removeEdge graph edge
       nodes <- getAllNodes graph
       pure (node1, node3, nodes)
@@ -186,8 +181,8 @@ interferenceGraphMutableSpec = describe "InterferenceGraph Mutable spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      addEdgeByIndex graph node1.index node3.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node2.index node3.index B.InterferenceGraphEdgeLabel
+      addEdgeByIndex graph node1.index node3.index
+      addEdgeByIndex graph node2.index node3.index
       let move = B.newMove 1 2
           newNode1 = B.addMove move node1.val
           newNode2 = B.addMove move node2.val
@@ -231,8 +226,8 @@ freezeThawSpec = describe "freeze thaw spec" $ do
       node1 <- addNode graph 1
       node2 <- addNode graph 2
       node3 <- addNode graph 3
-      addEdgeByIndex graph node1.index node2.index B.InterferenceGraphEdgeLabel
-      addEdgeByIndex graph node1.index node3.index B.InterferenceGraphEdgeLabel
+      addEdgeByIndex graph node1.index node2.index
+      addEdgeByIndex graph node1.index node3.index
       getAllNodes =<< thaw =<< freeze graph
     V.length nodes `shouldBe` 3
     fmap (.val.vars) nodes `shouldBe` V.fromList [Set.singleton 1, Set.singleton 2, Set.singleton 3]
