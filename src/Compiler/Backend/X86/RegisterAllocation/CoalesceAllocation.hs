@@ -32,7 +32,7 @@ instance R.RegisterAllocation CoalesceAllocation where
 allocateRegisters :: forall xs. Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
 allocateRegisters procedure = case coloring callerSaveRegisters procedure of
   Spilled spilled -> do
-    procedure <- foldM startOver procedure spilled
+    procedure <- startOver procedure spilled
     allocateRegisters procedure
   Colored allocation ->
     let body = (.val) <$> procedure.body
@@ -44,7 +44,7 @@ allocateRegisters procedure = case coloring callerSaveRegisters procedure of
       eliminateRedundantMove :: [Assembly Register] -> [Assembly Register]
       eliminateRedundantMove = filter (\case MovRegister source target -> source /= target; _ -> True)
 
-data ColoringResult = Spilled [U.Temp] | Colored Allocation
+data ColoringResult = Spilled U.Temp | Colored Allocation
 
 newtype SelectStack = SelectStack {stack :: [Set.Set U.Temp]} deriving (Show)
 
@@ -188,7 +188,9 @@ select colors graph stack =
   let (missed, allocator) = runRegisterAllocatorState graph colors $ selectLoop stack
    in if List.null missed
         then Colored allocator.allocation
-        else Spilled missed
+        else
+          let spilled = maximumBy (comparing (\node -> (Immutable.getNode graph node).outDegree)) missed
+           in Spilled spilled
   where
     selectLoop :: SelectStack -> S.State RegisterAllocator [U.Temp]
     selectLoop stack = case pop stack of
