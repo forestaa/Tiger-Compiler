@@ -213,14 +213,17 @@ startOver procedure spilledTemp = do
     spillOutAccess spilled (InRegister temp) | temp == spilled = SpilledOut
     spillOutAccess _ access = access
     insertSpillAssembly :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => U.Temp -> Access -> L.ControlFlow U.Temp (Assembly U.Temp) -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
-    insertSpillAssembly spilledTemp (InFrame memory) flow = do
-      temp <- allocateNonEscapedLocalEff
-      let newSrc = fmap (\register -> if register == spilledTemp then temp else register) flow.sources
-          newDst = fmap (\register -> if register == spilledTemp then temp else register) flow.destinations
-          newVal = fmap (\register -> if register == spilledTemp then temp else register) flow.val
-          newFlow = L.setSources newSrc . L.setDestinations newDst $ flow {L.val = newVal}
-      pure $
-        [L.Instruction {src = [], dst = [temp], val = MovLoadIndirect memory (F.fp @Frame) temp} | spilledTemp `elem` flow.sources]
-          ++ [newFlow]
-          ++ [L.Instruction {src = [temp], dst = [], val = MovStoreIndirect temp memory (F.fp @Frame)} | spilledTemp `elem` flow.destinations]
+    insertSpillAssembly spilledTemp (InFrame memory) flow
+      | spilledTemp `elem` flow.sources
+          || spilledTemp `elem` flow.destinations = do
+          temp <- allocateNonEscapedLocalEff
+          let newSrc = fmap (\register -> if register == spilledTemp then temp else register) flow.sources
+              newDst = fmap (\register -> if register == spilledTemp then temp else register) flow.destinations
+              newVal = fmap (\register -> if register == spilledTemp then temp else register) flow.val
+              newFlow = L.setSources newSrc . L.setDestinations newDst $ flow {L.val = newVal}
+          pure $
+            [L.Instruction {src = [], dst = [temp], val = MovLoadIndirect memory (F.fp @Frame) temp} | spilledTemp `elem` flow.sources]
+              ++ [newFlow]
+              ++ [L.Instruction {src = [temp], dst = [], val = MovStoreIndirect temp memory (F.fp @Frame)} | spilledTemp `elem` flow.destinations]
+      | otherwise = pure [flow]
     insertSpillAssembly _ _ _ = undefined
