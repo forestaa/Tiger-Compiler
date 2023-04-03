@@ -100,7 +100,24 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
                  ]
 
   it "not coalesced move can be freezed and simplify" $ do
-    pendingWith "too difficult to write testcase"
+    let result = leaveEff . U.evalUniqueEff @"temp" . U.evalUniqueEff @"label" $ do
+          label <- U.newLabel
+          frame <- newFrame label []
+          frame <- foldM (\frame _ -> fst <$> allocateLocal frame False) frame [0 .. 1]
+          let t = getAllocatedRegisters frame
+              t0 = t !! 0
+              t1 = t !! 1
+              body =
+                [ L.Instruction {src = [], dst = [t0], val = MovImmediate 0 t0},
+                  L.Instruction {src = [], dst = [t1], val = MovImmediate 1 t1},
+                  L.Move {src = [t0], dst = [t1], val = MovRegister t0 t1}
+                ]
+          allocateRegisters @CoalesceAllocation Procedure {body = body, frame = frame}
+    result.body
+      `shouldBe` [ MovImmediate 0 RAX,
+                   MovImmediate 1 RCX,
+                   MovRegister RAX RCX
+                 ]
 
   it "possibly spilled, but colored" $ do
     pendingWith "too difficult to write testcase"
