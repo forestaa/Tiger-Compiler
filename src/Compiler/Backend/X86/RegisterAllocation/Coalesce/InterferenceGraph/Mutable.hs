@@ -289,6 +289,9 @@ coalesceMove graph move = do
   forM_ target.outEdges $ \edge -> do
     addEdgeByIndex graph source.index edge.target
   removeNode graph target
+  forM_ newNode.getCoalesceableMoves $ \move -> do
+    edge <- getEdge graph move.source move.destination
+    when (isJust edge) $ constrainMove graph move
 
 freezeMove :: (Ord var, PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> B.Move var -> m ()
 freezeMove graph move = do
