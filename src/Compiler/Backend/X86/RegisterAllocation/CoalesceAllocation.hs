@@ -30,7 +30,7 @@ instance R.RegisterAllocation CoalesceAllocation where
   allocateRegisters = allocateRegisters
 
 allocateRegisters :: forall xs. Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
-allocateRegisters procedure = case coloring callerSaveRegisters procedure of
+allocateRegisters procedure = case coloring callerSaveRegisters procedure of -- TODO: available color should include all temporary registers, but current implementation use only caller save registers because callee save registers are not saved by callee
   Spilled spilled -> do
     procedure <- startOver procedure spilled
     allocateRegisters procedure
