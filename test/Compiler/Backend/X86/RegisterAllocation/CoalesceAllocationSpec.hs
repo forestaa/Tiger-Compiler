@@ -80,11 +80,11 @@ allocateRegistersSpec = describe "allocateRegisters Spec" $ do
               t0 = t !! 0
               body =
                 [ L.Instruction {src = [], dst = [t0], val = MovImmediate 0 t0},
-                  L.Move {src = [t0], dst = [rbx], val = MovRegister t0 rbx}
+                  L.Move {src = [t0], dst = [r8], val = MovRegister t0 r8}
                 ]
           allocateRegisters @CoalesceAllocation Procedure {body = body, frame = frame}
     result.body
-      `shouldBe` [ MovImmediate 0 RBX
+      `shouldBe` [ MovImmediate 0 R8
                  ]
 
   it "move between precolored cannot be coalesced" $ do

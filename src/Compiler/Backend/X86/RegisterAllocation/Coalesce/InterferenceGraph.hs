@@ -19,27 +19,27 @@ newInterferenceGraph vars cfGraph =
     graph <- Mutable.empty
     forM_ vars $ Mutable.addNode graph
     let allNodes = (.val) <$> Immutable.getAllNodes cfGraph
-    forM_ allNodes $ addInterferenceGraphEdges graph
-    forM_ allNodes $ addMove graph
+    forM_ allNodes $ addInterferenceGraphEdges vars graph
+    forM_ allNodes $ addMove vars graph
     Mutable.freeze graph
   where
-    addInterferenceGraphEdges :: (PrimMonad m, Ord var, MonadThrow m) => Mutable.InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()
-    addInterferenceGraphEdges graph cnode
+    addInterferenceGraphEdges :: (PrimMonad m, Ord var, MonadThrow m) => Set.Set var -> Mutable.InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()
+    addInterferenceGraphEdges vars graph cnode
       | cnode.isMove = do
           let notUsedOutputs = cnode.liveOutVariables Set.\\ cnode.usedVariables Set.\\ cnode.definedVariables
-          forM_ cnode.definedVariables $ \definedVariable ->
-            forM_ notUsedOutputs $ \notUsedOutput ->
+          forM_ (cnode.definedVariables `Set.intersection` vars) $ \definedVariable ->
+            forM_ (notUsedOutputs `Set.intersection` vars) $ \notUsedOutput ->
               Mutable.addEdge graph definedVariable notUsedOutput
       | otherwise = do
           let notDefinedOutputs = cnode.liveOutVariables Set.\\ cnode.definedVariables
-          forM_ cnode.definedVariables $ \definedVariable ->
-            forM_ notDefinedOutputs $ \notDefinedOutput ->
+          forM_ (cnode.definedVariables `Set.intersection` vars) $ \definedVariable ->
+            forM_ (notDefinedOutputs `Set.intersection` vars) $ \notDefinedOutput ->
               Mutable.addEdge graph definedVariable notDefinedOutput
-    addMove :: (PrimMonad m, Ord var, MonadThrow m) => Mutable.InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()
-    addMove graph cnode
+    addMove :: (PrimMonad m, Ord var, MonadThrow m) => Set.Set var -> Mutable.InterferenceMutableGraph var (PrimState m) -> L.ControlFlowNode var val -> m ()
+    addMove vars graph cnode
       | cnode.isMove = do
-          forM_ cnode.usedVariables $ \src ->
-            forM_ cnode.definedVariables $ \dest -> do
+          forM_ (cnode.usedVariables `Set.intersection` vars) $ \src ->
+            forM_ (cnode.definedVariables `Set.intersection` vars) $ \dest -> do
               edge <- Mutable.getEdge graph src dest
               let move = B.newMove src dest
               if isNothing edge

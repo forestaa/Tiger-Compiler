@@ -1,7 +1,7 @@
 module Compiler.Backend.X86.RegisterAllocation.CoalesceAllocation (CoalesceAllocation) where
 
 import Compiler.Backend.X86.Arch (Assembly (..), Register (..), callerSaveRegisters, replaceRegister)
-import Compiler.Backend.X86.Frame (Access (..), Frame (..), FrameEff, ProcedureX86 (..), allTempRegisters, allocateLocalEff, allocateNonEscapedLocalEff, getAllocatedRegisters, modifyFrameEff, runFrameEff)
+import Compiler.Backend.X86.Frame (Access (..), Frame (..), FrameEff, ProcedureX86 (..), allTempRegisters, allocateLocalEff, allocateNonEscapedLocalEff, getAllocatedRegisters, modifyFrameEff, registerTempMap, runFrameEff)
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (..), setDestinations, setSources)
 import Compiler.Backend.X86.RegisterAllocation qualified as R (RegisterAllocation (..))
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph (buildInterfereceGraph)
@@ -59,7 +59,7 @@ pop stack = second SelectStack <$> List.uncons stack.stack
 
 coloring :: AvailableColors -> ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> ColoringResult
 coloring colors procedure =
-  let graph = buildInterfereceGraph (Set.fromList allTempRegisters `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
+  let graph = buildInterfereceGraph (Set.fromList (registerTempMap <$> colors) `Set.union` Set.fromList (getAllocatedRegisters procedure.frame)) procedure.body
       stack = leaveEff . flip (execStateEff @"select") newSelectStack . flip (runReaderEff @"precolored") (Set.fromList allTempRegisters) . flip (runReaderEff @"colors") colors $ simplifyCoalesceFreezeSpillLoop graph
    in select colors graph stack
   where
