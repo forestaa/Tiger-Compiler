@@ -9,7 +9,7 @@ module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immuta
   )
 where
 
-import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base (InterferenceGraphEdgeLabel (..), InterferenceGraphNode)
+import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base (InterferenceGraphEdgeLabel (..), InterferenceGraphNode (moves), Move (destination, source))
 import Compiler.Utils.Graph.Base (Edge (..), Node (..), NodeIndex (..))
 import Compiler.Utils.Graph.Immutable (DebugGraphviz (debugGraphviz))
 import Compiler.Utils.String (unlines)
@@ -54,15 +54,17 @@ getOutNeiborhoodsByIndex graph index =
 isEmpty :: InterferenceGraph var -> Bool
 isEmpty = null . getAllNodes
 
-instance (Display var) => DebugGraphviz (InterferenceGraph var) where
-  debugGraphviz graph = textDisplay $ "digraph G{\n" <> nodeGraphvizStatements graph <> edgeGraphvizStatements graph <> "}\n"
+instance (Display var, Ord var) => DebugGraphviz (InterferenceGraph var) where
+  debugGraphviz graph = textDisplay $ "graph G{\n" <> nodeGraphvizStatements graph <> edgeGraphvizStatements graph <> "}\n"
     where
       nodeGraphvizStatements :: InterferenceGraph var -> Utf8Builder
       nodeGraphvizStatements graph = foldMap (\node -> fold ["  ", display node.val, ";\n"]) $ getAllNodes graph
-      edgeGraphvizStatements :: InterferenceGraph var -> Utf8Builder
+      edgeGraphvizStatements :: Ord var => InterferenceGraph var -> Utf8Builder
       edgeGraphvizStatements graph = foldMap (nodeToGraphviz graph) (getAllNodes graph)
         where
-          nodeToGraphviz :: InterferenceGraph var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
-          nodeToGraphviz graph node = unlines . Vec.toList $ edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index
+          nodeToGraphviz :: Ord var => InterferenceGraph var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
+          nodeToGraphviz graph node = unlines $ (edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index) Vec.++ Vec.fromList ((\move -> moveToGraphviz (getNode graph move.source) (getNode graph move.destination) move.isCoalesceable) <$> Set.toList node.val.moves)
           edgeToGraphviz :: Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
-          edgeToGraphviz src tgt = fold ["  ", display src.val, " -> ", display tgt.val, ";"]
+          edgeToGraphviz src tgt = fold ["  ", display src.val, " -- ", display tgt.val, ";"]
+          moveToGraphviz :: Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Bool -> Utf8Builder
+          moveToGraphviz src tgt coalesceable = fold ["  ", display src.val, " -- ", display tgt.val, " [label = ", bool "false" "true" coalesceable, " style=\"dotted\"];"]

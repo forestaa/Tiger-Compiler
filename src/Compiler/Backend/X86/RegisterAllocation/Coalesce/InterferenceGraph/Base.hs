@@ -1,6 +1,6 @@
 module Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base
   ( InterferenceGraphEdgeLabel (..),
-    InterferenceGraphNode (vars),
+    InterferenceGraphNode (vars, moves),
     Move (source, destination),
     newInterferenceGraphNode,
     addMove,
