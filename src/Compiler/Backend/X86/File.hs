@@ -47,9 +47,9 @@ writeAssembly (Global label) = fold [delimeter, ".globl", delimeter, writeLabel 
 writeAssembly Data = fold [delimeter, ".data"]
 writeAssembly Text = fold [delimeter, ".text"]
 writeAssembly (Align i) = fold [delimeter, ".align", delimeter, display i]
-writeAssembly (Type label) = fold [delimeter, ".type", " ", writeLabel label] -- missing type
-writeAssembly (Size label size) = fold [delimeter, ".size", " ", writeLabel label, " .", display size]
-writeAssembly (String text) = fold [delimeter, ".string", " ", display text]
+writeAssembly (Type label) = fold [delimeter, ".type", " ", writeLabel label, ", ", "@object"] -- TODO: fixed type
+writeAssembly (Size label size) = fold [delimeter, ".size", " ", writeLabel label, ", ", display size]
+writeAssembly (String text) = fold [delimeter, ".string", delimeter, display text]
 writeAssembly (Zero n) = fold [delimeter, ".zero", " ", display n]
 writeAssembly (Long i) = fold [delimeter, ".long", " ", display i]
 
