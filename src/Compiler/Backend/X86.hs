@@ -7,13 +7,12 @@ import Compiler.Backend.X86.File (writeAssemblyFile)
 import Compiler.Backend.X86.Frame (Frame, ProgramFragmentX86 (..), StringFragmentX86 (..), procEntryExit3)
 import Compiler.Backend.X86.Liveness qualified as L (ControlFlow (val))
 import Compiler.Backend.X86.RegisterAllocation (allocateRegisters)
-import Compiler.Backend.X86.RegisterAllocation.SimpleAllocation (SimpleAllocation)
+import Compiler.Backend.X86.RegisterAllocation.CoalesceAllocation (CoalesceAllocation)
 import Compiler.Intermediate.Canonical (Canonical)
 import Compiler.Intermediate.Frame qualified as F (ProgramFragments (..))
 import Compiler.Intermediate.Unique qualified as U (Temp, UniqueEff)
 import Data.Extensible (Lookup)
 import Data.Extensible.Effect (Eff)
-import GHC.Records (HasField (getField))
 import RIO
 
 instance Backend Frame where
@@ -24,5 +23,5 @@ instance Backend Frame where
     pure $ writeAssemblyFile fragments
     where
       allocateRegisterOverFragments :: Lookup xs "temp" U.UniqueEff => ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProgramFragmentX86 [Assembly Register])
-      allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters @SimpleAllocation procedure
-      allocateRegisterOverFragments (Compiler.Backend.X86.Frame.String (StringFragment strings)) = pure . Compiler.Backend.X86.Frame.String . StringFragment $ fmap (replaceRegister undefined . getField @"val") strings
+      allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters @CoalesceAllocation procedure
+      allocateRegisterOverFragments (Compiler.Backend.X86.Frame.String (StringFragment strings)) = pure . Compiler.Backend.X86.Frame.String . StringFragment $ fmap (replaceRegister undefined . (.val)) strings
