@@ -7,6 +7,7 @@ import Data.ByteString.Builder qualified as BB (lazyByteString, intDec, stringUt
 import Data.ByteString.Lazy qualified as B (ByteString, take, toStrict)
 import Data.ByteString.Lazy.Char8 qualified as B (readInt)
 import RIO
+import RIO.Text qualified as T (decodeUtf8', drop, dropEnd)
 
 }
 
@@ -174,9 +175,9 @@ getId (AlexInput loc@(SrcLoc file row col) buf) len = case decodeUtf8' $ B.toStr
 
 
 getString :: Action Lexeme
-getString (AlexInput loc@(SrcLoc file row col) buf) len = case decodeUtf8' $ B.toStrict bstr of
+getString (AlexInput loc@(SrcLoc file row col) buf) len = case T.decodeUtf8' $ B.toStrict bstr of
   Left exception -> failP . textDisplay . Utf8Builder $ fold [BB.stringUtf8 file, ":", BB.intDec row, ":", BB.intDec col, ": lexer error: cannot read the String:", BB.stringUtf8 (show exception), ": ", BB.lazyByteString bstr]
-  Right text -> pure . L (mkRealSrcSpan loc len) $ Compiler.Frontend.Language.Tiger.Lexer.STRING text
+  Right text -> pure . L (mkRealSrcSpan loc len) $ Compiler.Frontend.Language.Tiger.Lexer.STRING (T.drop 1 $ T.dropEnd 1 text) -- TODO: it is better to add QUOTE to Token
   where
     bstr = B.take (fromIntegral len) buf
 
