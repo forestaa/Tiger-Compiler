@@ -31,7 +31,7 @@ codegenFragment (F.Proc procedure) = do
   (body, frame) <- castEff . flip runFrameEff procedure.frame $ do
     body <- concat <$> mapM codegenStm procedure.body :: Eff '["frame" >: FrameEff, "label" >: U.UniqueEff, "temp" >: U.UniqueEff] [L.ControlFlow U.Temp (Assembly U.Temp)]
     frame <- getFrameEff
-    pure $ (L.Meta {val = Global (fromUniqueLabel frame.name)}) : body
+    pure $ [L.Meta {val = Text}, L.Meta {val = Global (fromUniqueLabel frame.name)}, L.Meta {val = Type (fromUniqueLabel frame.name) Function}] ++ body
   pure . Proc $ Procedure {body = body, frame = frame}
 codegenFragment (F.String string) = Compiler.Backend.X86.Frame.String . StringFragment <$> codegenString string.name string.text
 
@@ -170,7 +170,7 @@ codegenString label string =
       L.Instruction {src = [], dst = [], val = Global (fromUniqueLabel label)},
       L.Instruction {src = [], dst = [], val = Data},
       L.Instruction {src = [], dst = [], val = Align 16},
-      L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label)},
+      L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label) Object},
       L.Instruction {src = [], dst = [], val = Size (fromUniqueLabel label) size},
       L.Label {label' = fromUniqueLabel label, val = Label (fromUniqueLabel label)},
       L.Instruction {src = [], dst = [], val = Long (T.length string)},

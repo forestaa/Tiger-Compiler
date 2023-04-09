@@ -40,7 +40,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Global mainLabel,
+        [ Text,
+          Global mainLabel,
+          Type mainLabel Function,
           Label mainLabel,
           PushRegister RBP,
           MovRegister RSP RBP,
@@ -63,7 +65,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 1
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Global mainLabel,
+        [ Text,
+          Global mainLabel,
+          Type mainLabel Function,
           Label mainLabel,
           PushRegister RBP,
           MovRegister RSP RBP,
@@ -92,7 +96,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           Global label0,
           Data,
           Align 16,
-          Type label0,
+          Type label0 Object,
           Size label0 24,
           Label label0,
           Long 8,
@@ -105,7 +109,7 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           Global label1,
           Data,
           Align 16,
-          Type label1,
+          Type label1 Object,
           Size label1 24,
           Label label1,
           Long 10,
@@ -114,7 +118,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         ]
     (result !! 2).procedure.body
       `shouldBe` Just
-        [ Global mainLabel,
+        [ Text,
+          Global mainLabel,
+          Type mainLabel Function,
           Label mainLabel,
           PushRegister RBP,
           MovRegister RSP RBP,
@@ -147,7 +153,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
     length result `shouldBe` 2
     (result !! 0).procedure.body
       `shouldBe` Just
-        [ Global nfactor,
+        [ Text,
+          Global nfactor,
+          Type nfactor Function,
           Label label1,
           MovImmediate 1 RAX,
           Label label3,
@@ -177,7 +185,9 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
         ]
     (result !! 1).procedure.body
       `shouldBe` Just
-        [ Global mainLabel,
+        [ Text,
+          Global mainLabel,
+          Type mainLabel Function,
           Label mainLabel,
           PushRegister RBP,
           MovRegister RSP RBP,

@@ -40,6 +40,8 @@ callerSaveRegisters = [RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11]
 calleeSaveRegisters :: [Register]
 calleeSaveRegisters = [RBX, RSP, RBP, R12, R13, R14, R15]
 
+data Type = Function | Object deriving (Show, Eq)
+
 data Assembly register
   = MovImmediate Int register
   | MovImmediateLabel Label register
@@ -76,7 +78,7 @@ data Assembly register
   | Data
   | Text
   | Align Int
-  | Type Label -- TODO:
+  | Type Label Type
   | Size Label Int
   | String Text
   | Zero Int

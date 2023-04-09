@@ -1,6 +1,6 @@
 module Compiler.Backend.X86.File (writeAssemblyFile) where
 
-import Compiler.Backend.X86.Arch (Assembly (..), Label (..), Memory (..), Register (..))
+import Compiler.Backend.X86.Arch (Assembly (..), Label (..), Memory (..), Register (..), Type (Function, Object))
 import Compiler.Backend.X86.Frame qualified as F (ProgramFragmentX86)
 import Compiler.Utils.String (unlines)
 import RIO hiding (unlines)
@@ -47,7 +47,7 @@ writeAssembly (Global label) = fold [delimeter, ".globl", delimeter, writeLabel 
 writeAssembly Data = fold [delimeter, ".data"]
 writeAssembly Text = fold [delimeter, ".text"]
 writeAssembly (Align i) = fold [delimeter, ".align", delimeter, display i]
-writeAssembly (Type label) = fold [delimeter, ".type", " ", writeLabel label, ", ", "@object"] -- TODO: fixed type
+writeAssembly (Type label ty) = fold [delimeter, ".type", " ", writeLabel label, ", ", writeType ty]
 writeAssembly (Size label size) = fold [delimeter, ".size", " ", writeLabel label, ", ", display size]
 writeAssembly (String text) = fold [delimeter, ".string", delimeter, display text]
 writeAssembly (Zero n) = fold [delimeter, ".zero", " ", display n]
@@ -84,6 +84,10 @@ writeLabel (Label' label') = display label'
 
 writeMemory :: Memory -> Utf8Builder
 writeMemory (Memory memory) = display memory
+
+writeType :: Type -> Utf8Builder
+writeType Function = "@function"
+writeType Object = "@object"
 
 writeRegisterIndirectAccess :: Int -> Register -> Utf8Builder
 writeRegisterIndirectAccess 0 register = fold ["(", writeRegister register, ")"]

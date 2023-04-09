@@ -352,4 +352,4 @@ codegenSpec = describe "codegen spec" $ do
         ]
 
 takeMainBlockBody :: [L.ControlFlow U.Temp (Assembly U.Temp)] -> [L.ControlFlow U.Temp (Assembly U.Temp)]
-takeMainBlockBody = drop 2
+takeMainBlockBody = drop 4
