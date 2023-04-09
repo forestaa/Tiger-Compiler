@@ -49,9 +49,9 @@ writeAssembly Text = fold [delimeter, ".text"]
 writeAssembly (Align i) = fold [delimeter, ".align", delimeter, display i]
 writeAssembly (Type label ty) = fold [delimeter, ".type", " ", writeLabel label, ", ", writeType ty]
 writeAssembly (Size label size) = fold [delimeter, ".size", " ", writeLabel label, ", ", display size]
-writeAssembly (String text) = fold [delimeter, ".string", delimeter, display text]
+writeAssembly (String text) = fold [delimeter, ".string", delimeter, "\"", display text, "\""]
 writeAssembly (Zero n) = fold [delimeter, ".zero", " ", display n]
-writeAssembly (Long i) = fold [delimeter, ".long", " ", display i]
+writeAssembly (Quad i) = fold [delimeter, ".quad", " ", display i]
 
 delimeter :: Utf8Builder
 delimeter = "\t"

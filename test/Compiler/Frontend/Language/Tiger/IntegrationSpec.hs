@@ -134,9 +134,9 @@ validTestSpec = describe "valid integration test for tiger to translate" $ do
     res.main.procedure.frame.head `shouldBe` Just (-4)
     length res.fragments `shouldBe` 2
     (res.fragments !! 0).string.name `shouldBe` Just nobody
-    (res.fragments !! 0).string.text `shouldBe` Just "\"Nobody\""
+    (res.fragments !! 0).string.text `shouldBe` Just "Nobody"
     (res.fragments !! 1).string.name `shouldBe` Just somebody
-    (res.fragments !! 1).string.text `shouldBe` Just "\"Somebody\""
+    (res.fragments !! 1).string.text `shouldBe` Just "Somebody"
 
   it "test04.tig" $ do
     let testcase = tigerTest "test04.tig"

@@ -11,6 +11,7 @@ import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.List (singleton)
 import RIO
+import RIO.List.Partial qualified as List (head)
 import RIO.Text qualified as T (length)
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragments Frame -> Eff xs [ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)]]
@@ -165,19 +166,20 @@ binOpInstr _ = undefined
 
 codegenString :: U.Label -> Text -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenString label string =
-  pure
-    [ L.Instruction {src = [], dst = [], val = Text},
-      L.Instruction {src = [], dst = [], val = Global (fromUniqueLabel label)},
-      L.Instruction {src = [], dst = [], val = Data},
-      L.Instruction {src = [], dst = [], val = Align 16},
-      L.Instruction {src = [], dst = [], val = Type (fromUniqueLabel label) Object},
-      L.Instruction {src = [], dst = [], val = Size (fromUniqueLabel label) size},
+  pure $
+    [ L.Meta {val = Text},
+      L.Meta {val = Global (fromUniqueLabel label)},
+      L.Meta {val = Data},
+      L.Meta {val = Align 16}, -- TODO: should it be calculated? how?
+      L.Meta {val = Type (fromUniqueLabel label) Object},
+      L.Meta {val = Size (fromUniqueLabel label) totalSize},
       L.Label {label' = fromUniqueLabel label, val = Label (fromUniqueLabel label)},
-      L.Instruction {src = [], dst = [], val = Long (T.length string)},
-      L.Instruction {src = [], dst = [], val = Compiler.Backend.X86.Arch.String string},
-      L.Instruction {src = [], dst = [], val = Zero padding}
+      L.Meta {val = Quad stringSize},
+      L.Meta {val = Compiler.Backend.X86.Arch.String string}
     ]
+      ++ [L.Meta {val = Zero padding} | padding > 0]
   where
-    realSize = wordSize + T.length string + 1
-    size = (realSize `div` wordSize + 1) * wordSize
-    padding = size - realSize
+    stringLengthSize = wordSize
+    stringSize = T.length string
+    totalSize = List.head [wordSize * i | i <- [1 ..], stringLengthSize + stringSize <= wordSize * i]
+    padding = totalSize - stringLengthSize - stringSize - 1 -- Memo: why minus 1?

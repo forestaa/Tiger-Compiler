@@ -97,11 +97,11 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           Data,
           Align 16,
           Type label0 Object,
-          Size label0 24,
+          Size label0 16,
           Label label0,
-          Long 8,
-          Compiler.Backend.X86.Arch.String "\"Nobody\"",
-          Zero 7
+          Quad 6,
+          Compiler.Backend.X86.Arch.String "Nobody",
+          Zero 1
         ]
     (result !! 1).string.body
       `shouldBe` Just
@@ -110,11 +110,10 @@ integrationSpec = describe "integration spec for x86 backend of tiger" $ do
           Data,
           Align 16,
           Type label1 Object,
-          Size label1 24,
+          Size label1 16,
           Label label1,
-          Long 10,
-          Compiler.Backend.X86.Arch.String "\"Somebody\"",
-          Zero 5
+          Quad 8,
+          Compiler.Backend.X86.Arch.String "Somebody"
         ]
     (result !! 2).procedure.body
       `shouldBe` Just

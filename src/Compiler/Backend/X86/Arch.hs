@@ -82,7 +82,7 @@ data Assembly register
   | Size Label Int
   | String Text
   | Zero Int
-  | Long Int
+  | Quad Int
   deriving (Show, Eq, Functor)
 
 replaceRegister :: (register1 -> register2) -> Assembly register1 -> Assembly register2
