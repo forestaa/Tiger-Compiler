@@ -3,7 +3,7 @@ module Compiler.Frontend.Language.Tiger.Parser where
 
 import Compiler.Frontend.Id
 import Compiler.Frontend.Lexer
-import Compiler.Frontend.Language.Tiger.Lexer
+import Compiler.Frontend.Language.Tiger.Lexer qualified as Lexer
 import Compiler.Frontend.Language.Tiger.LSyntax
 import Compiler.Frontend.SrcLoc
 import Data.ByteString.Builder qualified as BB (stringUtf8)
@@ -15,56 +15,56 @@ import RIO (Text, Display(..), displayShow, fold, Utf8Builder(..))
 %name parser
 %error { parserError }
 
-%tokentype { Lexeme }
+%tokentype { Lexer.Lexeme }
 
 %monad { P }
-%lexer { lexer } { L _ EOF }
+%lexer { Lexer.lexer } { L _ Lexer.EOF }
 
 %token
-  'nil'         { L _ NIL }
-  'id'          { L _ (ID _) }
-  'int'         { L _ (INT _) }
-  'string'      { L _ (STRING _) }
+  'nil'         { L _ Lexer.NIL }
+  'id'          { L _ (Lexer.ID _) }
+  'int'         { L _ (Lexer.INT _) }
+  'string'      { L _ (Lexer.STRING _) }
 
-  'let'         { L _ LET }
-  'in'          { L _ IN }
-  'end'         { L _ END }
-  'type'        { L _ TYPE }
-  'var'         { L _ VAR }
-  'function'    { L _ FUNCTION }
-  'array'       { L _ ARRAY }
-  'of'          { L _ OF }
-  'for'         { L _ FOR }
-  'to'          { L _ TO }
-  'while'       { L _ WHILE }
-  'do'          { L _ DO }
-  'break'       { L _ BREAK }
-  'if'          { L _ IF }
-  'then'        { L _ THEN }
-  'else'        { L _ ELSE }
-  ':='          { L _ ASSIGN }
-  '+'           { L _ PLUS }
-  '-'           { L _ MINUS }
-  '*'           { L _ TIMES }
-  '/'           { L _ DIV }
-  '='           { L _ EQ }
-  '<>'          { L _ NEQ }
-  '>'           { L _ GT }
-  '<'           { L _ LT }
-  '>='          { L _ GE }
-  '<='          { L _ LE }
-  '&'           { L _ AND }
-  '|'           { L _ OR }
-  '.'           { L _ DOT }
-  '{'           { L _ LBRACE }
-  '}'           { L _ RBRACE }
-  '['           { L _ LBRACK }
-  ']'           { L _ RBRACK }
-  ')'           { L _ RPAREN }
-  '('           { L _ LPAREN }
-  ':'           { L _ COLON }
-  ';'           { L _ SEMICOLON }
-  ','           { L _ COMMA }
+  'let'         { L _ Lexer.LET }
+  'in'          { L _ Lexer.IN }
+  'end'         { L _ Lexer.END }
+  'type'        { L _ Lexer.TYPE }
+  'var'         { L _ Lexer.VAR }
+  'function'    { L _ Lexer.FUNCTION }
+  'array'       { L _ Lexer.ARRAY }
+  'of'          { L _ Lexer.OF }
+  'for'         { L _ Lexer.FOR }
+  'to'          { L _ Lexer.TO }
+  'while'       { L _ Lexer.WHILE }
+  'do'          { L _ Lexer.DO }
+  'break'       { L _ Lexer.BREAK }
+  'if'          { L _ Lexer.IF }
+  'then'        { L _ Lexer.THEN }
+  'else'        { L _ Lexer.ELSE }
+  ':='          { L _ Lexer.ASSIGN }
+  '+'           { L _ Lexer.PLUS }
+  '-'           { L _ Lexer.MINUS }
+  '*'           { L _ Lexer.TIMES }
+  '/'           { L _ Lexer.DIV }
+  '='           { L _ Lexer.EQ }
+  '<>'          { L _ Lexer.NEQ }
+  '>'           { L _ Lexer.GT }
+  '<'           { L _ Lexer.LT }
+  '>='          { L _ Lexer.GE }
+  '<='          { L _ Lexer.LE }
+  '&'           { L _ Lexer.AND }
+  '|'           { L _ Lexer.OR }
+  '.'           { L _ Lexer.DOT }
+  '{'           { L _ Lexer.LBRACE }
+  '}'           { L _ Lexer.RBRACE }
+  '['           { L _ Lexer.LBRACK }
+  ']'           { L _ Lexer.RBRACK }
+  ')'           { L _ Lexer.RPAREN }
+  '('           { L _ Lexer.LPAREN }
+  ':'           { L _ Lexer.COLON }
+  ';'           { L _ Lexer.SEMICOLON }
+  ','           { L _ Lexer.COMMA }
 
 
 %nonassoc 'then' 'do' 'of'
@@ -183,16 +183,16 @@ exps :: { [LExp] }
 
 {
 
-parserError :: Lexeme -> P a
+parserError :: Lexer.Lexeme -> P a
 parserError (L span tk) = failP . textDisplay $ fold [Utf8Builder (BB.stringUtf8 span.srcFile), ":", display span.srcSRow, ":", display span.srcSCol, ": parser error: token = ", display tk]
 
-retrieveID :: Lexeme -> LId
-retrieveID (L loc (ID id)) = L loc id
-retrieveINT :: Lexeme -> Int
+retrieveID :: Lexer.Lexeme -> LId
+retrieveID (L loc (Lexer.ID id)) = L loc id
+retrieveINT :: Lexer.Lexeme -> Int
 retrieveINT l = case unLoc l of
-                  INT i -> i
-retrieveSTRING :: Lexeme -> Text
+                  Lexer.INT i -> i
+retrieveSTRING :: Lexer.Lexeme -> Text
 retrieveSTRING l = case unLoc l of
-                  STRING str -> str
+                  Lexer.STRING str -> str
 
 }
