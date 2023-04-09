@@ -88,24 +88,15 @@ codegenExp (IR.Temp t) = pure ([], t)
 codegenExp (IR.BinOp op e (IR.Const i)) = do
   (flows, t) <- codegenExp e
   t' <- allocateNonEscapedLocalEff
-  let flows' =
-        flows
-          ++ [ L.Move {src = [t], dst = [t'], val = MovRegister t t'},
-               L.Instruction {src = [t'], dst = [t'], val = (binOpImmediateInstr op) i t'}
-             ]
-  pure (flows', t')
+  (flows'', t'') <- codegenBinOpImmediate op t' i
+  pure (flows ++ [L.Move {src = [t], dst = [t'], val = MovRegister t t'}] ++ flows'', t'')
 -- codegenExp (IR.BinOp op (IR.Const i) e) = codegenExp (IR.BinOp op e (IR.Const i)) -- TODO: not for uncommutative binary operator
 codegenExp (IR.BinOp op e1 e2) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
-  t <- allocateNonEscapedLocalEff
-  let flows =
-        flows1
-          ++ flows2
-          ++ [ L.Move {src = [t1], dst = [t], val = MovRegister t1 t},
-               L.Instruction {src = [t, t2], dst = [t], val = (binOpInstr op) t2 t}
-             ]
-  pure (flows, t)
+  t1' <- allocateNonEscapedLocalEff
+  (flows3, t3) <- codegenBinOp op t1' t2
+  pure (flows1 ++ flows2 ++ [L.Move {src = [t1], dst = [t1'], val = MovRegister t1 t1'}] ++ flows3, t3)
 codegenExp (IR.Mem (IR.BinOp IR.Plus (IR.Const i) (IR.BinOp IR.Plus e1 e2))) = do
   (flows1, t1) <- codegenExp e1
   (flows2, t2) <- codegenExp e2
@@ -152,17 +143,33 @@ jumpInstr IR.Gt = JumpIfGreaterThan
 jumpInstr IR.Le = JumpIfEqualOrLessThan
 jumpInstr IR.Ge = JumpIfEqualOrGreaterThan
 
-binOpImmediateInstr :: forall register. IR.BinOp -> Int -> register -> Assembly register
-binOpImmediateInstr IR.Plus = AddImmediate
-binOpImmediateInstr IR.Minus = SubImmediate
-binOpImmediateInstr IR.Mul = MulImmediate
-binOpImmediateInstr _ = undefined
+codegenBinOpImmediate :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => IR.BinOp -> U.Temp -> Int -> Eff xs ([L.ControlFlow U.Temp (Assembly U.Temp)], U.Temp)
+codegenBinOpImmediate IR.Plus t i = pure ([L.Instruction {src = [t], dst = [t], val = AddImmediate i t}], t)
+codegenBinOpImmediate IR.Minus t i = pure ([L.Instruction {src = [t], dst = [t], val = SubImmediate i t}], t)
+codegenBinOpImmediate IR.Mul t i = pure ([L.Instruction {src = [t], dst = [t], val = MulImmediate i t t}], t)
+codegenBinOpImmediate IR.Div t i = do
+  t' <- allocateNonEscapedLocalEff
+  pure
+    ( [ L.Instruction {src = [], dst = [t'], val = MovImmediate i t'},
+        L.Move {src = [t], dst = [rax], val = MovRegister t rax},
+        L.Instruction {src = [rax], dst = [rax, rdx], val = Cqo},
+        L.Instruction {src = [t', rax, rdx], dst = [rax, rdx], val = DivRegister t'}
+      ],
+      rax
+    )
 
-binOpInstr :: forall register. IR.BinOp -> register -> register -> Assembly register
-binOpInstr IR.Plus = AddRegister
-binOpInstr IR.Minus = SubRegister
-binOpInstr IR.Mul = MulRegister
-binOpInstr _ = undefined
+codegenBinOp :: (Lookup xs "temp" U.UniqueEff, Lookup xs "frame" FrameEff) => IR.BinOp -> U.Temp -> U.Temp -> Eff xs ([L.ControlFlow U.Temp (Assembly U.Temp)], U.Temp)
+codegenBinOp IR.Plus t1 t2 = pure ([L.Instruction {src = [t1, t2], dst = [t1], val = AddRegister t2 t1}], t1)
+codegenBinOp IR.Minus t1 t2 = pure ([L.Instruction {src = [t1, t2], dst = [t1], val = SubRegister t2 t1}], t1)
+codegenBinOp IR.Mul t1 t2 = pure ([L.Instruction {src = [t1, t2], dst = [t1], val = MulRegister t2 t1}], t1)
+codegenBinOp IR.Div t1 t2 = do
+  pure
+    ( [ L.Move {src = [t1], dst = [rax], val = MovRegister t1 rax},
+        L.Instruction {src = [rax], dst = [rax, rdx], val = Cqo},
+        L.Instruction {src = [rax, rdx, t2], dst = [rax, rdx], val = DivRegister t2}
+      ],
+      rax
+    )
 
 codegenString :: U.Label -> Text -> Eff xs [L.ControlFlow U.Temp (Assembly U.Temp)]
 codegenString label string =

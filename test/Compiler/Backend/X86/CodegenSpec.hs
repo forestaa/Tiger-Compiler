@@ -177,6 +177,22 @@ codegenSpec = describe "codegen spec" $ do
           L.Instruction {src = [dst], dst = [dst], val = AddImmediate 1 dst}
         ]
 
+  it "Temp / 2 -> mov $2 %r1; mov %rbx %rax; cqo;  div %r1" $ do
+    let t10 = newNthTemp 10
+        t1 = newNthTemp 1
+        t0 = newNthTemp 0
+        blockLabel = newNthNamedLabel "tigerMain" 0
+        fragment = F.ProgramFragments {main = F.Proc (F.Procedure {body = IR.Exp (IR.BinOp IR.Div (IR.Temp t10) (IR.Const 2)), frame = emptyFrame blockLabel}), fragments = []}
+        result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
+    length result `shouldBe` 1
+    fmap takeMainBlockBody (head result).procedure.body
+      `shouldBe` Just
+        [ L.Move {src = [t10], dst = [t0], val = MovRegister t10 t0},
+          L.Instruction {src = [], dst = [t1], val = MovImmediate 2 t1},
+          L.Move {src = [t0], dst = [rax], val = MovRegister t0 rax},
+          L.Instruction {src = [rax], dst = [rax, rdx], val = Cqo},
+          L.Instruction {src = [t1, rax, rdx], dst = [rax, rdx], val = DivRegister t1}
+        ]
   it "Temp + Temp -> mov %rax %r1; add %rbx %r1" $ do
     let t = newNthTemp 10
         t' = newNthTemp 11
@@ -189,6 +205,22 @@ codegenSpec = describe "codegen spec" $ do
       `shouldBe` Just
         [ L.Move {src = [t], dst = [dst], val = MovRegister t dst},
           L.Instruction {src = [dst, t'], dst = [dst], val = AddRegister t' dst}
+        ]
+
+  it "Temp / Temp -> mov %rbx %rax; cqo; div %rcx" $ do
+    let t = newNthTemp 10
+        t' = newNthTemp 11
+        dst = newNthTemp 0
+        blockLabel = newNthNamedLabel "tigerMain" 0
+        fragment = F.ProgramFragments {main = F.Proc (F.Procedure {body = IR.Exp (IR.BinOp IR.Div (IR.Temp t) (IR.Temp t')), frame = emptyFrame blockLabel}), fragments = []}
+        result = leaveEff . U.evalUniqueEff @"label" . U.evalUniqueEff @"temp" $ codegen @IntermediateMock fragment
+    length result `shouldBe` 1
+    fmap takeMainBlockBody (head result).procedure.body
+      `shouldBe` Just
+        [ L.Move {src = [t], dst = [dst], val = MovRegister t dst},
+          L.Move {src = [dst], dst = [rax], val = MovRegister dst rax},
+          L.Instruction {src = [rax], dst = [rax, rdx], val = Cqo},
+          L.Instruction {src = [rax, rdx, t'], dst = [rax, rdx], val = DivRegister t'}
         ]
 
   it "Jump Name -> jump label" $ do
