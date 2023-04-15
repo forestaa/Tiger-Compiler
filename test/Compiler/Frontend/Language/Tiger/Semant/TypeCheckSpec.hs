@@ -11,7 +11,7 @@ import Compiler.Frontend.Language.Tiger.Semant.Translate
 import Compiler.Frontend.Language.Tiger.Semant.TypeCheck
 import Compiler.Frontend.Language.Tiger.Semant.Types
 import Compiler.Frontend.Language.Tiger.Syntax qualified as T
-import Compiler.Frontend.Language.Tiger.TestUtils
+import Compiler.Frontend.Language.Tiger.TestUtils (isExpectedArrayType, isExpectedIntType)
 import Compiler.Frontend.SrcLoc
 import Compiler.Intermediate.Frame qualified as F
 import Compiler.Intermediate.IR qualified

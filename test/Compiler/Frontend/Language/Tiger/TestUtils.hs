@@ -1,12 +1,81 @@
 module Compiler.Frontend.Language.Tiger.TestUtils where
 
-import Compiler.Frontend.Language.Tiger.Semant
-import Compiler.Frontend.Language.Tiger.Semant.Translate
-import Compiler.Frontend.Language.Tiger.Semant.TypeCheck
-import Compiler.Intermediate.Unique
+import Compiler.Frontend.FrameMock (FrameMock)
+import Compiler.Frontend.Id (Id)
+import Compiler.Frontend.Language.Tiger.Semant (SemantAnalysisError (..), runTranslateEff)
+import Compiler.Frontend.Language.Tiger.Semant.BreakPoint (BreakPointEff)
+import Compiler.Frontend.Language.Tiger.Semant.Env (TEnv, VAEnv, VTEnv, VarAccess (FunAccess), VarType (FunType, VarType), insertVarAccess, insertVarType)
+import Compiler.Frontend.Language.Tiger.Semant.Level (Level (TopLevel), NestingLevel, NestingLevelEff, withNewLevelEff)
+import Compiler.Frontend.Language.Tiger.Semant.Translate (TranslateError (..), allocateLocalVariable)
+import Compiler.Frontend.Language.Tiger.Semant.TypeCheck (TypeCheckError (..))
+import Compiler.Frontend.Language.Tiger.Semant.Types (Type (TInt))
+import Compiler.Frontend.SrcLoc (RealLocated)
+import Compiler.Intermediate.Frame qualified as F
+import Compiler.Intermediate.Unique (Label, UniqueEff, evalUniqueEff, externalLabel, newLabel, runUniqueEff, uniqueSeed)
 import Data.Extensible
-import Data.Extensible.Effect
-import RIO
+import Data.Extensible.Effect (Eff, EitherEff, Lookup, State, leaveEff, type (>:))
+import RIO (Bool (..), Either, fst, ($), (.), (<$>), (<*>))
+
+runEff ::
+  Eff
+    '[ "typeEnv" >: State TEnv,
+       "varTypeEnv" >: State VTEnv,
+       "varAccessEnv" >: State (VAEnv FrameMock),
+       "nestingLevel" >: NestingLevelEff FrameMock,
+       "breakpoint" >: BreakPointEff,
+       "fragment" >: F.ProgramEff FrameMock,
+       "id" >: UniqueEff,
+       "typeCheckError" >: EitherEff (RealLocated TypeCheckError),
+       "translateError" >: EitherEff (RealLocated TranslateError),
+       "temp" >: UniqueEff,
+       "label" >: UniqueEff
+     ]
+    a ->
+  Either (RealLocated SemantAnalysisError) ((a, NestingLevel FrameMock), F.ProgramFragments FrameMock)
+runEff a = fst . fst . leaveEff . runUniqueEff @"label" uniqueSeed . runUniqueEff @"temp" uniqueSeed . runTranslateEff $ do
+  label <- newLabel
+  initExternalFun
+  withNewLevelEff label [] a
+
+initExternalFun ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  ) =>
+  Eff xs ()
+initExternalFun = do
+  let label = externalLabel "external"
+  insertFun "external" label TopLevel [TInt] TInt
+
+insertFun ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f))
+  ) =>
+  Id ->
+  Label ->
+  Level f ->
+  [Type] ->
+  Type ->
+  Eff xs ()
+insertFun name label parent domains codomain = do
+  insertVarAccess name $ FunAccess label parent
+  insertVarType name $ FunType domains codomain
+
+allocateLocalVariableAndInsertType ::
+  ( F.Frame f,
+    Lookup xs "varTypeEnv" (State VTEnv),
+    Lookup xs "varAccessEnv" (State (VAEnv f)),
+    Lookup xs "nestingLevel" (NestingLevelEff f),
+    Lookup xs "temp" UniqueEff
+  ) =>
+  Id ->
+  Bool ->
+  Type ->
+  Eff xs ()
+allocateLocalVariableAndInsertType name escape ty = do
+  allocateLocalVariable name escape
+  insertVarType name $ VarType ty
 
 fetchTwoLabel :: (Label, Label)
 fetchTwoLabel = leaveEff . evalUniqueEff @"label" $ (,) <$> newLabel <*> newLabel

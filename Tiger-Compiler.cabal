@@ -172,7 +172,13 @@ test-suite compiler-test
       Compiler.Frontend.Language.Tiger.Semant.LevelSpec
       Compiler.Frontend.Language.Tiger.Semant.MarkEscapeSpec
       Compiler.Frontend.Language.Tiger.Semant.TypeCheckSpec
-      Compiler.Frontend.Language.Tiger.SemantSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.ArraySpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.ExpSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.IfSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.LoopSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.RecordSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.SeqLetSpec
+      Compiler.Frontend.Language.Tiger.Semant.Translate.VariableSpec
       Compiler.Frontend.Language.Tiger.TestUtils
       Compiler.Frontend.SrcLocSpec
       Compiler.Intermediate.CanonicalSpec
