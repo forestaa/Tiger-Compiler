@@ -14,7 +14,6 @@ import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Base (
 import Compiler.Backend.X86.RegisterAllocation.Coalesce.InterferenceGraph.Immutable qualified as Immutable (InterferenceGraph, getOutNeiborhoods)
 import Compiler.Intermediate.Unique qualified as U
 import Compiler.Utils.Graph.Base (Node (..))
-import GHC.Records (HasField (..))
 import RIO
 import RIO.List qualified as List
 import RIO.Map qualified as Map (Map, insert, (!?))

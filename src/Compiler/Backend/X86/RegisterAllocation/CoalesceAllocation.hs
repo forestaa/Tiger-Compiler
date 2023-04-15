@@ -16,7 +16,6 @@ import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, ReaderEff, State, askEff, asksEff, castEff, execStateEff, leaveEff, modifyEff, runReaderEff)
 import Data.Foldable (maximumBy)
 import Data.Vector qualified as V
-import GHC.Records (HasField (..))
 import RIO
 import RIO.List qualified as List (null, sortOn, uncons)
 import RIO.List.Partial as List (head)

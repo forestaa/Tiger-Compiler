@@ -13,7 +13,6 @@ import Compiler.Utils.Graph.Mutable qualified as Mutable (MutableGraph (..))
 import Data.Extensible (Lookup, type (>:))
 import Data.Extensible.Effect (Eff, castEff)
 import Data.Vector qualified as V
-import GHC.Records (HasField (..))
 import RIO
 import RIO.List qualified as List
 import RIO.Partial (fromJust)

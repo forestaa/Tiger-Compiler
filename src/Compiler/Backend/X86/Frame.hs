@@ -11,7 +11,6 @@ import GHC.Records (HasField (..))
 import RIO hiding (exp)
 import RIO.List qualified as List (findIndex, splitAt)
 import RIO.Map qualified as Map
-import RIO.Set qualified as Set
 
 data Frame = Frame {name :: U.Label, parameters :: [Access], localVariables :: [Access], head :: Int} deriving (Show)
 
