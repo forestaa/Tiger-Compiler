@@ -28,7 +28,7 @@ newtype InterferenceGraph var = InterferenceGraph (Immutable.IGraph 'UnDirection
 newtype InterferenceMutableGraph var s = InterferenceMutableGraph (Mutable.MGraph 'UnDirectional var InterferenceGraphEdgeLabel s)
 
 instance Mutable.MutableGraph 'UnDirectional var InterferenceGraphEdgeLabel (InterferenceMutableGraph var) where
-  empty :: PrimMonad m => m (InterferenceMutableGraph var (PrimState m))
+  empty :: (PrimMonad m) => m (InterferenceMutableGraph var (PrimState m))
   empty = InterferenceMutableGraph <$> Mutable.empty
 
   getNode :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> var -> m (Node var InterferenceGraphEdgeLabel)
@@ -70,13 +70,13 @@ instance Mutable.MutableGraph 'UnDirectional var InterferenceGraphEdgeLabel (Int
   reverse :: (PrimMonad m, MonadThrow m, Ord var) => InterferenceMutableGraph var (PrimState m) -> m (InterferenceMutableGraph var (PrimState m))
   reverse (InterferenceMutableGraph graph) = InterferenceMutableGraph <$> Mutable.reverse graph
 
-freeze :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> m (InterferenceGraph var)
+freeze :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> m (InterferenceGraph var)
 freeze (InterferenceMutableGraph graph) = InterferenceGraph <$> Mutable.freeze graph
 
-thaw :: PrimMonad m => InterferenceGraph var -> m (InterferenceMutableGraph var (PrimState m))
+thaw :: (PrimMonad m) => InterferenceGraph var -> m (InterferenceMutableGraph var (PrimState m))
 thaw (InterferenceGraph graph) = InterferenceMutableGraph <$> Mutable.thaw graph
 
-newInterferenceGraph :: Ord var => Set.Set var -> L.ControlFlowGraph var val -> InterferenceGraph var
+newInterferenceGraph :: (Ord var) => Set.Set var -> L.ControlFlowGraph var val -> InterferenceGraph var
 newInterferenceGraph vars cfGraph =
   runST $ do
     graph <- Mutable.empty

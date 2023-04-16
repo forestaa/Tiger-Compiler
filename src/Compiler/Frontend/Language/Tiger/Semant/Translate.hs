@@ -101,7 +101,7 @@ valueIdExpEff lid =
     VarAccess a -> valueIdExp a
     _ -> undefined
 
-valueRecFieldExp :: forall f. F.Frame f => Exp -> Int -> Exp
+valueRecFieldExp :: forall f. (F.Frame f) => Exp -> Int -> Exp
 valueRecFieldExp (Ex recordVarExp) fieldNumber = Ex $ IR.Mem (IR.BinOp IR.Plus recordVarExp (IR.Const (fieldNumber * F.wordSize @f)))
 valueRecFieldExp _ _ = undefined
 
@@ -122,7 +122,7 @@ valueRecFieldExpEff ty varExp field =
       _ -> undefined
     _ -> undefined
 
-valueArrayIndexExp :: forall f. F.Frame f => Exp -> Exp -> Exp
+valueArrayIndexExp :: forall f. (F.Frame f) => Exp -> Exp -> Exp
 valueArrayIndexExp (Ex arrayVarExp) (Ex indexExp) = Ex $ IR.Mem (IR.BinOp IR.Plus arrayVarExp (IR.BinOp IR.Mul indexExp (IR.Const (F.wordSize @f))))
 valueArrayIndexExp _ _ = undefined
 

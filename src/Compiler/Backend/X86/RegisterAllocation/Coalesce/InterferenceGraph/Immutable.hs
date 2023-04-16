@@ -32,7 +32,7 @@ instance (Ord var) => Eq (InterferenceGraph var) where
       edges :: InterferenceGraph var -> Multi.MultiSet (InterferenceGraphNode var, InterferenceGraphNode var, InterferenceGraphEdgeLabel)
       edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (.outEdges) graph.vertices
 
-getNode :: Ord var => InterferenceGraph var -> var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel
+getNode :: (Ord var) => InterferenceGraph var -> var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel
 getNode graph node =
   let index = graph.nodeMap Map.! node
    in getNodeByIndex graph index
@@ -43,7 +43,7 @@ getNodeByIndex graph (NodeIndex index) = graph.vertices Vec.! index
 getAllNodes :: InterferenceGraph var -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
 getAllNodes graph = graph.vertices
 
-getOutNeiborhoods :: Ord var => InterferenceGraph var -> var -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
+getOutNeiborhoods :: (Ord var) => InterferenceGraph var -> var -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
 getOutNeiborhoods graph var = getOutNeiborhoodsByIndex graph (graph.nodeMap Map.! var)
 
 getOutNeiborhoodsByIndex :: InterferenceGraph var -> NodeIndex -> Vector (Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel)
@@ -59,10 +59,10 @@ instance (Display var, Ord var) => DebugGraphviz (InterferenceGraph var) where
     where
       nodeGraphvizStatements :: InterferenceGraph var -> Utf8Builder
       nodeGraphvizStatements graph = foldMap (\node -> fold ["  ", display node.val, ";\n"]) $ getAllNodes graph
-      edgeGraphvizStatements :: Ord var => InterferenceGraph var -> Utf8Builder
+      edgeGraphvizStatements :: (Ord var) => InterferenceGraph var -> Utf8Builder
       edgeGraphvizStatements graph = foldMap (nodeToGraphviz graph) (getAllNodes graph)
         where
-          nodeToGraphviz :: Ord var => InterferenceGraph var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
+          nodeToGraphviz :: (Ord var) => InterferenceGraph var -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
           nodeToGraphviz graph node = unlines $ (edgeToGraphviz node <$> getOutNeiborhoodsByIndex graph node.index) Vec.++ Vec.fromList ((\move -> moveToGraphviz (getNode graph move.source) (getNode graph move.destination) move.isCoalesceable) <$> Set.toList node.val.moves)
           edgeToGraphviz :: Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Node (InterferenceGraphNode var) InterferenceGraphEdgeLabel -> Utf8Builder
           edgeToGraphviz src tgt = fold ["  ", display src.val, " -- ", display tgt.val, ";"]

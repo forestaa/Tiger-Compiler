@@ -28,7 +28,7 @@ data CoalesceAllocation
 instance R.RegisterAllocation CoalesceAllocation where
   allocateRegisters = allocateRegisters
 
-allocateRegisters :: forall xs. Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
+allocateRegisters :: forall xs. (Lookup xs "temp" U.UniqueEff) => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
 allocateRegisters procedure = case coloring callerSaveRegisters procedure of -- TODO: available color should include all temporary registers, but current implementation use only caller save registers because callee save registers are not saved by callee
   Spilled spilled -> do
     procedure <- startOver procedure spilled
@@ -96,7 +96,7 @@ determineNextStep graph = do
       | null notColored -> pure Finished
       | otherwise -> error "graph is expected to be precolored here"
   where
-    getNotPrecoloredNode :: Lookup xs "precolored" (ReaderEff (Set.Set U.Temp)) => Immutable.InterferenceGraph U.Temp -> Eff xs (Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel))
+    getNotPrecoloredNode :: (Lookup xs "precolored" (ReaderEff (Set.Set U.Temp))) => Immutable.InterferenceGraph U.Temp -> Eff xs (Vector (Node (InterferenceGraphNode U.Temp) InterferenceGraphEdgeLabel))
     getNotPrecoloredNode graph = V.filterM isNotPrecoloredNode $ Immutable.getAllNodes graph
 
 isNotPrecoloredNode :: (Lookup xs "precolored" (ReaderEff (Set.Set var)), Ord var) => Node (InterferenceGraphNode var) label -> Eff xs Bool
@@ -200,7 +200,7 @@ select colors graph stack =
           then selectLoop remained
           else (++) (Set.toList top) <$> selectLoop remained
 
-startOver :: Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> U.Temp -> Eff xs (ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
+startOver :: (Lookup xs "temp" U.UniqueEff) => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> U.Temp -> Eff xs (ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
 startOver procedure spilledTemp = do
   (body, frame) <- castEff . flip runFrameEff procedure.frame $ do
     modifyFrameEff $ \frame -> frame {parameters = fmap (spillOutAccess spilledTemp) frame.parameters, localVariables = fmap (spillOutAccess spilledTemp) frame.localVariables}

@@ -26,7 +26,7 @@ popNestingLevel :: NestingLevel f -> Maybe (Level f, NestingLevel f)
 popNestingLevel (NestingLevel []) = Nothing
 popNestingLevel (NestingLevel (level : levels)) = Just (level, NestingLevel levels)
 
-pullInStaticLinks :: forall f. F.Frame f => Level f -> NestingLevel f -> Maybe IR.Exp
+pullInStaticLinks :: forall f. (F.Frame f) => Level f -> NestingLevel f -> Maybe IR.Exp
 pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level) . (`evalStateDef` IR.Temp (F.fp @f)) $ pullInStaticLinksInternal current
   where
     pullInStaticLinksInternal level = case popNestingLevel level of
@@ -40,7 +40,7 @@ pullInStaticLinks level current = leaveEff . runMaybeDef . (`runReaderDef` level
                 pullInStaticLinksInternal levels
       _ -> throwError ()
 
-takeParametersAccess :: F.Frame f => Level f -> Maybe [F.Access f]
+takeParametersAccess :: (F.Frame f) => Level f -> Maybe [F.Access f]
 takeParametersAccess TopLevel = Nothing
 takeParametersAccess level@Level {} = Just . List.tail $ F.formals level.frame
 
@@ -55,13 +55,13 @@ type NestingLevelEff f = State (NestingLevelState f)
 runNestingLevelEff :: Eff (("nestingLevel" >: NestingLevelEff f) ': xs) a -> Eff xs (a, NestingLevel f)
 runNestingLevelEff eff = second (\s -> s.level) <$> flip runStateEff (NestingLevelState uniqueSeed outermost) eff
 
-getNestingLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (NestingLevel f)
+getNestingLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Eff xs (NestingLevel f)
 getNestingLevelEff = getsEff #nestingLevel $ \s -> s.level
 
-pushLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Level f -> Eff xs ()
+pushLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Level f -> Eff xs ()
 pushLevelEff newLevel = modifyEff #nestingLevel $ \s@NestingLevelState {level} -> s {level = (pushNestingLevel newLevel) level}
 
-popLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (Maybe (Level f))
+popLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Eff xs (Maybe (Level f))
 popLevelEff = do
   levels <- getNestingLevelEff
   case popNestingLevel levels of
@@ -70,10 +70,10 @@ popLevelEff = do
       modifyEff #nestingLevel $ \s -> s {level = levels}
       pure $ Just level
 
-fetchCurrentLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => Eff xs (Level f)
+fetchCurrentLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => Eff xs (Level f)
 fetchCurrentLevelEff = fst . Partial.fromJust . popNestingLevel <$> getNestingLevelEff
 
-modifyCurrentLevelEff :: Lookup xs "nestingLevel" (NestingLevelEff f) => (Level f -> Level f) -> Eff xs ()
+modifyCurrentLevelEff :: (Lookup xs "nestingLevel" (NestingLevelEff f)) => (Level f -> Level f) -> Eff xs ()
 modifyCurrentLevelEff f =
   popLevelEff >>= \case
     Nothing -> pure ()

@@ -108,7 +108,7 @@ translateProgram ast = do
     Right (((), NestingLevel [TopLevel]), fragments) -> pure $ Right fragments
     _ -> undefined
 
-translateExp :: forall f xs. HasTranslateEff xs f => T.LExp -> Eff xs (Exp, Type)
+translateExp :: forall f xs. (HasTranslateEff xs f) => T.LExp -> Eff xs (Exp, Type)
 translateExp (L _ (T.Int i)) = pure $ translateInt i
 translateExp (L _ (T.String s)) = translateString s
 translateExp (L _ T.Nil) = pure translateNil
@@ -152,7 +152,7 @@ translateValue (L loc (T.ArrayIndex lv le)) = do
   ty <- cont indexTy
   pure . (,ty) $ valueArrayIndexExp @f varExp indexExp
 
-translateBinOp :: forall f xs. HasTranslateEff xs f => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateBinOp :: forall f xs. (HasTranslateEff xs f) => RealLocated (T.LOp', T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateBinOp (L loc (op, left, right)) = do
   (left, cont) <- typeCheckBinOp (L loc (op, left, right))
   (leftExp, leftTy) <- translateExp left
@@ -161,7 +161,7 @@ translateBinOp (L loc (op, left, right)) = do
   ty <- cont rightTy
   (,ty) <$> binOpExp @f leftTy op leftExp rightExp
 
-translateIfElse :: HasTranslateEff xs f => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateIfElse :: (HasTranslateEff xs f) => RealLocated (T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateIfElse (L loc (bool, then', else')) = do
   (bool, cont) <- typeCheckIfElse (L loc (bool, then', else'))
   (boolExp, boolTy) <- translateExp bool
@@ -172,7 +172,7 @@ translateIfElse (L loc (bool, then', else')) = do
   ty <- cont elseTy
   (,ty) <$> ifElseExp boolExp thenExp elseExp
 
-translateIfNoElse :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
+translateIfNoElse :: (HasTranslateEff xs f) => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateIfNoElse bool then' = do
   (bool, cont) <- typeCheckIfNoElse (bool, then')
   (boolExp, boolTy) <- translateExp bool
@@ -181,7 +181,7 @@ translateIfNoElse bool then' = do
   ty <- cont thenTy
   (,ty) <$> ifNoElseExp boolExp thenExp
 
-translateRecordCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, [T.LFieldAssign]) -> Eff xs (Exp, Type)
+translateRecordCreation :: forall f xs. (HasTranslateEff xs f) => RealLocated (LId, [T.LFieldAssign]) -> Eff xs (Exp, Type)
 translateRecordCreation (L loc (typeid, fields)) = do
   (fields, cont) <- typeCheckRecordCreation (L loc (typeid, fields))
   (fieldExps, fieldsTy) <- unzip3' <$> mapM translateFieldAssign fields
@@ -191,10 +191,10 @@ translateRecordCreation (L loc (typeid, fields)) = do
     unzip3' :: [(a, (b, c))] -> ([b], [(a, c)])
     unzip3' = foldr (\(a, (b, c)) (bs, acs) -> (b : bs, (a, c) : acs)) ([], [])
 
-translateFieldAssign :: HasTranslateEff xs f => T.LFieldAssign -> Eff xs (Id, (Exp, Type))
+translateFieldAssign :: (HasTranslateEff xs f) => T.LFieldAssign -> Eff xs (Id, (Exp, Type))
 translateFieldAssign (L _ (T.FieldAssign (L _ id) e)) = (id,) <$> translateExp e
 
-translateArrayCreation :: forall f xs. HasTranslateEff xs f => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateArrayCreation :: forall f xs. (HasTranslateEff xs f) => RealLocated (LId, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateArrayCreation (L loc (typeid, size, init)) = do
   (size, cont) <- typeCheckArrayCreation (L loc (typeid, size, init))
   (sizeExp, sizeTy) <- translateExp size
@@ -203,7 +203,7 @@ translateArrayCreation (L loc (typeid, size, init)) = do
   ty <- cont initTy
   (,ty) <$> arrayCreationExp @f sizeExp initExp
 
-translateWhileLoop :: HasTranslateEff xs f => T.LExp -> T.LExp -> Eff xs (Exp, Type)
+translateWhileLoop :: (HasTranslateEff xs f) => T.LExp -> T.LExp -> Eff xs (Exp, Type)
 translateWhileLoop bool body = do
   (bool, cont) <- typeCheckWhileLoop (bool, body)
   (boolExp, boolTy) <- translateExp bool
@@ -213,7 +213,7 @@ translateWhileLoop bool body = do
     ty <- cont bodyTy
     (,ty) <$> whileLoopExp boolExp bodyExp
 
-translateForLoop :: HasTranslateEff xs f => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
+translateForLoop :: (HasTranslateEff xs f) => RealLocated (LId, Bool, T.LExp, T.LExp, T.LExp) -> Eff xs (Exp, Type)
 translateForLoop (L _ (L _ id, escape, from, to, body)) = do
   (from, cont) <- typeCheckForLoop (id, from, to, body)
   (fromExp, fromTy) <- translateExp from
@@ -229,14 +229,14 @@ translateForLoop (L _ (L _ id, escape, from, to, body)) = do
 translateBreak :: (Lookup xs "breakpoint" BreakPointEff, Lookup xs "translateError" (EitherEff (RealLocated TranslateError))) => RealSrcSpan -> Eff xs (Exp, Type)
 translateBreak loc = (,typeCheckBreak) <$> breakExp loc
 
-translateFunApply :: HasTranslateEff xs f => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
+translateFunApply :: (HasTranslateEff xs f) => RealLocated (LId, [T.LExp]) -> Eff xs (Exp, Type)
 translateFunApply (L loc (func, args)) = do
   (args, cont) <- typeCheckFunApply (L loc (func, args))
   (exps, argsTy) <- List.unzip <$> mapM (traverse skipName <=< translateExp) args
   ty <- cont argsTy
   (,ty) <$> funApplyExp func exps
 
-translateAssign :: HasTranslateEff xs f => T.LValue -> T.LExp -> Eff xs (Exp, Type)
+translateAssign :: (HasTranslateEff xs f) => T.LValue -> T.LExp -> Eff xs (Exp, Type)
 translateAssign v e = do
   (v, cont) <- typeCheckAssign (v, e)
   (varExp, varTy) <- translateValue v
@@ -245,14 +245,14 @@ translateAssign v e = do
   ty <- cont expTy
   (,ty) <$> assignExp varExp exp
 
-translateSeq :: HasTranslateEff xs f => [T.LExp] -> Eff xs (Exp, Type)
+translateSeq :: (HasTranslateEff xs f) => [T.LExp] -> Eff xs (Exp, Type)
 translateSeq es = do
   (es, cont) <- typeCheckSeq es
   (exps, types) <- List.unzip <$> mapM translateExp es
   ty <- cont types
   (,ty) <$> seqExp exps
 
-translateLet :: HasTranslateEff xs f => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
+translateLet :: (HasTranslateEff xs f) => [T.LDec] -> T.LExp -> Eff xs (Exp, Type)
 translateLet decs body =
   withVAEnvScope $ do
     (decsList, cont) <- typeCheckLet (decs, body)
@@ -262,7 +262,7 @@ translateLet decs body =
     ty <- cont bodyTy
     pure (letExp exps bodyExp, ty)
 
-translateDecsList :: forall f xs. HasTranslateEff xs f => [Decs] -> Eff xs [Exp]
+translateDecsList :: forall f xs. (HasTranslateEff xs f) => [Decs] -> Eff xs [Exp]
 translateDecsList = fmap fold . traverse translateDecs
   where
     translateDecs (VarDecs ds) = traverse translateVarDec ds

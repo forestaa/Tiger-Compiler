@@ -34,7 +34,7 @@ allocateFormal True = do
   modify (flip (-) wordSize)
   pure access
 
-newFrame :: Lookup xs "temp" UniqueEff => Label -> [Bool] -> Eff xs FrameMock
+newFrame :: (Lookup xs "temp" UniqueEff) => Label -> [Bool] -> Eff xs FrameMock
 newFrame name bs = do
   (formals, head) <- flip runStateT 0 $ traverse allocateFormal bs
   pure $ FrameMock name formals [] head
@@ -57,7 +57,7 @@ exp :: AccessMock -> IR.Exp -> IR.Exp
 exp (InFrame k) e = IR.Mem (IR.BinOp IR.Plus (IR.Const k) e)
 exp (InReg t) _ = IR.Temp t
 
-externalCall :: Lookup xs "label" UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
+externalCall :: (Lookup xs "label" UniqueEff) => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall s args = do
   let label = U.externalLabel s
   pure $ IR.Call (IR.Name label) args

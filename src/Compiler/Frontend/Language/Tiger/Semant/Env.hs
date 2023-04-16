@@ -1,14 +1,14 @@
 module Compiler.Frontend.Language.Tiger.Semant.Env where
 
-import Data.Extensible
-import Data.Extensible.Effect
 import Compiler.Frontend.Env qualified as E
 import Compiler.Frontend.Id
-import Compiler.Intermediate.Frame qualified as F
-import Compiler.Intermediate.Unique
-import RIO
 import Compiler.Frontend.Language.Tiger.Semant.Level
 import Compiler.Frontend.Language.Tiger.Semant.Types
+import Compiler.Intermediate.Frame qualified as F
+import Compiler.Intermediate.Unique
+import Data.Extensible
+import Data.Extensible.Effect
+import RIO
 
 data Access f = Access {level :: Level f, access :: F.Access f}
 
@@ -40,13 +40,13 @@ evalVTEnvEff = flip (evalStateEff @"varTypeEnv") (E.fromList [])
 evalEnvEff :: TEnv -> Eff (("typeEnv" >: State TEnv) ': ("varTypeEnv" >: State VTEnv) ': ("varAccessEnv" >: State (VAEnv f)) ': xs) a -> Eff xs a
 evalEnvEff typeEnv = evalVAEnvEff . evalVTEnvEff . evalTEnvEff typeEnv
 
-lookupTypeId :: Lookup xs "typeEnv" (State TEnv) => Id -> Eff xs (Maybe Type)
+lookupTypeId :: (Lookup xs "typeEnv" (State TEnv)) => Id -> Eff xs (Maybe Type)
 lookupTypeId id = getsEff #typeEnv $ E.lookup id
 
-lookupVarAccess :: Lookup xs "varAccessEnv" (State (VAEnv f)) => Id -> Eff xs (Maybe (VarAccess f))
+lookupVarAccess :: (Lookup xs "varAccessEnv" (State (VAEnv f))) => Id -> Eff xs (Maybe (VarAccess f))
 lookupVarAccess id = getsEff #varAccessEnv $ E.lookup id
 
-lookupVarType :: Lookup xs "varTypeEnv" (State VTEnv) => Id -> Eff xs (Maybe VarType)
+lookupVarType :: (Lookup xs "varTypeEnv" (State VTEnv)) => Id -> Eff xs (Maybe VarType)
 lookupVarType id = getsEff #varTypeEnv $ E.lookup id
 
 insertType :: (Lookup xs "typeEnv" (State TEnv)) => Id -> Type -> Eff xs ()

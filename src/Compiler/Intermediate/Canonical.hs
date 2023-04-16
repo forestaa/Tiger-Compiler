@@ -136,23 +136,23 @@ type BlockEff = State (Maybe Block, [Block])
 evalBlockEff :: Eff (k >: BlockEff ': xs) a -> Eff xs a
 evalBlockEff effect = evalStateEff effect (Nothing, [])
 
-startCurrentBlockEff :: Lookup xs k BlockEff => Proxy k -> Label -> Eff xs ()
+startCurrentBlockEff :: (Lookup xs k BlockEff) => Proxy k -> Label -> Eff xs ()
 startCurrentBlockEff k label = modifyEff k $ \(block, blocks) -> case block of
   Nothing -> (Just (newBlock label), blocks)
   Just block -> (Just (newBlock label), blocks ++ [block])
 
-addStatementToCurrentBlockEff :: Lookup xs k BlockEff => Proxy k -> Stm -> Eff xs ()
+addStatementToCurrentBlockEff :: (Lookup xs k BlockEff) => Proxy k -> Stm -> Eff xs ()
 addStatementToCurrentBlockEff k s = modifyEff k . first $ fmap (addStatement s)
 
-isCurrentBlockStartedEff :: Lookup xs k BlockEff => Proxy k -> Eff xs Bool
+isCurrentBlockStartedEff :: (Lookup xs k BlockEff) => Proxy k -> Eff xs Bool
 isCurrentBlockStartedEff k = getsEff k $ isJust . fst
 
-endCurrentBlockEff :: Lookup xs k BlockEff => Proxy k -> Eff xs ()
+endCurrentBlockEff :: (Lookup xs k BlockEff) => Proxy k -> Eff xs ()
 endCurrentBlockEff k = modifyEff k \(block, blocks) -> case block of
   Nothing -> (Nothing, blocks)
   Just block -> (Nothing, blocks ++ [block])
 
-endBlockEff :: Lookup xs k BlockEff => Proxy k -> Eff xs [Block]
+endBlockEff :: (Lookup xs k BlockEff) => Proxy k -> Eff xs [Block]
 endBlockEff k = do
   (block, blocks) <- getEff k
   putEff k (Nothing, [])
@@ -195,12 +195,12 @@ newtype Trace = Trace {blocks :: [Block]} deriving (Eq, Show)
 newTrace :: [Block] -> Trace
 newTrace = Trace
 
-statements :: Lookup xs "label" UniqueEff => Trace -> Eff xs [Stm]
+statements :: (Lookup xs "label" UniqueEff) => Trace -> Eff xs [Stm]
 statements trace = do
   blocks <- processJump trace.blocks
   pure $ concatMap (\block -> Label block.lbl : block.statements) blocks
   where
-    processJump :: Lookup xs "label" UniqueEff => [Block] -> Eff xs [Block]
+    processJump :: (Lookup xs "label" UniqueEff) => [Block] -> Eff xs [Block]
     processJump (currBlock : blocks@(nextBlock : _)) = do
       case lastJump currBlock of
         Jump (Name lbl) _ | lbl == nextBlock.lbl -> (:) (removeLastJump currBlock) <$> processJump blocks
@@ -222,7 +222,7 @@ statements trace = do
       _ -> pure [currBlock]
     processJump [] = pure []
 
-traceSchedule :: Lookup xs "label" UniqueEff => F.Procedure f ([Block], Label) -> Eff xs (F.Procedure f [Stm])
+traceSchedule :: (Lookup xs "label" UniqueEff) => F.Procedure f ([Block], Label) -> Eff xs (F.Procedure f [Stm])
 traceSchedule (F.Procedure {frame, body = (blocks, done)}) = do
   let (graph, vertex, _) = graphFromEdges . flip fmap blocks $ \block -> case lastJump block of
         Jump (Name lbl) _ -> (block, block.lbl, [lbl])

@@ -13,7 +13,7 @@ import Compiler.Utils.Graph.Immutable qualified as Immutable (ImmutableGraph (..
 import RIO
 import RIO.Set qualified as Set
 
-newInterferenceGraph :: Ord var => Set.Set var -> L.ControlFlowGraph var val -> InterferenceGraph var
+newInterferenceGraph :: (Ord var) => Set.Set var -> L.ControlFlowGraph var val -> InterferenceGraph var
 newInterferenceGraph vars cfGraph =
   runST $ do
     graph <- Mutable.empty

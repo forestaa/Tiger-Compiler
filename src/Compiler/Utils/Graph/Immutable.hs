@@ -31,14 +31,14 @@ instance (Ord node, Ord edge) => Eq (IGraph d node edge) where
       edges graph = Multi.fromList . Vec.toList . Vec.map (\edge -> ((getNodeByIndex graph edge.source).val, (getNodeByIndex graph edge.target).val, edge.val)) $ Vec.concatMap (.outEdges) graph.vertices
 
 class ImmutableGraph (d :: Directional) node edge graph | graph -> d, graph -> node, graph -> edge where
-  getNode :: Ord node => graph -> node -> Node node edge
+  getNode :: (Ord node) => graph -> node -> Node node edge
   getNodeByIndex :: graph -> NodeIndex -> Node node edge
   getAllNodes :: graph -> Vector (Node node edge)
   getOutNeiborhoodsByIndex :: graph -> NodeIndex -> Vector (Node node edge)
   getInNeiborhoodsByIndex :: graph -> NodeIndex -> Vector (Node node edge)
 
 instance ImmutableGraph d node edge (IGraph d node edge) where
-  getNode :: Ord node => IGraph d node edge -> node -> Node node edge
+  getNode :: (Ord node) => IGraph d node edge -> node -> Node node edge
   getNode graph node =
     let index = graph.nodeMap Map.! node
      in getNodeByIndex graph index
@@ -59,10 +59,10 @@ instance ImmutableGraph d node edge (IGraph d node edge) where
     let node = getNodeByIndex graph index
      in getNodeByIndex graph <$> node.inIndexes
 
-isEmpty :: forall graph d node edge. ImmutableGraph d node edge graph => graph -> Bool
+isEmpty :: forall graph d node edge. (ImmutableGraph d node edge graph) => graph -> Bool
 isEmpty = null . getAllNodes
 
-bfs :: forall graph d node edge. ImmutableGraph d node edge graph => graph -> [Node node edge] -> [Node node edge]
+bfs :: forall graph d node edge. (ImmutableGraph d node edge graph) => graph -> [Node node edge] -> [Node node edge]
 bfs graph initials = flip evalState Set.empty $ walk (Seq.fromList initials)
   where
     walk :: Seq.Seq (Node node edge) -> State (Set.Set NodeIndex) [Node node edge]

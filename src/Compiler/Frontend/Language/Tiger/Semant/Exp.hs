@@ -48,7 +48,7 @@ unEx (Cx genstm) = do
       )
       r
 
-unNx :: Lookup xs "label" UniqueEff => Exp -> Eff xs IR.Stm
+unNx :: (Lookup xs "label" UniqueEff) => Exp -> Eff xs IR.Stm
 unNx (Ex e) = pure $ IR.Exp e
 unNx (Nx s) = pure s
 unNx (Cx genstm) = do

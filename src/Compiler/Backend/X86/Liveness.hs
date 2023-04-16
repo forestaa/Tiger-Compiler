@@ -82,7 +82,7 @@ instance Eq (ControlFlowNode var val) where
 instance Ord (ControlFlowNode var val) where
   node1 <= node2 = node1.key <= node2.key
 
-newControlFlowNode :: Ord var => ControlFlow var val -> Int -> ControlFlowNode var val
+newControlFlowNode :: (Ord var) => ControlFlow var val -> Int -> ControlFlowNode var val
 newControlFlowNode flow key = ControlFlowNode {key = key, definedVariables = Set.fromList flow.destinations, usedVariables = Set.fromList flow.sources, isMove = isMove flow, liveInVariables = Set.empty, liveOutVariables = Set.empty, val = flow}
 
 newtype ControlFlowGraph var val = ControlFlowGraph (Immutable.IGraph 'Directional (ControlFlowNode var val) ())
@@ -91,7 +91,7 @@ newtype ControlFlowGraph var val = ControlFlowGraph (Immutable.IGraph 'Direction
 newtype ControlFlowMutableGraph var val s = ControlFlowMutableGraph (Mutable.MGraph 'Directional (ControlFlowNode var val) () s)
 
 instance Mutable.MutableGraph 'Directional (ControlFlowNode var val) () (ControlFlowMutableGraph var val) where
-  empty :: PrimMonad m => m (ControlFlowMutableGraph var val (PrimState m))
+  empty :: (PrimMonad m) => m (ControlFlowMutableGraph var val (PrimState m))
   empty = ControlFlowMutableGraph <$> Mutable.empty
 
   getNode :: (PrimMonad m, MonadThrow m, Ord (ControlFlowNode var val)) => ControlFlowMutableGraph var val (PrimState m) -> ControlFlowNode var val -> m (Node (ControlFlowNode var val) ())
@@ -133,13 +133,13 @@ instance Mutable.MutableGraph 'Directional (ControlFlowNode var val) () (Control
   reverse :: (PrimMonad m, MonadThrow m, Ord (ControlFlowNode var val)) => ControlFlowMutableGraph var val (PrimState m) -> m (ControlFlowMutableGraph var val (PrimState m))
   reverse (ControlFlowMutableGraph graph) = ControlFlowMutableGraph <$> Mutable.reverse graph
 
-freeze :: PrimMonad m => ControlFlowMutableGraph var val (PrimState m) -> m (ControlFlowGraph var val)
+freeze :: (PrimMonad m) => ControlFlowMutableGraph var val (PrimState m) -> m (ControlFlowGraph var val)
 freeze (ControlFlowMutableGraph graph) = ControlFlowGraph <$> Mutable.freeze graph
 
-thaw :: PrimMonad m => ControlFlowGraph var val -> m (ControlFlowMutableGraph var val (PrimState m))
+thaw :: (PrimMonad m) => ControlFlowGraph var val -> m (ControlFlowMutableGraph var val (PrimState m))
 thaw (ControlFlowGraph graph) = ControlFlowMutableGraph <$> Mutable.thaw graph
 
-newControlFlowGraph :: Ord var => [ControlFlow var val] -> ControlFlowGraph var val
+newControlFlowGraph :: (Ord var) => [ControlFlow var val] -> ControlFlowGraph var val
 newControlFlowGraph flows = runST $ do
   graph <- Mutable.empty
   let nodes = zipWith newControlFlowNode flows [0 ..]

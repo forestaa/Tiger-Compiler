@@ -6,7 +6,7 @@ import Data.Data (cast)
 import RIO
 import RIO.Text qualified as T (unpack)
 
-data SomeFrontendException = forall e. FrontendException e => SomeFrontendException e
+data SomeFrontendException = forall e. (FrontendException e) => SomeFrontendException e
 
 instance Display SomeFrontendException where
   display (SomeFrontendException e) = display e
@@ -32,10 +32,10 @@ instance FrontendException SomeFrontendException where
   fromFrontendException = Just
   displayFrontendException (SomeFrontendException e) = displayFrontendException e
 
-frontendExceptionToException :: FrontendException e => e -> SomeFrontendException
+frontendExceptionToException :: (FrontendException e) => e -> SomeFrontendException
 frontendExceptionToException = SomeFrontendException
 
-frontendExceptionFromException :: FrontendException e => SomeFrontendException -> Maybe e
+frontendExceptionFromException :: (FrontendException e) => SomeFrontendException -> Maybe e
 frontendExceptionFromException x = do
   SomeFrontendException a <- fromFrontendException x
   cast a

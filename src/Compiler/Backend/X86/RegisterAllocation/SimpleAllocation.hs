@@ -24,7 +24,7 @@ data SimpleAllocation
 instance R.RegisterAllocation SimpleAllocation where
   allocateRegisters = allocateRegisters
 
-allocateRegisters :: Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
+allocateRegisters :: (Lookup xs "temp" U.UniqueEff) => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProcedureX86 [Assembly Register])
 allocateRegisters procedure = case simpleColoring callerSaveRegisters procedure of
   Spilled spilled -> do
     procedure <- foldM startOver procedure spilled
@@ -73,7 +73,7 @@ select colors graph stack =
     selectLoop :: SimplfyStack -> State RegisterAllocator SimplfyStack
     selectLoop = filterM (fmap not . allocateEff)
 
-startOver :: Lookup xs "temp" U.UniqueEff => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> U.Temp -> Eff xs (ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
+startOver :: (Lookup xs "temp" U.UniqueEff) => ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> U.Temp -> Eff xs (ProcedureX86 [L.ControlFlow U.Temp (Assembly U.Temp)])
 startOver procedure spilledTemp = do
   (body, frame) <- castEff . flip runFrameEff procedure.frame $ do
     modifyFrameEff $ \frame -> frame {parameters = fmap (spillOutAccess spilledTemp) frame.parameters, localVariables = fmap (spillOutAccess spilledTemp) frame.localVariables}

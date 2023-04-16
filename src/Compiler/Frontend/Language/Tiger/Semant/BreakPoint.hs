@@ -1,8 +1,8 @@
 module Compiler.Frontend.Language.Tiger.Semant.BreakPoint where
 
+import Compiler.Intermediate.Unique
 import Data.Extensible
 import Data.Extensible.Effect
-import Compiler.Intermediate.Unique
 import RIO
 import RIO.List (headMaybe)
 import RIO.List.Partial qualified as Partial
@@ -28,5 +28,5 @@ withBreakPoint body = do
     popBreakPoint :: Eff xs ()
     popBreakPoint = modifyEff #breakpoint $ \(BreakPointStack breakpoints) -> BreakPointStack (Partial.tail breakpoints)
 
-fetchCurrentBreakPoint :: Lookup xs "breakpoint" BreakPointEff => Eff xs (Maybe Label)
+fetchCurrentBreakPoint :: (Lookup xs "breakpoint" BreakPointEff) => Eff xs (Maybe Label)
 fetchCurrentBreakPoint = getsEff #breakpoint $ \(BreakPointStack breakpoints) -> headMaybe breakpoints

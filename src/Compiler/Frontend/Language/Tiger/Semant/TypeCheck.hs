@@ -470,7 +470,7 @@ typeCheckTypeDecs ds = do
   where
     extractLId (L _ typedec@TypeDec {}) = typedec.id
 
-checkSameNameDec :: Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)) => [LId] -> Eff xs ()
+checkSameNameDec :: (Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError))) => [LId] -> Eff xs ()
 checkSameNameDec ids = case runCheckSameNameDec ids of
   Right _ -> pure ()
   Left loc -> throwEff #typeCheckError . L loc $ MultiDeclaredName ids

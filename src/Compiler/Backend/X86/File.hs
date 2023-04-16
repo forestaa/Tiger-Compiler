@@ -78,7 +78,7 @@ writeRegister R15 = "%r15"
 writeRegister RIP = "%rip"
 writeRegister EFLAGS = "%eflags"
 
-writeImmediate :: Display a => a -> Utf8Builder
+writeImmediate :: (Display a) => a -> Utf8Builder
 writeImmediate i = "$" <> display i
 
 writeLabel :: Label -> Utf8Builder

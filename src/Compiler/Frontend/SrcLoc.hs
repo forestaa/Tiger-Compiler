@@ -59,10 +59,10 @@ combineRealSrcSpan span1 span2 = RealSrcSpan file srow scol erow ecol
 
 data RealLocated e = L RealSrcSpan e deriving (Eq, Functor)
 
-instance Display e => Show (RealLocated e) where
+instance (Display e) => Show (RealLocated e) where
   show = T.unpack . textDisplay
 
-instance Display e => Display (RealLocated e) where
+instance (Display e) => Display (RealLocated e) where
   display (L loc e) = locatedMessage loc $ display e
 
 unLoc :: RealLocated a -> a
@@ -80,7 +80,7 @@ locatedMessage loc message = mconcat [display loc, ": ", message]
 dummyRealLocated :: e -> RealLocated e
 dummyRealLocated = L (mkRealSrcSpan (mkSrcLoc "dummy") 0)
 
-instance FrontendException e => FrontendException (RealLocated e) where
+instance (FrontendException e) => FrontendException (RealLocated e) where
   toFrontendException = realLocatedExceptionToException . fmap toFrontendException
   fromFrontendException = realLocatedExceptionFromException >=> \(L loc e') -> L loc <$> fromFrontendException e'
 

@@ -42,7 +42,7 @@ data MGraphState var edge s = MGraphState {vertices :: GV.GrowableVector s (MNod
 -- | no inEdges to save memory
 newtype InterferenceMutableGraph var s = InterferenceMutableGraph (MutVar s (MGraphState var B.InterferenceGraphEdgeLabel s))
 
-empty :: PrimMonad m => m (InterferenceMutableGraph var (PrimState m))
+empty :: (PrimMonad m) => m (InterferenceMutableGraph var (PrimState m))
 empty = do
   vec <- GV.new
   InterferenceMutableGraph <$> newMutVar (MGraphState {vertices = vec, nodeMap = Map.empty, edgeIndexCounter = 0})
@@ -191,16 +191,16 @@ removeEdge mgraph removedEdge = do
 
   pure ()
 
-readMNodeVar :: PrimMonad m => MNode node edge (PrimState m) -> m (MNodeState node edge (PrimState m))
+readMNodeVar :: (PrimMonad m) => MNode node edge (PrimState m) -> m (MNodeState node edge (PrimState m))
 readMNodeVar (MNode var) = readMutVar var
 
-readMGraphVar :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> m (MGraphState var B.InterferenceGraphEdgeLabel (PrimState m))
+readMGraphVar :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> m (MGraphState var B.InterferenceGraphEdgeLabel (PrimState m))
 readMGraphVar (InterferenceMutableGraph var) = readMutVar var
 
-writeMNodeVar :: PrimMonad m => MNode node edge (PrimState m) -> MNodeState node edge (PrimState m) -> m ()
+writeMNodeVar :: (PrimMonad m) => MNode node edge (PrimState m) -> MNodeState node edge (PrimState m) -> m ()
 writeMNodeVar (MNode var) = writeMutVar var
 
-writeMGraphVar :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> MGraphState var B.InterferenceGraphEdgeLabel (PrimState m) -> m ()
+writeMGraphVar :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> MGraphState var B.InterferenceGraphEdgeLabel (PrimState m) -> m ()
 writeMGraphVar (InterferenceMutableGraph var) = writeMutVar var
 
 readMNode :: (PrimMonad m, MonadThrow m) => InterferenceMutableGraph var (PrimState m) -> NodeIndex -> m (MNodeState (B.InterferenceGraphNode var) B.InterferenceGraphEdgeLabel (PrimState m))
@@ -215,23 +215,23 @@ writeMNode (InterferenceMutableGraph var) (NodeIndex index) node = do
   mnode <- GV.read graph.vertices index
   writeMNodeVar mnode node
 
-newMNode :: PrimMonad m => NodeIndex -> node -> m (MNode node edge (PrimState m))
+newMNode :: (PrimMonad m) => NodeIndex -> node -> m (MNode node edge (PrimState m))
 newMNode index val = do
   outEdges <- GV.new
   MNode <$> newMutVar (MNodeState {index = index, val = val, outEdges = outEdges})
 
-freezeMNode :: PrimMonad m => MNode (B.InterferenceGraphNode var) edge (PrimState m) -> m (Node (B.InterferenceGraphNode var) edge)
+freezeMNode :: (PrimMonad m) => MNode (B.InterferenceGraphNode var) edge (PrimState m) -> m (Node (B.InterferenceGraphNode var) edge)
 freezeMNode (MNode var) = do
   mn <- readMutVar var
   outEdges <- GV.freeze mn.outEdges
   pure $ Node {index = mn.index, val = mn.val, outEdges = outEdges, inEdges = V.empty}
 
-thawMNode :: PrimMonad m => Node (B.InterferenceGraphNode var) edge -> m (MNode (B.InterferenceGraphNode var) edge (PrimState m))
+thawMNode :: (PrimMonad m) => Node (B.InterferenceGraphNode var) edge -> m (MNode (B.InterferenceGraphNode var) edge (PrimState m))
 thawMNode node = do
   outEdges <- GV.thaw node.outEdges
   MNode <$> newMutVar (MNodeState {index = node.index, val = node.val, outEdges = outEdges})
 
-freeze :: PrimMonad m => InterferenceMutableGraph var (PrimState m) -> m (Immutable.InterferenceGraph var)
+freeze :: (PrimMonad m) => InterferenceMutableGraph var (PrimState m) -> m (Immutable.InterferenceGraph var)
 freeze (InterferenceMutableGraph var) = do
   graph <- readMutVar var
   vertices <-
@@ -244,7 +244,7 @@ freeze (InterferenceMutableGraph var) = do
       =<< GV.freeze graph.vertices
   pure $ Immutable.InterferenceGraph vertices graph.edgeIndexCounter graph.nodeMap
 
-thaw :: PrimMonad m => Immutable.InterferenceGraph var -> m (InterferenceMutableGraph var (PrimState m))
+thaw :: (PrimMonad m) => Immutable.InterferenceGraph var -> m (InterferenceMutableGraph var (PrimState m))
 thaw graph = do
   vertices <- GV.thaw =<< mapM thawMNode graph.vertices
   InterferenceMutableGraph <$> newMutVar (MGraphState {vertices = vertices, nodeMap = graph.nodeMap, edgeIndexCounter = graph.edgeCount})

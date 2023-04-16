@@ -49,7 +49,7 @@ instance FrontendException TestFrontendException0 where
   toFrontendException = frontendExceptionToException
   fromFrontendException = frontendExceptionFromException
 
-data SomeTestFrontendException1 = forall e. FrontendException e => SomeTestFrontendException1 e
+data SomeTestFrontendException1 = forall e. (FrontendException e) => SomeTestFrontendException1 e
 
 instance Display SomeTestFrontendException1 where
   display (SomeTestFrontendException1 e) = display e
@@ -72,7 +72,7 @@ instance FrontendException TestFrontendException1 where
     SomeTestFrontendException1 e <- fromFrontendException e
     cast e
 
-data SomeTestFrontendException2 = forall e. FrontendException e => SomeTestFrontendException2 e
+data SomeTestFrontendException2 = forall e. (FrontendException e) => SomeTestFrontendException2 e
 
 instance Display SomeTestFrontendException2 where
   display (SomeTestFrontendException2 e) = display e
@@ -97,7 +97,7 @@ instance FrontendException TestFrontendException2 where
     SomeTestFrontendException2 e <- fromFrontendException e
     cast e
 
-data SomeTestFrontendException3 = forall e. FrontendException e => SomeTestFrontendException3 e
+data SomeTestFrontendException3 = forall e. (FrontendException e) => SomeTestFrontendException3 e
 
 instance Display SomeTestFrontendException3 where
   display (SomeTestFrontendException3 e) = display e

@@ -22,6 +22,6 @@ instance Backend Frame where
     fragments <- mapM allocateRegisterOverFragments fragments
     pure $ writeAssemblyFile fragments
     where
-      allocateRegisterOverFragments :: Lookup xs "temp" U.UniqueEff => ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProgramFragmentX86 [Assembly Register])
+      allocateRegisterOverFragments :: (Lookup xs "temp" U.UniqueEff) => ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)] -> Eff xs (ProgramFragmentX86 [Assembly Register])
       allocateRegisterOverFragments (Proc procedure) = Proc . procEntryExit3 <$> allocateRegisters @CoalesceAllocation procedure
       allocateRegisterOverFragments (Compiler.Backend.X86.Frame.String (StringFragment strings)) = pure . Compiler.Backend.X86.Frame.String . StringFragment $ fmap (replaceRegister undefined . (.val)) strings

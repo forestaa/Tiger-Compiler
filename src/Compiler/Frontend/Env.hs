@@ -48,7 +48,7 @@ endScope env = case env.stack of
   Push id : rest -> endScope $ env {stack = rest, env = Map.update (snd . NonEmpty.uncons) id env.env}
   Begin : rest -> env {stack = rest}
 
-withEnvScope :: Lookup xs k (State (Env a)) => Proxy k -> Eff xs b -> Eff xs b
+withEnvScope :: (Lookup xs k (State (Env a))) => Proxy k -> Eff xs b -> Eff xs b
 withEnvScope k t = do
   modifyEff k beginScope
   a <- t

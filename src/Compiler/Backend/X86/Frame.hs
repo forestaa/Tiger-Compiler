@@ -27,10 +27,10 @@ isInFrame _ = False
 emptyFrame :: U.Label -> Frame
 emptyFrame label = Frame label [] [] (-wordSize)
 
-newFrame :: Lookup xs "temp" U.UniqueEff => U.Label -> [Bool] -> Eff xs Frame
+newFrame :: (Lookup xs "temp" U.UniqueEff) => U.Label -> [Bool] -> Eff xs Frame
 newFrame label parameters = foldM allocateParameter (emptyFrame label) parameters
 
-allocateParameter :: Lookup xs "temp" U.UniqueEff => Frame -> Bool -> Eff xs Frame
+allocateParameter :: (Lookup xs "temp" U.UniqueEff) => Frame -> Bool -> Eff xs Frame
 allocateParameter frame True =
   let access = InFrame frame.head
    in pure frame {parameters = frame.parameters ++ [access], head = frame.head - wordSize}
@@ -39,7 +39,7 @@ allocateParameter frame False = do
   let access = InRegister t
   pure frame {parameters = frame.parameters ++ [access]}
 
-allocateLocal :: Lookup xs "temp" U.UniqueEff => Frame -> Bool -> Eff xs (Frame, Access)
+allocateLocal :: (Lookup xs "temp" U.UniqueEff) => Frame -> Bool -> Eff xs (Frame, Access)
 allocateLocal frame True = do
   let access = InFrame frame.head
    in pure (frame {localVariables = frame.localVariables ++ [access], head = frame.head - wordSize}, access)
@@ -122,7 +122,7 @@ eflags = U.newUniqueTextTemp "EFLAGS"
 wordSize :: Int
 wordSize = 8
 
-externalCall :: Lookup xs "label" U.UniqueEff => Text -> [IR.Exp] -> Eff xs IR.Exp
+externalCall :: (Lookup xs "label" U.UniqueEff) => Text -> [IR.Exp] -> Eff xs IR.Exp
 externalCall f parameters = do
   let label = U.externalLabel f
   pure $ IR.Call (IR.Name label) parameters
@@ -215,13 +215,13 @@ data StringFragmentX86 body = StringFragment {body :: body} deriving (Show)
 
 data ProgramFragmentX86 body = Proc (ProcedureX86 body) | String (StringFragmentX86 body) deriving (Show)
 
-instance Show body => Display (ProcedureX86 body) where
+instance (Show body) => Display (ProcedureX86 body) where
   display = displayShow
 
-instance Show body => Display (StringFragmentX86 body) where
+instance (Show body) => Display (StringFragmentX86 body) where
   display = displayShow
 
-instance Show body => Display (ProgramFragmentX86 body) where
+instance (Show body) => Display (ProgramFragmentX86 body) where
   display = displayShow
 
 instance HasField "procedure" (ProgramFragmentX86 body) (Maybe (ProcedureX86 body)) where

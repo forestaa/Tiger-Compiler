@@ -1,14 +1,14 @@
 module Compiler.Frontend.Language.Tiger.Semant.MarkEscape (markEscape) where
 
+import Compiler.Frontend.Env qualified as E
+import Compiler.Frontend.Id
+import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
+import Compiler.Frontend.SrcLoc
 import Data.Extensible
 import Data.Extensible.Effect
 import Data.Maybe
-import Compiler.Frontend.Env qualified as E
-import Compiler.Frontend.Id
-import Compiler.Frontend.SrcLoc
 import RIO
 import RIO.List.Partial qualified as List (head)
-import Compiler.Frontend.Language.Tiger.LSyntax qualified as T
 
 type EscapeEff = '["depth" >: State Int, "env" >: State (E.Env Int)]
 

@@ -41,7 +41,7 @@ instance HasUnique Unique where
   getUnique = id
   putUnique = const
 
-instance Lookup xs "unique" Unique => HasUnique (Record xs) where
+instance (Lookup xs "unique" Unique) => HasUnique (Record xs) where
   getUnique r = r ^. #unique
   putUnique u r = r & #unique .~ u
 
@@ -63,7 +63,7 @@ getUniqueEff k = do
   modifyEff k . putUnique $ nextUnique unique
   pure unique
 
-putUniqueEff :: Lookup xs k UniqueEff => Proxy k -> Unique -> Eff xs ()
+putUniqueEff :: (Lookup xs k UniqueEff) => Proxy k -> Unique -> Eff xs ()
 putUniqueEff = putEff
 
 data Temp = Temp {body :: Text, unique :: Unique} deriving (Eq, Ord)
@@ -74,7 +74,7 @@ instance Show Temp where
 instance Display Temp where
   display temp = display temp.body <> display temp.unique.int
 
-newTemp :: Lookup xs "temp" UniqueEff => Eff xs Temp
+newTemp :: (Lookup xs "temp" UniqueEff) => Eff xs Temp
 newTemp = Temp "t" <$> getUniqueEff #temp
 
 newUniqueTextTemp :: Text -> Temp
@@ -85,10 +85,10 @@ data Label
   | PublicLabel {body :: Text}
   deriving (Eq, Ord)
 
-newLabel :: Lookup xs "label" UniqueEff => Eff xs Label
+newLabel :: (Lookup xs "label" UniqueEff) => Eff xs Label
 newLabel = namedLabel "L"
 
-namedLabel :: Lookup xs "label" UniqueEff => Text -> Eff xs Label
+namedLabel :: (Lookup xs "label" UniqueEff) => Text -> Eff xs Label
 namedLabel text = PrivateLabel text <$> getUniqueEff #label
 
 externalLabel :: Text -> Label
