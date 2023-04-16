@@ -305,6 +305,26 @@ translateLetSpec = describe "translate let test" $ do
         (fragments.fragments List.!! 1).procedure.frame.formals `shouldBe` Just [InFrame 0, InFrame (-4)]
         (fragments.fragments List.!! 1).procedure.frame.numberOfLocals `shouldBe` Just 0
 
+  it "let function f(x: int): int = let function g(x: int): int = x + x in g(x) in f(1)" $ do
+    let ast = T.expToLExp $ T.Let [T.FunDec "f" [T.Field "x" True "int"] (Just "int") (T.Let [T.FunDec "g" [T.Field "x" False "int"] (Just "int") (T.Op (T.Var (T.Id "x")) T.Plus (T.Var (T.Id "x")))] (T.FunApply "g" [T.Var (T.Id "x")]))] (T.FunApply "f" [T.Int 1])
+        result = runEff $ do
+          translateExp ast
+    case result of
+      Left (L _ e) -> expectationFailure . Text.unpack $ textDisplay e
+      Right (((exp, ty), _), fragments) -> do
+        let f = newNthNamedLabel "f" 1
+            g = newNthNamedLabel "g" 2
+            t = newNthTemp 0
+        exp `shouldBe` Ex (IR.Call (IR.Name f) [IR.Temp (F.fp @FrameMock), IR.Const 1])
+        ty `shouldBe` TInt
+        length fragments.fragments `shouldBe` 2
+        (fragments.fragments List.!! 0).procedure.body `shouldBe` Just (IR.Move (IR.Temp (F.rv @FrameMock)) (IR.BinOp IR.Plus (IR.Temp t) (IR.Temp t)))
+        (fragments.fragments List.!! 0).procedure.frame.formals `shouldBe` Just [InFrame 0, InReg t]
+        (fragments.fragments List.!! 0).procedure.frame.numberOfLocals `shouldBe` Just 0
+        (fragments.fragments List.!! 1).procedure.body `shouldBe` Just (IR.Move (IR.Temp (F.rv @FrameMock)) (IR.Call (IR.Name g) [IR.Temp (F.fp @FrameMock), IR.Mem (IR.BinOp IR.Plus (IR.Const (-4)) (IR.Temp (F.fp @FrameMock)))]))
+        (fragments.fragments List.!! 1).procedure.frame.formals `shouldBe` Just [InFrame 0, InFrame (-4)]
+        (fragments.fragments List.!! 1).procedure.frame.numberOfLocals `shouldBe` Just 0
+
   it "let type a = record{}; function f(): a = nil in f()" $ do
     let ast = T.expToLExp $ T.Let [T.TypeDec "a" (T.RecordType []), T.FunDec "f" [] (Just "a") T.Nil] (T.FunApply "f" [])
         result = runEff $ do

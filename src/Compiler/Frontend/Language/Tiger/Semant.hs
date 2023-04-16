@@ -288,14 +288,17 @@ translateDecsList = fmap fold . traverse translateDecs
       (body, cont) <- typeCheckFunDec (L loc fundec)
       lookupVarAccessEff fundec.id >>= \case
         VarAccess _ -> undefined
-        FunAccess {..} -> withNewLevelEff label escapes $ do
-          insertFormals $ fmap extractLId fundec.args
+        FunAccess {..} -> withNewLevelEff label escapes . withFormalVAEnvScope fundec.args $ do
           (bodyExp, bodyTy) <- translateExp body
           cont bodyTy
           funDecExp bodyExp
       where
-        extractLId (L _ (T.Field (L _ id) _ _)) = id
-        escapes = (\(L _ (T.Field _ escape _)) -> escape) <$> fundec.args
+        escapes :: [Bool]
+        escapes = (.escape) . unLoc <$> fundec.args
+        withFormalVAEnvScope :: (Lookup xs "varAccessEnv" (State (VAEnv f))) => [T.LField] -> Eff xs a -> Eff xs a
+        withFormalVAEnvScope args body = withVAEnvScope $ insertFormals (extractLId <$> args) >> body
+        extractLId :: T.LField -> Id
+        extractLId = unLoc . (.id) . unLoc
         insertFormals :: [Id] -> Eff xs ()
         insertFormals args = do
           formals <- fetchCurrentLevelParametersAccessEff
