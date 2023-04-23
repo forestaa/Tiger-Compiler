@@ -39,23 +39,23 @@ instance FrontendException SemantAnalysisError where
   fromFrontendException = frontendExceptionFromException
 
 insertInitVAEnv :: forall xs f. (Lookup xs "varAccessEnv" (State (VAEnv f)), Lookup xs "label" UniqueEff) => Eff xs ()
-insertInitVAEnv = mapM_ insertFunAccess initVEnv
+insertInitVAEnv = mapM_ (uncurry insertFunAccess) initVEnv
   where
-    insertFunAccess :: Id -> Eff xs ()
-    insertFunAccess name = do
-      let label = externalLabel name
+    insertFunAccess :: Id -> Text -> Eff xs ()
+    insertFunAccess name runtimeName = do
+      let label = externalLabel runtimeName
       insertVarAccess name $ FunAccess label TopLevel
     initVEnv =
-      [ "print",
-        "flush",
-        "getchar",
-        "ord",
-        "chr",
-        "size",
-        "substring",
-        "concat",
-        "not",
-        "exit"
+      [ ("print", "print"),
+        ("flush", "flush"),
+        ("getchar", "getchartiger"),
+        ("ord", "ord"),
+        ("chr", "chr"),
+        ("size", "size"),
+        ("substring", "substring"),
+        ("concat", "concat"),
+        ("not", "not"),
+        ("exit", "exit")
       ]
 
 type HasTranslateEff xs f = (F.Frame f, HasEnv xs f, Lookup xs "typeCheckError" (EitherEff (RealLocated TypeCheckError)), Lookup xs "translateError" (EitherEff (RealLocated TranslateError)), Lookup xs "nestingLevel" (NestingLevelEff f), Lookup xs "temp" UniqueEff, Lookup xs "label" UniqueEff, Lookup xs "id" UniqueEff, Lookup xs "breakpoint" BreakPointEff, Lookup xs "fragment" (F.ProgramEff f))
