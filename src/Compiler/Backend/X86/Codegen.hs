@@ -13,6 +13,7 @@ import Data.List (singleton)
 import RIO
 import RIO.List.Partial qualified as List (head)
 import RIO.Text qualified as T (length)
+import RIO.Text.Partial qualified as T (replace)
 
 codegen :: forall im xs. (Lookup xs "label" U.UniqueEff, Lookup xs "temp" U.UniqueEff, Intermediate im) => F.ProgramFragments Frame -> Eff xs [ProgramFragmentX86 [L.ControlFlow U.Temp (Assembly U.Temp)]]
 codegen fragments = do
@@ -187,6 +188,6 @@ codegenString label string =
       ++ [L.Meta {val = Zero padding} | padding > 0]
   where
     stringLengthSize = wordSize
-    stringSize = T.length string
+    stringSize = T.length (T.replace "\\n" "\n" string)
     totalSize = List.head [wordSize * i | i <- [1 ..], stringLengthSize + stringSize <= wordSize * i]
     padding = totalSize - stringLengthSize - stringSize - 1 -- Memo: why minus 1?
