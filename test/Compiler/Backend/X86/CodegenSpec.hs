@@ -260,7 +260,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
+        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t' t},
           L.CJump {jumps = [fromUniqueLabel true], val = JumpIfEqual (fromUniqueLabel true)}
         ]
   it "CJump (Temp == 1) label1 label2 -> cmp %rax $0x1; je label1" $ do
@@ -288,7 +288,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
+        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t' t},
           L.CJump {jumps = [fromUniqueLabel true], val = JumpIfEqual (fromUniqueLabel true)}
         ]
 
@@ -317,7 +317,7 @@ codegenSpec = describe "codegen spec" $ do
     length result `shouldBe` 1
     fmap takeMainBlockBody (head result).procedure.body
       `shouldBe` Just
-        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t t'},
+        [ L.Instruction {src = [t, t'], dst = [], val = CmpRegister t' t},
           L.CJump {jumps = [fromUniqueLabel true], val = JumpIfLessThan (fromUniqueLabel true)}
         ]
 

@@ -69,7 +69,7 @@ codegenStm (IR.CJump op e1 e2 true _) = do
   pure $
     flows1
       ++ flows2
-      ++ [ L.Instruction {src = [t1, t2], dst = [], val = CmpRegister t1 t2},
+      ++ [ L.Instruction {src = [t1, t2], dst = [], val = CmpRegister t2 t1},
            L.CJump {jumps = [fromUniqueLabel true], val = (jumpInstr op) (fromUniqueLabel true)}
          ]
 -- codegenStm (IR.Seq s1 s2) = (++) <$> codegenStm s1 <*> codegenStm s2
