@@ -1,0 +1,1 @@
+if 1 > 2 then print("a") else for j := 0 to 5 do print("b")
