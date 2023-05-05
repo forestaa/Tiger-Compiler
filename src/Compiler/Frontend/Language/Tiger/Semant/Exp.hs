@@ -31,7 +31,7 @@ instance Show Exp where
 
 unEx :: (Lookup xs "label" UniqueEff, Lookup xs "temp" UniqueEff, F.Frame f, Lookup xs "nestingLevel" (NestingLevelEff f)) => Exp -> Eff xs IR.Exp
 unEx (Ex e) = pure e
-unEx (Nx _) = pure $ IR.Const 0
+unEx (Nx stm) = pure $ IR.ESeq stm (IR.Const 0)
 unEx (Cx genstm) = do
   r <- allocateTempOnCurrentLevel
   t <- newLabel

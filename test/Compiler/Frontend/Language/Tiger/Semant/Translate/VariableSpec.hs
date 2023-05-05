@@ -122,8 +122,9 @@ translateAssignSpec = describe "translate assgin test" $ do
     case result of
       Left (L _ e) -> expectationFailure . Text.unpack $ textDisplay e
       Right (((exp, ty), _), _) -> do
-        let t = newNthTemp 1
-        exp `shouldBe` Nx (IR.Move (IR.Temp t) (IR.Const 0))
+        let t0 = newNthTemp 0
+            t1 = newNthTemp 1
+        exp `shouldBe` Nx (IR.Move (IR.Temp t1) (IR.ESeq (IR.Move (IR.Temp t0) (IR.Const 0)) (IR.Const 0)))
         ty `shouldBe` TUnit
 
   it "var x string; x := 0" $ do

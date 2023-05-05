@@ -154,7 +154,7 @@ translateLetSpec = describe "translate let test" $ do
       Left (L _ e) -> expectationFailure . Text.unpack $ textDisplay e
       Right (((exp, ty), _), fragments) -> do
         let t = newNthTemp 0
-        exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.Const 0)) (IR.Temp t))
+        exp `shouldBe` Ex (IR.ESeq (IR.Move (IR.Temp t) (IR.ESeq (IR.Exp (IR.Const 0)) (IR.Const 0))) (IR.Temp t))
         ty `shouldBe` TUnit
         fragments.fragments `shouldBe` []
 
