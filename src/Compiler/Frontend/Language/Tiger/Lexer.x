@@ -8,7 +8,6 @@ import Data.ByteString.Lazy qualified as B (ByteString, take, toStrict)
 import Data.ByteString.Lazy.Char8 qualified as B (readInt)
 import RIO
 import RIO.Text qualified as T (decodeUtf8', drop, dropEnd)
-import RIO.Text.Partial qualified as T (replace)
 
 }
 
